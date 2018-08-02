@@ -231,6 +231,11 @@ run.count_kir_read_matches <- function(currentSample, samTable, maxReadThreshold
     ## Find the best alignment score for this read
     maxAlignmentScore <- max(samSubsetTable$alignment_score)
     
+    if(is.na(as.integer(maxAlignmentScore))){
+      cat('\n\n',currentReadName)
+      stop()
+    }
+    
     ## Pull out the current read name alignments that have the best alignment score
     samSubsetTable <- samSubsetTable[alignment_score == maxAlignmentScore]
     
