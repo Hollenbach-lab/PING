@@ -97,7 +97,7 @@ for(currentSample in sampleList[1:length(sampleList)]){
   ## Write the results to a csv file
   write.csv(kffCountDF, file = file.path(resultsDirectory, 'kffCountFrame.csv'))
     
-  cat('\n\nNormalizing KFF primer matches.')
+  cat('\nNormalizing KFF primer matches.')
     
   ## Normalize the KFF probe matches by KIR3DL3
   kffNormList <- run.reduce_and_normalize_kff_probes(kffCountList, kffLociList)
@@ -106,7 +106,7 @@ for(currentSample in sampleList[1:length(sampleList)]){
   ## Write the results to a csv file
   write.csv(kffNormDF, file = file.path(resultsDirectory, 'kffNormFrame.csv'))
   
-  cat('\n\nDetermining KIR locus presence/absence')
+  cat('\nDetermining KIR locus presence/absence')
   
   ## Determine locus presence/absence
   kffPresenceList <- run.kff_determine_presence_from_norm_values(kffNormList, kffThreshold=0.2)
@@ -125,15 +125,15 @@ for(currentSample in sampleList[1:length(sampleList)]){
     cat('\n\nPerforming bowtie2 alignment for this sample.')
     sampleAlign <- run.bowtie2_gc_alignment(bowtie2, kirReferenceIndex, threads, currentSample)
   }else{
-    cat('\n\nFound a previous alignment file for this sample, skipping alignment.')
+    cat('\n\nFound a previous alignment file for this sample, skipping bowtie2 alignment.')
   }
     
-  cat("\n\nReading in",currentSample$gcSamPath)
+  cat("\nReading in",currentSample$gcSamPath)
     
   ## Read in the SAM file to analyze where the reads are aligning
   samTable <- read.bowtie2_sam_nohd(currentSample$gcSamPath)
     
-  cat('\n\nCounting how many reads align uniquely to a locus or allele: ')
+  cat('\nCounting reads that align uniquely to a locus or allele ')
   
   ## Count how many reads align uniquely to a locus or allele
   countList <- run.count_kir_read_matches(currentSample, samTable, maxReadThreshold)

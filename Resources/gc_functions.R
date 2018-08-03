@@ -204,7 +204,11 @@ run.count_kir_read_matches <- function(currentSample, samTable, maxReadThreshold
   ## Randomize the read name order
   set.seed(001) # just to make it reproducible
   randomUniqueReadNames <- sample(uniqueReadNames)
-  randomUniqueReadNames <- randomUniqueReadNames[1:maxReadThreshold]
+  
+  ## Check if there are more reads than the threshold and take some out if so
+  if(length(randomUniqueReadNames) > maxReadThreshold){
+    randomUniqueReadNames <- randomUniqueReadNames[1:maxReadThreshold]
+  }
   
   ## Initialize the list for storing reference matches
   uniqueLocusMatchList <- as.list(kirLocusList)
@@ -230,11 +234,6 @@ run.count_kir_read_matches <- function(currentSample, samTable, maxReadThreshold
     
     ## Find the best alignment score for this read
     maxAlignmentScore <- max(samSubsetTable$alignment_score)
-    
-    if(is.na(as.integer(maxAlignmentScore))){
-      cat('\n\n',currentReadName)
-      stop()
-    }
     
     ## Pull out the current read name alignments that have the best alignment score
     samSubsetTable <- samSubsetTable[alignment_score == maxAlignmentScore]
@@ -273,7 +272,7 @@ run.count_kir_read_matches <- function(currentSample, samTable, maxReadThreshold
     }
   }
   
-  cat("100%\n\nFinished counting!")
+  cat("\n\nFinished counting!")
   
   ## Cutting the function short for now to test what a good threshold would be
   return(list(locusMatches = uniqueLocusMatchList, alleleMatches = uniqueAlleleMatchList))
