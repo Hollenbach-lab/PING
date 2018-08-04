@@ -66,24 +66,24 @@ ping_gc <- function(sampleDirectory, fastqPattern='fastq', threads=4, resultsDir
   
   
   ## Initialize a dataframe for counting KFF probe matches
-  kffCountDF <- data.frame(matrix(0, length(sampleList), length(probeDF$Name)),row.names=names(sampleList),check.names=F,stringsAsFactors=F)
-  colnames(kffCountDF) <- probeDF$Name
+  #kffCountDF <- data.frame(matrix(0, length(sampleList), length(probeDF$Name)),row.names=names(sampleList),check.names=F,stringsAsFactors=F)
+  #colnames(kffCountDF) <- probeDF$Name
   
   ## Initialize a dataframe for storing the normalized probe matches
-  kffNormDF <- data.frame(matrix(0, length(sampleList), length(kffLociList)),row.names=names(sampleList),check.names=F,stringsAsFactors=F)
-  colnames(kffNormDF) <- kffLociList
+  #kffNormDF <- data.frame(matrix(0, length(sampleList), length(kffLociList)),row.names=names(sampleList),check.names=F,stringsAsFactors=F)
+  #colnames(kffNormDF) <- kffLociList
   
   ## Initialize a dataframe for storing kff determined locus presence/absence values
-  kffPresenceDF <- data.frame(matrix(0, length(sampleList), length(kffLociList)),row.names=names(sampleList),check.names=F,stringsAsFactors=F)
-  colnames(kffPresenceDF) <- kffLociList
+  #kffPresenceDF <- data.frame(matrix(0, length(sampleList), length(kffLociList)),row.names=names(sampleList),check.names=F,stringsAsFactors=F)
+  #colnames(kffPresenceDF) <- kffLociList
   
   ## Initialize a dataframe for counting how many reads uniquely align to a locus
-  locusCountDF <- data.frame(matrix(0, length(sampleList), length(kirLocusList)),row.names=names(sampleList),check.names=F,stringsAsFactors=F)
-  colnames(locusCountDF) <- kirLocusList
+  #locusCountDF <- data.frame(matrix(0, length(sampleList), length(kirLocusList)),row.names=names(sampleList),check.names=F,stringsAsFactors=F)
+  #colnames(locusCountDF) <- kirLocusList
   
   ## Initialize a dataframe for counting how many reads uniquely align to an allele (at protein coding resolution)
-  alleleCountDF <- data.frame(matrix(0, length(sampleList), length(kirAlleleListRes3)), row.names=names(sampleList),check.names=F,stringsAsFactors=F)
-  colnames(alleleCountDF) <- kirAlleleListRes3
+  #alleleCountDF <- data.frame(matrix(0, length(sampleList), length(kirAlleleListRes3)), row.names=names(sampleList),check.names=F,stringsAsFactors=F)
+  #colnames(alleleCountDF) <- kirAlleleListRes3
   
   
   ## Run all samples through bowtie2 gc alignment
