@@ -1,5 +1,6 @@
 library(methods)
-library(reshape2)
+#library(reshape2)
+library(data.table)
 
 ## This function checks to make sure the output of system2 is valid
 check.system2_output <- function(system2_output, system2_error){
@@ -247,6 +248,16 @@ run.count_kir_read_matches <- function(currentSample, samTable, maxReadThreshold
     ## Pull out the unique locus names from the matched allele list
     matchedLocusList <- unique(unlist(lapply(matchedAlleleList, kir.allele_resolution, 0)))
     
+    ###### This section will count all locus matches (as opposed to only unique locus matches)
+    #for(matchedLocus in matchedLocusList){
+    #  uniqueLocusMatchList[matchedLocus] = uniqueLocusMatchList[matchedLocus][[1]] + 1
+    #}
+    #if('KIR2DL5A' %in% matchedLocusList & 'KIR2DL5B' %in% matchedLocusList){
+    #  uniqueLocusMatchList['KIR2DL5'] = uniqueLocusMatchList['KIR2DL5'][[1]] + 1
+    #}
+    ###### /s
+    
+    ###### This section will count only unique locus matches (as opposed to all locus matches)
     ## If there is only 1 unique locus, then add 1 to the unique match count for that locus
     if(length(matchedLocusList) <= 2){
       
@@ -263,6 +274,7 @@ run.count_kir_read_matches <- function(currentSample, samTable, maxReadThreshold
         uniqueAlleleMatchList[matchedAlleleList] = uniqueAlleleMatchList[matchedAlleleList][[1]] + 1
       }
     }
+    ###### /s
     
     ## Will display the percent completion every 10%
     i = i+1
@@ -303,104 +315,280 @@ kir.allele_resolution <- function(allele_name, res){
 ## This function generates copy number graphs
 run.generate_copy_number_graphs <- function(countRatioDF, kffDF){
   
+  ## Check to see what samples are in both data frames
+  samplesInBoth <- intersect(row.names(countRatioDF), row.names(kffDF))
+  
+  ## If there are no samples in both data frames, stop the script
+  if(length(samplesInBoth) < 1){
+    stop('\n\nThe kff presence table does not match up with the locus count table.')
+  }
+  
+  ## Subset both data frames by the samples found in both
+  countRatioDF <- countRatioDF[samplesInBoth,]
+  kffDF <- kffDF[samplesInBoth,]
+  
   ## Iterate over all KIR loci, create a plot for each one
   for(currentLocus in kirLocusList){
-    
+    cat(currentLocus)
     ## Determine the rank of the ratios (x-axis order from lowest to highest)
     countRatioDF$ratioRank <- rank(countRatioDF[,currentLocus], ties.method = 'first')
+    
+    ## Initialize columns for storing kff presence
+    countRatioDF$kffPresence <- 0
+    countRatioDF$altKffPresence <- 0
     
     ## Special dual locus graphing for KIR loci in tight LD
     if(currentLocus == 'KIR2DL1'){
       
-      ## Graph 2DL1 and 2DP1 on the same graph
-      countRatioDF.melt <- melt(countRatioDF[,c('KIR2DL1', 'KIR2DP1', 'ratioRank')], id.vars='ratioRank', variable.name='locus', value.name='ratio')
+      ## Initialze the alternate locus to compare to
+      altLocus<-'KIR2DP1'
       
+      ## Initialize neg locus names for kff neg results
+      currentNeg <- paste0(currentLocus,'_kff_neg')
+      altNeg <- paste0(altLocus,'_kff_neg')
+      
+      ## Set the currentLocus kff presence values
+      countRatioDF[samplesInBoth,'kffPresence'] <- kffDF[samplesInBoth,currentLocus]
+      
+      ## Set the alternate locus kff presence values
+      countRatioDF[samplesInBoth,'altKffPresence'] <- kffDF[samplesInBoth,altLocus]
+      
+      ## Graph 2DL1 and 2DP1 on the same graph
+      countRatioDF.melt <- melt(countRatioDF[,c(currentLocus, altLocus, 'ratioRank', 'kffPresence', 'altKffPresence')], 
+                                id.vars=c('ratioRank','kffPresence','altKffPresence'),measure.vars=c(altLocus,currentLocus), variable.name='locus', value.name='ratio', variable.factor=F, value.factor=F)
+      
+      ## Change locus variable from a factor to a string
+      countRatioDF.melt$locus <- as.character(countRatioDF.melt$locus)
+      
+      ## Determine which currentLocus samples are kff negative
+      countRatioDF.melt[countRatioDF.melt[,'kffPresence'] == 0 & countRatioDF.melt[,'locus'] == currentLocus,'locus'] <- currentNeg
+    
+      ## Determine which altLocus samples are kff negative
+      countRatioDF.melt[countRatioDF.melt[,'altKffPresence'] == 0 & countRatioDF.melt[,'locus'] == altLocus,'locus'] <- altNeg
+
       print(ggplot(countRatioDF.melt, aes(x=ratioRank, y=ratio, shape=locus, color=locus)) +
               geom_point() + 
-              scale_color_manual(values=c('KIR2DL1' = '#000000', 'KIR2DP1' = '#9b9b9b')) + 
-              scale_shape_manual(values=c('KIR2DL1'=20,'KIR2DP1'=20)) +
+              scale_color_manual(values=c('KIR2DL1'='#000000','KIR2DL1_kff_neg'='#D00000','KIR2DP1'='#9b9b9b','KIR2DP1_kff_neg'='#bb8686')) +
+              scale_shape_manual(values=c(20,20,20,20)) +
               scale_y_continuous(name=paste(currentLocus, ' / KIR3DL3 read ratio'), limits=c(0, max(countRatioDF.melt$ratio))) +
               scale_x_continuous(name='Sample rank') +
               ggtitle(currentLocus) +
               theme_minimal() +
               theme(plot.title = element_text(hjust = 0.5)))
+      
     }else if(currentLocus == 'KIR2DP1'){
       
-      ## Graph 2DP1 and 2DL1 on the same graph
-      countRatioDF.melt <- melt(countRatioDF[,c('KIR2DP1', 'KIR2DL1', 'ratioRank')], id.vars='ratioRank', variable.name='locus', value.name='ratio')
+      ## Initialze the alternate locus to compare to
+      altLocus<-'KIR2DL1'
+      
+      ## Initialize neg locus names for kff neg results
+      currentNeg <- paste0(currentLocus,'_kff_neg')
+      altNeg <- paste0(altLocus,'_kff_neg')
+      
+      ## Set the currentLocus kff presence values
+      countRatioDF[samplesInBoth,'kffPresence'] <- kffDF[samplesInBoth,currentLocus]
+      
+      ## Set the alternate locus kff presence values
+      countRatioDF[samplesInBoth,'altKffPresence'] <- kffDF[samplesInBoth,altLocus]
+      
+      ## Graph 2DL1 and 2DP1 on the same graph
+      countRatioDF.melt <- melt(countRatioDF[,c(currentLocus, altLocus, 'ratioRank', 'kffPresence', 'altKffPresence')], 
+                                id.vars=c('ratioRank','kffPresence','altKffPresence'),measure.vars=c(altLocus,currentLocus), variable.name='locus', value.name='ratio', variable.factor=F, value.factor=F)
+      
+      ## Change locus variable from a factor to a string
+      countRatioDF.melt$locus <- as.character(countRatioDF.melt$locus)
+      
+      ## Determine which currentLocus samples are kff negative
+      countRatioDF.melt[countRatioDF.melt[,'kffPresence'] == 0 & countRatioDF.melt[,'locus'] == currentLocus,'locus'] <- currentNeg
+      
+      ## Determine which altLocus samples are kff negative
+      countRatioDF.melt[countRatioDF.melt[,'altKffPresence'] == 0 & countRatioDF.melt[,'locus'] == altLocus,'locus'] <- altNeg
       
       print(ggplot(countRatioDF.melt, aes(x=ratioRank, y=ratio, shape=locus, color=locus)) +
               geom_point() + 
-              scale_color_manual(values=c('KIR2DP1' = '#000000', 'KIR2DL1' = '#9b9b9b')) + 
-              scale_shape_manual(values=c('KIR2DP1'=20,'KIR2DL1'=20)) +
+              scale_color_manual(values=c('KIR2DP1'='#000000','KIR2DP1_kff_neg'='#D00000','KIR2DL1'='#9b9b9b','KIR2DL1_kff_neg'='#bb8686')) +
+              scale_shape_manual(values=c(20,20,20,20)) +
               scale_y_continuous(name=paste(currentLocus, ' / KIR3DL3 read ratio'), limits=c(0, max(countRatioDF.melt$ratio))) +
               scale_x_continuous(name='Sample rank') +
               ggtitle(currentLocus) +
               theme_minimal() +
               theme(plot.title = element_text(hjust = 0.5)))
+      
     }else if(currentLocus == 'KIR2DL2'){
       
-      ## Graph 2DL2 and 2DL3 on the same graph
-      countRatioDF.melt <- melt(countRatioDF[,c('KIR2DL2', 'KIR2DL3', 'ratioRank')], id.vars='ratioRank', variable.name='locus', value.name='ratio')
+      ## Initialze the alternate locus to compare to
+      altLocus<-'KIR2DL3'
+      
+      ## Initialize neg locus names for kff neg results
+      currentNeg <- paste0(currentLocus,'_kff_neg')
+      altNeg <- paste0(altLocus,'_kff_neg')
+      
+      ## Set the currentLocus kff presence values
+      countRatioDF[samplesInBoth,'kffPresence'] <- kffDF[samplesInBoth,currentLocus]
+      
+      ## Set the alternate locus kff presence values
+      countRatioDF[samplesInBoth,'altKffPresence'] <- kffDF[samplesInBoth,altLocus]
+      
+      ## Graph 2DL1 and 2DP1 on the same graph
+      countRatioDF.melt <- melt(countRatioDF[,c(currentLocus, altLocus, 'ratioRank', 'kffPresence', 'altKffPresence')], 
+                                id.vars=c('ratioRank','kffPresence','altKffPresence'),measure.vars=c(altLocus,currentLocus), variable.name='locus', value.name='ratio', variable.factor=F, value.factor=F)
+      
+      ## Change locus variable from a factor to a string
+      countRatioDF.melt$locus <- as.character(countRatioDF.melt$locus)
+      
+      ## Determine which currentLocus samples are kff negative
+      countRatioDF.melt[countRatioDF.melt[,'kffPresence'] == 0 & countRatioDF.melt[,'locus'] == currentLocus,'locus'] <- currentNeg
+      
+      ## Determine which altLocus samples are kff negative
+      countRatioDF.melt[countRatioDF.melt[,'altKffPresence'] == 0 & countRatioDF.melt[,'locus'] == altLocus,'locus'] <- altNeg
       
       print(ggplot(countRatioDF.melt, aes(x=ratioRank, y=ratio, shape=locus, color=locus)) +
               geom_point() + 
-              scale_color_manual(values=c('KIR2DL2' = '#000000', 'KIR2DL3' = '#9b9b9b')) + 
-              scale_shape_manual(values=c('KIR2DL2'=20,'KIR2DL3'=20)) +
+              scale_color_manual(values=c('KIR2DL2'='#000000','KIR2DL2_kff_neg'='#D00000','KIR2DL3'='#9b9b9b','KIR2DL3_kff_neg'='#bb8686')) +
+              scale_shape_manual(values=c(20,20,20,20)) +
               scale_y_continuous(name=paste(currentLocus, ' / KIR3DL3 read ratio'), limits=c(0, max(countRatioDF.melt$ratio))) +
               scale_x_continuous(name='Sample rank') +
               ggtitle(currentLocus) +
               theme_minimal() +
               theme(plot.title = element_text(hjust = 0.5)))
+      
     }else if(currentLocus == 'KIR2DL3'){
       
-      ## Graph 2DL3 and 2DL2 on the same graph
-      countRatioDF.melt <- melt(countRatioDF[,c('KIR2DL3', 'KIR2DL2', 'ratioRank')], id.vars='ratioRank', variable.name='locus', value.name='ratio')
+      ## Initialze the alternate locus to compare to
+      altLocus<-'KIR2DL2'
+      
+      ## Initialize neg locus names for kff neg results
+      currentNeg <- paste0(currentLocus,'_kff_neg')
+      altNeg <- paste0(altLocus,'_kff_neg')
+      
+      ## Set the currentLocus kff presence values
+      countRatioDF[samplesInBoth,'kffPresence'] <- kffDF[samplesInBoth,currentLocus]
+      
+      ## Set the alternate locus kff presence values
+      countRatioDF[samplesInBoth,'altKffPresence'] <- kffDF[samplesInBoth,altLocus]
+      
+      ## Graph 2DL1 and 2DP1 on the same graph
+      countRatioDF.melt <- melt(countRatioDF[,c(currentLocus, altLocus, 'ratioRank', 'kffPresence', 'altKffPresence')], 
+                                id.vars=c('ratioRank','kffPresence','altKffPresence'),measure.vars=c(altLocus,currentLocus), variable.name='locus', value.name='ratio', variable.factor=F, value.factor=F)
+      
+      ## Change locus variable from a factor to a string
+      countRatioDF.melt$locus <- as.character(countRatioDF.melt$locus)
+      
+      ## Determine which currentLocus samples are kff negative
+      countRatioDF.melt[countRatioDF.melt[,'kffPresence'] == 0 & countRatioDF.melt[,'locus'] == currentLocus,'locus'] <- currentNeg
+      
+      ## Determine which altLocus samples are kff negative
+      countRatioDF.melt[countRatioDF.melt[,'altKffPresence'] == 0 & countRatioDF.melt[,'locus'] == altLocus,'locus'] <- altNeg
       
       print(ggplot(countRatioDF.melt, aes(x=ratioRank, y=ratio, shape=locus, color=locus)) +
               geom_point() + 
-              scale_color_manual(values=c('KIR2DL3' = '#000000', 'KIR2DL2' = '#9b9b9b')) + 
-              scale_shape_manual(values=c('KIR2DL3'=20,'KIR2DL2'=20)) +
+              scale_color_manual(values=c('KIR2DL3'='#000000','KIR2DL3_kff_neg'='#D00000','KIR2DL2'='#9b9b9b','KIR2DL2_kff_neg'='#bb8686')) +
+              scale_shape_manual(values=c(20,20,20,20)) +
               scale_y_continuous(name=paste(currentLocus, ' / KIR3DL3 read ratio'), limits=c(0, max(countRatioDF.melt$ratio))) +
               scale_x_continuous(name='Sample rank') +
               ggtitle(currentLocus) +
               theme_minimal() +
               theme(plot.title = element_text(hjust = 0.5)))
+      
     }else if(currentLocus == 'KIR3DL1'){
       
-      ## Graph 3DL1 and 3DS1 on the same graph
-      countRatioDF.melt <- melt(countRatioDF[,c('KIR3DL1', 'KIR3DS1', 'ratioRank')], id.vars='ratioRank', variable.name='locus', value.name='ratio')
+      ## Initialze the alternate locus to compare to
+      altLocus<-'KIR3DS1'
+      
+      ## Initialize neg locus names for kff neg results
+      currentNeg <- paste0(currentLocus,'_kff_neg')
+      altNeg <- paste0(altLocus,'_kff_neg')
+      
+      ## Set the currentLocus kff presence values
+      countRatioDF[samplesInBoth,'kffPresence'] <- kffDF[samplesInBoth,currentLocus]
+      
+      ## Set the alternate locus kff presence values
+      countRatioDF[samplesInBoth,'altKffPresence'] <- kffDF[samplesInBoth,altLocus]
+      
+      ## Graph 2DL1 and 2DP1 on the same graph
+      countRatioDF.melt <- melt(countRatioDF[,c(currentLocus, altLocus, 'ratioRank', 'kffPresence', 'altKffPresence')], 
+                                id.vars=c('ratioRank','kffPresence','altKffPresence'),measure.vars=c(altLocus,currentLocus), variable.name='locus', value.name='ratio', variable.factor=F, value.factor=F)
+      
+      ## Change locus variable from a factor to a string
+      countRatioDF.melt$locus <- as.character(countRatioDF.melt$locus)
+      
+      ## Determine which currentLocus samples are kff negative
+      countRatioDF.melt[countRatioDF.melt[,'kffPresence'] == 0 & countRatioDF.melt[,'locus'] == currentLocus,'locus'] <- currentNeg
+      
+      ## Determine which altLocus samples are kff negative
+      countRatioDF.melt[countRatioDF.melt[,'altKffPresence'] == 0 & countRatioDF.melt[,'locus'] == altLocus,'locus'] <- altNeg
       
       print(ggplot(countRatioDF.melt, aes(x=ratioRank, y=ratio, shape=locus, color=locus)) +
               geom_point() + 
-              scale_color_manual(values=c('KIR3DL1' = '#000000', 'KIR3DS1' = '#9b9b9b')) + 
-              scale_shape_manual(values=c('KIR3DL1'=20,'KIR3DS1'=20)) +
+              scale_color_manual(values=c('KIR3DL1'='#000000','KIR3DL1_kff_neg'='#D00000','KIR3DS1'='#9b9b9b','KIR3DS1_kff_neg'='#bb8686')) +
+              scale_shape_manual(values=c(20,20,20,20)) +
               scale_y_continuous(name=paste(currentLocus, ' / KIR3DL3 read ratio'), limits=c(0, max(countRatioDF.melt$ratio))) +
               scale_x_continuous(name='Sample rank') +
               ggtitle(currentLocus) +
               theme_minimal() +
               theme(plot.title = element_text(hjust = 0.5)))
+      
     }else if(currentLocus == 'KIR3DS1'){
       
-      ## Graph 3DS1 and 3DL1 on the same graph
-      countRatioDF.melt <- melt(countRatioDF[,c('KIR3DS1', 'KIR3DL1', 'ratioRank')], id.vars='ratioRank', variable.name='locus', value.name='ratio')
+      ## Initialze the alternate locus to compare to
+      altLocus<-'KIR3DL1'
+      
+      ## Initialize neg locus names for kff neg results
+      currentNeg <- paste0(currentLocus,'_kff_neg')
+      altNeg <- paste0(altLocus,'_kff_neg')
+      
+      ## Set the currentLocus kff presence values
+      countRatioDF[samplesInBoth,'kffPresence'] <- kffDF[samplesInBoth,currentLocus]
+      
+      ## Set the alternate locus kff presence values
+      countRatioDF[samplesInBoth,'altKffPresence'] <- kffDF[samplesInBoth,altLocus]
+      
+      ## Graph 2DL1 and 2DP1 on the same graph
+      countRatioDF.melt <- melt(countRatioDF[,c(currentLocus, altLocus, 'ratioRank', 'kffPresence', 'altKffPresence')], 
+                                id.vars=c('ratioRank','kffPresence','altKffPresence'),measure.vars=c(altLocus,currentLocus), variable.name='locus', value.name='ratio', variable.factor=F, value.factor=F)
+      
+      ## Change locus variable from a factor to a string
+      countRatioDF.melt$locus <- as.character(countRatioDF.melt$locus)
+      
+      ## Determine which currentLocus samples are kff negative
+      countRatioDF.melt[countRatioDF.melt[,'kffPresence'] == 0 & countRatioDF.melt[,'locus'] == currentLocus,'locus'] <- currentNeg
+      
+      ## Determine which altLocus samples are kff negative
+      countRatioDF.melt[countRatioDF.melt[,'altKffPresence'] == 0 & countRatioDF.melt[,'locus'] == altLocus,'locus'] <- altNeg
       
       print(ggplot(countRatioDF.melt, aes(x=ratioRank, y=ratio, shape=locus, color=locus)) +
               geom_point() + 
-              scale_color_manual(values=c('KIR3DS1' = '#000000', 'KIR3DL1' = '#9b9b9b')) + 
-              scale_shape_manual(values=c('KIR3DS1'=20,'KIR3DL1'=20)) +
+              scale_color_manual(values=c('KIR3DS1'='#000000','KIR3DS1_kff_neg'='#D00000','KIR3DL1'='#9b9b9b','KIR3DL1_kff_neg'='#bb8686')) +
+              scale_shape_manual(values=c(20,20,20,20)) +
               scale_y_continuous(name=paste(currentLocus, ' / KIR3DL3 read ratio'), limits=c(0, max(countRatioDF.melt$ratio))) +
               scale_x_continuous(name='Sample rank') +
               ggtitle(currentLocus) +
               theme_minimal() +
               theme(plot.title = element_text(hjust = 0.5)))
+      
     }else{
       
+      ## Initialize neg locus names for kff neg results
+      currentNeg <- paste0(currentLocus,'_kff_neg')
+      
+      ## Set the currentLocus kff presence values
+      countRatioDF[samplesInBoth,'kffPresence'] <- kffDF[samplesInBoth,currentLocus]
+      
+      ## Melt the dataframe so we can separately graph the kff neg from the kff pos values
+      countRatioDF.melt <- melt(countRatioDF[,c(currentLocus, 'ratioRank', 'kffPresence')], 
+                                id.vars=c('ratioRank','kffPresence'),measure.vars=currentLocus, variable.name='locus', value.name='ratio', variable.factor=F, value.factor=F)
+      
+      ## Change locus variable from a factor to a string
+      countRatioDF.melt$locus <- as.character(countRatioDF.melt$locus)
+      
+      ## Determine which currentLocus samples are kff negative
+      countRatioDF.melt[countRatioDF.melt[,'kffPresence'] == 0 & countRatioDF.melt[,'locus'] == currentLocus,'locus'] <- currentNeg
+      
       ## Graph all other loci by themselves
-      print(ggplot(countRatioDF, aes(x=ratioRank, y=countRatioDF[[currentLocus]])) +
+      print(ggplot(countRatioDF.melt, aes(x=ratioRank, y=ratio, shape=locus, color=locus)) +
               geom_point() +
-              scale_color_manual(values=c(currentLocus = '#000000')) + 
-              scale_shape_manual(values=c(currentLocus = 20)) +
+              scale_color_manual(values=c('#000000', '#D00000')) + 
+              scale_shape_manual(values=c(20, 20)) +
               scale_y_continuous(name=paste(currentLocus, ' / KIR3DL3 read ratio'), limits=c(0, max(countRatioDF[[currentLocus]]))) +
               scale_x_continuous(name='Sample rank') +
               ggtitle(currentLocus) +

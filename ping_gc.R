@@ -2,7 +2,7 @@ library(data.table)
 library(ggplot2)
 library(stringr)
 library(methods)
-library(reshape2)
+#library(reshape2)
 
 setwd('/home/wmarin/PING_projects/PING2/')
 source('Resources/gc_functions.R')
@@ -12,15 +12,15 @@ source('Resources/gc_functions.R')
 sampleDirectory <- '/home/wmarin/african_samples/2_extracted_kir/'
 fastqPattern <- 'fastq'
 threads <- 10
-resultsDirectory <- 'african_filled_one_mismatch_kir_results'
+resultsDirectory <- 'african_filled_one_mismatch_kir_results/'
 KIR3DL3MinReadThreshold <- 100
 maxReadThreshold <- 30000
 probelistFile <- 'probelist_2018_08_02.csv'
 ###########
 
 
-kirLocusList <- c('KIR3DP1','KIR2DL5A','KIR2DS5','KIR2DL3','KIR2DP1',
-                  'KIR2DS3','KIR2DS2','KIR2DL4','KIR3DL3','KIR2DL5B',
+kirLocusList <- c('KIR3DP1','KIR2DS5','KIR2DL3','KIR2DP1',
+                  'KIR2DS3','KIR2DS2','KIR2DL4','KIR3DL3',
                   'KIR3DL1','KIR3DS1','KIR2DL2','KIR3DL2','KIR2DS4','KIR2DL1', 'KIR2DS1', 'KIR2DL5')
 
 cat('Current working directory: ', getwd(),'\n')
@@ -147,6 +147,10 @@ for(currentSample in sampleList[1:length(sampleList)]){
   write.csv(alleleCountDF, file = file.path(resultsDirectory, 'alleleCountFrame.csv'))
 }
   
+
+locusCountDF <- read.csv(file.path(resultsDirectory, 'locusCountFrame.csv'), stringsAsFactors = F, check.names = F, row.names = 1)
+kffPresenceDF <- read.csv(file.path(resultsDirectory, 'kffPresenceFrame.csv'), stringsAsFactors = F, check.names = F, row.names = 1)
+
 ## Only analyze samples that have at least 'KIR3DL3MinReadThreshold' number of unique KIR3DL3 reads
 goodRows <- rownames(locusCountDF)[apply(locusCountDF, 1, function(x) x['KIR3DL3']>=KIR3DL3MinReadThreshold)]
   
@@ -156,5 +160,6 @@ badRows <- rownames(locusCountDF)[apply(locusCountDF, 1, function(x) x['KIR3DL3'
 ## Subset the count dataframe by the samples that were determined to be good, then normalize each locus unique read count by KIR3DL3
 locusRatioDF <- apply(locusCountDF[goodRows,], 2, function(x) x / locusCountDF[goodRows,'KIR3DL3'])
 locusRatioDF <- as.data.frame(locusRatioDF)
-  
-run.generate_copy_number_graphs(locusRatioDF, kffCountDF)
+
+
+run.generate_copy_number_graphs(locusRatioDF, kffPresenceDF)
