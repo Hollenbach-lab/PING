@@ -597,17 +597,17 @@ run.reduce_and_normalize_kff_probes <- function(probeCountList, probeLociList){
   locusKffRatioList[probeLociList] <- 0
   
   ## Pull out the KIR3DL3 specific probes
-  allKIR3DL3Probes <- grep('>KIR3DL3>', names(kffCountList), fixed=T, value=T)
+  allKIR3DL3Probes <- grep('>KIR3DL3>', names(probeCountList), fixed=T, value=T)
   
   ## Sum the KIR3DL3 probe counts, and divide by the number of probes to establish a KIR3DL3 normalization value
-  KIR3DL3NormValue <- sum(as.integer(kffCountList[allKIR3DL3Probes]))/length(allKIR3DL3Probes)
+  KIR3DL3NormValue <- sum(as.integer(probeCountList[allKIR3DL3Probes]))/length(allKIR3DL3Probes)
   
   for(currentLocus in probeLociList){
     ## pull out the currentLocus specific probes
-    allCurrentLocusProbes <- grep(paste0('>',currentLocus,'>'), names(kffCountList), fixed=T, value=T)
+    allCurrentLocusProbes <- grep(paste0('>',currentLocus,'>'), names(probeCountList), fixed=T, value=T)
     
     ## Sum the currentLocus probe counts and divide by the number of probes to establish a currentLocus normalization value
-    currentLocusNormValue <- sum(as.integer(kffCountList[allCurrentLocusProbes]))/length(allCurrentLocusProbes)
+    currentLocusNormValue <- sum(as.integer(probeCountList[allCurrentLocusProbes]))/length(allCurrentLocusProbes)
     
     ## Normalize the normalized value of the current locus by the KIR3DL3 normalized value
     locusKffRatioList[currentLocus] <- currentLocusNormValue/KIR3DL3NormValue

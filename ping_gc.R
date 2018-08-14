@@ -4,20 +4,28 @@ library(stringr)
 library(methods)
 library(plotly)
 
-setwd('/home/wmarin/PING_projects/PING2/')
+
 source('Resources/gc_functions.R')
 
 
 ########## INPUT variables
-sampleDirectory <- '/home/wmarin/african_samples/2_extracted_kir/'
-fastqPattern <- 'fastq'
-threads <- 10
-resultsDirectory <- 'african_filled_one_mismatch_kir_results/'
-KIR3DL3MinReadThreshold <- 100
-maxReadThreshold <- 30000
-probelistFile <- 'probelist_2018_08_02.csv'
+#setwd('/home/wmarin/PING_projects/PING2/')
+#sampleDirectory <- '/home/wmarin/african_samples/2_extracted_kir/'
+#fastqPattern <- 'fastq'
+#threads <- 10
+#resultsDirectory <- 'indigo_filled_one_mismatch_kir_results'
+#KIR3DL3MinReadThreshold <- 100
+#maxReadThreshold <- 30000
+#probelistFile <- 'probelist_2018_08_02.csv'
 ###########
 
+ping_gc <- function(sampleDirectory='/home/common_arse/INDIGO/2_KIR_runs_extracted/indigo_plates1-4_extracted_8-5-17/',
+                    fastqPattern='fastq',
+                    threads=24,
+                    resultsDirectory='indigo_filled_one_mismatch_kir_results',
+                    KIR3DL3MinReadThreshold=100,
+                    maxReadThreshold=30000,
+                    probelistFile='probelist_2018_08_02.csv'){
 
 kirLocusList <- c('KIR3DP1','KIR2DS5','KIR2DL3','KIR2DP1',
                   'KIR2DS3','KIR2DS2','KIR2DL4','KIR3DL3',
@@ -146,8 +154,11 @@ for(currentSample in sampleList[1:length(sampleList)]){
   write.csv(locusCountDF, file = file.path(resultsDirectory, 'locusCountFrame.csv'))
   write.csv(alleleCountDF, file = file.path(resultsDirectory, 'alleleCountFrame.csv'))
 }
-  
 
+cat('\n\n----- Finished with alignment! -----')
+cat('\n\nMoving on to copy number graphing.')
+
+## Read in the csv results
 locusCountDF <- read.csv(file.path(resultsDirectory, 'locusCountFrame.csv'), stringsAsFactors = F, check.names = F, row.names = 1)
 kffPresenceDF <- read.csv(file.path(resultsDirectory, 'kffPresenceFrame.csv'), stringsAsFactors = F, check.names = F, row.names = 1)
 
@@ -156,10 +167,12 @@ goodRows <- rownames(locusCountDF)[apply(locusCountDF, 1, function(x) x['KIR3DL3
   
 ## Keep track of what samples are being discarded
 badRows <- rownames(locusCountDF)[apply(locusCountDF, 1, function(x) x['KIR3DL3']<KIR3DL3MinReadThreshold)]
+cat('\nSkipping', length(badRows), 'samples that had fewer than',KIR3DL3MinReadThreshold,'KIR3DL3 reads.')
   
 ## Subset the count dataframe by the samples that were determined to be good, then normalize each locus unique read count by KIR3DL3
 locusRatioDF <- apply(locusCountDF[goodRows,], 2, function(x) x / locusCountDF[goodRows,'KIR3DL3'])
 locusRatioDF <- as.data.frame(locusRatioDF)
 
-
+cat('\nGenerating copy number graphs... ')
 run.generate_copy_number_graphs(locusRatioDF, kffPresenceDF)
+}
