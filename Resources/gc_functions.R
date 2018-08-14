@@ -1,7 +1,7 @@
-library(methods)
-library(data.table)
-library(ggplot2)
-library(plotly)
+#library(methods)
+#library(data.table)
+#library(ggplot2)
+#library(plotly)
 
 ## This function checks to make sure the output of system2 is valid
 check.system2_output <- function(system2_output, system2_error){
@@ -198,7 +198,7 @@ read.kir_allele_list_from_reference_fasta <- function(fasta_path){
 }
 
 ## This function counts how many reads map to a unique locus or allele
-run.count_kir_read_matches <- function(currentSample, samTable, maxReadThreshold){
+run.count_kir_read_matches <- function(currentSample, samTable, maxReadThreshold, kirLocusList){
   
   ## Pull out the unique read names
   uniqueReadNames <- unique(samTable$read_name)
@@ -314,7 +314,7 @@ kir.allele_resolution <- function(allele_name, res){
 }
 
 ## This function generates copy number graphs
-run.generate_copy_number_graphs <- function(countRatioDF, kffDF){
+run.generate_copy_number_graphs <- function(countRatioDF, kffDF, kirLocusList){
   
   ## Check to see what samples are in both data frames
   samplesInBoth <- intersect(row.names(countRatioDF), row.names(kffDF))
