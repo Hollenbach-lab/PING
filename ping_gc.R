@@ -144,7 +144,7 @@ for(currentSample in sampleList[1:length(sampleList)]){
   cat('\nCounting reads that align uniquely to a locus or allele ')
   
   ## Count how many reads align uniquely to a locus or allele
-  countList <- run.count_kir_read_matches(currentSample, samTable, maxReadThreshold, kirLocusList)
+  countList <- run.count_kir_read_matches(currentSample, samTable, maxReadThreshold, kirLocusList, kirAlleleListRes3)
   
   ## Add the counts to the appropriate count dataframe
   locusCountDF[currentSample$name,names(countList$locusMatches)] = countList$locusMatches

@@ -198,7 +198,7 @@ read.kir_allele_list_from_reference_fasta <- function(fasta_path){
 }
 
 ## This function counts how many reads map to a unique locus or allele
-run.count_kir_read_matches <- function(currentSample, samTable, maxReadThreshold, kirLocusList){
+run.count_kir_read_matches <- function(currentSample, samTable, maxReadThreshold, kirLocusList, kirAlleleListRes3){
   
   ## Pull out the unique read names
   uniqueReadNames <- unique(samTable$read_name)
