@@ -4,6 +4,8 @@
 .Ruserdata
 
 *.txt
+*.html
+*.css
 
 # Windows image file caches
 Thumbs.db

@@ -2,7 +2,7 @@ library(data.table)
 library(ggplot2)
 library(stringr)
 library(methods)
-#library(reshape2)
+library(plotly)
 
 setwd('/home/wmarin/PING_projects/PING2/')
 source('Resources/gc_functions.R')
