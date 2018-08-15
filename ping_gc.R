@@ -10,7 +10,7 @@ source('Resources/gc_functions.R')
 
 ########## INPUT variables
 #setwd('/home/wmarin/PING_projects/PING2/')
-#sampleDirectory <- '/home/wmarin/african_samples/2_extracted_kir/'
+#sampleDirectory <- '/home/common_arse/INDIGO/2_KIR_runs_extracted/indigo_plates1-4_extracted_8-5-17/'
 #fastqPattern <- 'fastq'
 #threads <- 10
 #resultsDirectory <- 'indigo_filled_one_mismatch_kir_results'

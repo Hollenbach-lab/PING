@@ -263,7 +263,13 @@ run.count_kir_read_matches <- function(currentSample, samTable, maxReadThreshold
     if(length(matchedLocusList) <= 2){
       
       if(length(matchedLocusList) == 1){
-        uniqueLocusMatchList[matchedLocusList] = uniqueLocusMatchList[matchedLocusList][[1]] + 1
+        
+        ## Special processing for 2DL5 because of the A/B naming scheme
+        if('KIR2DL5A' %in% matchedLocusList | 'KIR2DL5B' %in% matchedLocusList){
+          uniqueLocusMatchList['KIR2DL5'] = uniqueLocusMatchList['KIR2DL5'][[1]] + 1
+        }else{
+          uniqueLocusMatchList[matchedLocusList] = uniqueLocusMatchList[matchedLocusList][[1]] + 1
+        }
         
         ## Adding in some special processing for 2DL5 because of the A/B naming scheme
       }else if('KIR2DL5A' %in% matchedLocusList & 'KIR2DL5B' %in% matchedLocusList){
