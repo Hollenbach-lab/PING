@@ -320,7 +320,7 @@ kir.allele_resolution <- function(allele_name, res){
 }
 
 ## This function generates copy number graphs
-run.generate_copy_number_graphs <- function(countRatioDF, kffDF, kirLocusList){
+run.generate_copy_number_graphs <- function(countRatioDF, kffDF, kirLocusList, resultsDirectory){
   
   ## Check to see what samples are in both data frames
   samplesInBoth <- intersect(row.names(countRatioDF), row.names(kffDF))

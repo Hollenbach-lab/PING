@@ -174,5 +174,5 @@ locusRatioDF <- apply(locusCountDF[goodRows,], 2, function(x) x / locusCountDF[g
 locusRatioDF <- as.data.frame(locusRatioDF)
 
 cat('\nGenerating copy number graphs... ')
-run.generate_copy_number_graphs(locusRatioDF, kffPresenceDF, kirLocusList)
+run.generate_copy_number_graphs(locusRatioDF, kffPresenceDF, kirLocusList, resultsDirectory)
 }
