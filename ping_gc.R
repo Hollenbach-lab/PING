@@ -9,20 +9,20 @@ source('Resources/gc_functions.R')
 
 
 ########## INPUT variables
-#setwd('/home/wmarin/PING_projects/PING2/')
-#sampleDirectory <- '/home/common_arse/INDIGO/2_KIR_runs_extracted/indigo_plates1-4_extracted_8-5-17/'
-#fastqPattern <- 'fastq'
-#threads <- 10
-#resultsDirectory <- 'indigo_filled_one_mismatch_kir_results'
-#KIR3DL3MinReadThreshold <- 100
-#maxReadThreshold <- 30000
-#probelistFile <- 'probelist_2018_08_02.csv'
+setwd('/home/wmarin/PING_projects/PING2/')
+sampleDirectory <- '/home/common_arse/INDIGO/2_KIR_runs_extracted/ALL_batches/'
+fastqPattern <- 'fastq'
+threads <- 12
+resultsDirectory <- 'indigo_ALL_batches'
+KIR3DL3MinReadThreshold <- 100
+maxReadThreshold <- 30000
+probelistFile <- 'probelist_2018_08_02.csv'
 ###########
 
-ping_gc <- function(sampleDirectory='/home/common_arse/INDIGO/2_KIR_runs_extracted/indigo_plates1-4_extracted_8-5-17/',
+ping_gc <- function(sampleDirectory='/home/common_arse/INDIGO/2_KIR_runs_extracted/ALL_batches/',
                     fastqPattern='fastq',
-                    threads=24,
-                    resultsDirectory='indigo_filled_one_mismatch_kir_results',
+                    threads=12,
+                    resultsDirectory='indigo_ALL_batches',
                     KIR3DL3MinReadThreshold=100,
                     maxReadThreshold=30000,
                     probelistFile='probelist_2018_08_02.csv'){
@@ -68,31 +68,67 @@ sampleList <- build.paired_sample_objects(sampleDirectory,fastqPattern)
 ## Check to make sure bowtie2is accessible
 bowtie2 <- system2('which', c('bowtie2'), stdout=T, stderr=T)
 check.system2_output(bowtie2, 'bowtie2 not found')
+
+
+kffCountDFFile <- file.path(resultsDirectory, 'kffCountFrame.csv')
+kffNormDFFile <- file.path(resultsDirectory, 'kffNormFrame.csv')
+kffPresenceDFFile <- file.path(resultsDirectory, 'kffPresenceFrame.csv')
+locusCountDFFile <- file.path(resultsDirectory, 'locusCountFrame.csv')
+alleleCountDFFile <- file.path(resultsDirectory, 'alleleCountFrame.csv')
+
+if(all(file.exists(c(kffCountDFFile, kffNormDFFile, kffPresenceDFFile, locusCountDFFile)))){
   
+  ## Load in found count file
+  cat(paste0('\n\nFound kffCountFrame.csv in ', resultsDirectory, '. Loading these results.'))
+  kffCountDF <- read.csv(kffCountDFFile, stringsAsFactors = F, check.names = F, row.names = 1)
   
-## Initialize a dataframe for counting KFF probe matches
-kffCountDF <- data.frame(matrix(0, length(sampleList), length(probeDF$Name)),row.names=names(sampleList),check.names=F,stringsAsFactors=F)
-colnames(kffCountDF) <- probeDF$Name
+  ## Load in found count file
+  cat(paste0('\nFound kfNormFrame.csv in ', resultsDirectory, '. Loading these results.'))
+  kffNormDF <- read.csv(kffNormDFFile, stringsAsFactors = F, check.names = F, row.names = 1)
   
-## Initialize a dataframe for storing the normalized probe matches
-kffNormDF <- data.frame(matrix(0, length(sampleList), length(kffLociList)),row.names=names(sampleList),check.names=F,stringsAsFactors=F)
-colnames(kffNormDF) <- kffLociList
+  ## Load in found count file
+  cat(paste0('\nFound kffPresenceFrame.csv in ', resultsDirectory, '. Loading these results.'))
+  kffPresenceDF <- read.csv(kffPresenceDFFile, stringsAsFactors = F, check.names = F, row.names = 1)
   
-## Initialize a dataframe for storing kff determined locus presence/absence values
-kffPresenceDF <- data.frame(matrix(0, length(sampleList), length(kffLociList)),row.names=names(sampleList),check.names=F,stringsAsFactors=F)
-colnames(kffPresenceDF) <- kffLociList
+  ## Load in found count file
+  cat(paste0('\nFound locusCountFrame.csv in ', resultsDirectory, '. Loading these results.'))
+  locusCountDF <- read.csv(locusCountDFFile, stringsAsFactors = F, check.names = F, row.names = 1)
   
-## Initialize a dataframe for counting how many reads uniquely align to a locus
-locusCountDF <- data.frame(matrix(0, length(sampleList), length(kirLocusList)),row.names=names(sampleList),check.names=F,stringsAsFactors=F)
-colnames(locusCountDF) <- kirLocusList
+  ## Load in found count file
+  cat(paste0('\nFound alleleCountFrame.csv in ', resultsDirectory, '. Loading these results.'))  
+  alleleCountDF <- read.csv(alleleCountDFFile, stringsAsFactors = F, check.names = F, row.names = 1)
   
-## Initialize a dataframe for counting how many reads uniquely align to an allele (at protein coding resolution)
-alleleCountDF <- data.frame(matrix(0, length(sampleList), length(kirAlleleListRes3)), row.names=names(sampleList),check.names=F,stringsAsFactors=F)
-colnames(alleleCountDF) <- kirAlleleListRes3
+  sampleStart <- sum(apply(alleleCountDF, 1, sum) > 0)
+  
+}else{
+  
+  ## Initialize a dataframe for counting KFF probe matches
+  kffCountDF <- data.frame(matrix(0, length(sampleList), length(probeDF$Name)),row.names=names(sampleList),check.names=F,stringsAsFactors=F)
+  colnames(kffCountDF) <- probeDF$Name
+  
+  ## Initialize a dataframe for storing the normalized probe matches
+  kffNormDF <- data.frame(matrix(0, length(sampleList), length(kffLociList)),row.names=names(sampleList),check.names=F,stringsAsFactors=F)
+  colnames(kffNormDF) <- kffLociList
+  
+  ## Initialize a dataframe for storing kff determined locus presence/absence values
+  kffPresenceDF <- data.frame(matrix(0, length(sampleList), length(kffLociList)),row.names=names(sampleList),check.names=F,stringsAsFactors=F)
+  colnames(kffPresenceDF) <- kffLociList
+  
+  ## Initialize a dataframe for counting how many reads uniquely align to a locus
+  locusCountDF <- data.frame(matrix(0, length(sampleList), length(kirLocusList)),row.names=names(sampleList),check.names=F,stringsAsFactors=F)
+  colnames(locusCountDF) <- kirLocusList
+  
+  ## Initialize a dataframe for counting how many reads uniquely align to an allele (at protein coding resolution)
+  alleleCountDF <- data.frame(matrix(0, length(sampleList), length(kirAlleleListRes3)), row.names=names(sampleList),check.names=F,stringsAsFactors=F)
+  colnames(alleleCountDF) <- kirAlleleListRes3
+  
+  sampleStart <- 1
+}
+
   
   
 ## Run all samples through bowtie2 gc alignment
-for(currentSample in sampleList[1:length(sampleList)]){
+for(currentSample in sampleList[sampleStart:length(sampleList)]){
   cat('\n\nProcessing', currentSample$name)
   cat('\n------------------------------------')
   
@@ -131,7 +167,7 @@ for(currentSample in sampleList[1:length(sampleList)]){
   ## If the alignment file does not exist, then run bowtie2 alignment, otherwise continue
   if(!file.exists(currentSample$gcSamPath)){
     cat('\n\nPerforming bowtie2 alignment for this sample.')
-    sampleAlign <- run.bowtie2_gc_alignment(bowtie2, kirReferenceIndex, threads, currentSample)
+    sampleAlign <- run.bowtie2_gc_alignment(bowtie2, kirReferenceIndex, threads, currentSample, resultsDirectory)
   }else{
     cat('\n\nFound a previous alignment file for this sample, skipping bowtie2 alignment.')
   }
@@ -159,8 +195,8 @@ cat('\n\n----- Finished with alignment! -----')
 cat('\n\nMoving on to copy number graphing.')
 
 ## Read in the csv results
-locusCountDF <- read.csv(file.path(resultsDirectory, 'locusCountFrame.csv'), stringsAsFactors = F, check.names = F, row.names = 1)
-kffPresenceDF <- read.csv(file.path(resultsDirectory, 'kffPresenceFrame.csv'), stringsAsFactors = F, check.names = F, row.names = 1)
+locusCountDF <- read.csv(locusCountDFFile, stringsAsFactors = F, check.names = F, row.names = 1)
+kffPresenceDF <- read.csv(kffPresenceDFFile, stringsAsFactors = F, check.names = F, row.names = 1)
 
 ## Only analyze samples that have at least 'KIR3DL3MinReadThreshold' number of unique KIR3DL3 reads
 goodRows <- rownames(locusCountDF)[apply(locusCountDF, 1, function(x) x['KIR3DL3']>=KIR3DL3MinReadThreshold)]

@@ -116,7 +116,7 @@ build.paired_sample_objects <- function(sample_directory, fastq_pattern='fastq')
 }
 
 ## This function runs a bowtie2 alignment looking for exact matches to all KIR references in subsetKirReference
-run.bowtie2_gc_alignment <- function(bowtie2_command, reference_index, threads, current_sample){
+run.bowtie2_gc_alignment <- function(bowtie2_command, reference_index, threads, current_sample, resultsDirectory){
   ## Intitialize an output path for the SAM file
   current_sample$gcSamPath <- file.path(resultsDirectory,paste0(current_sample$name,'.sam'))
   
