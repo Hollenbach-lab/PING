@@ -1,4 +1,4 @@
-.libPaths("/home/wmarin/R/x86_64-redhat-linux-gnu-library/3.4")
+#.libPaths("/home/wmarin/R/x86_64-redhat-linux-gnu-library/3.4")
 library(data.table)
 library(ggplot2)
 library(stringr)
@@ -136,34 +136,34 @@ for(currentSample in sampleList[sampleStart:length(sampleList)]){
   cat('\n\nProcessing', currentSample$name)
   cat('\n------------------------------------')
   
-  cat('\n\nCounting KFF primer matches.')
+  #cat('\n\nCounting KFF primer matches.')
     
   ## Count KFF probe matches for the currentSample
-  kffCountList <- run.count_kff_probes(currentSample, probeDF, maxReadThreshold)
-  kffCountDF[currentSample$name,names(kffCountList)] <- kffCountList 
+  #kffCountList <- run.count_kff_probes(currentSample, probeDF, maxReadThreshold)
+  #kffCountDF[currentSample$name,names(kffCountList)] <- kffCountList 
     
   ## Write the results to a csv file
-  write.csv(kffCountDF, file = file.path(resultsDirectory, 'kffCountFrame.csv'))
+  #write.csv(kffCountDF, file = file.path(resultsDirectory, 'kffCountFrame.csv'))
     
-  cat('\nNormalizing KFF primer matches.')
+  #cat('\nNormalizing KFF primer matches.')
     
   ## Normalize the KFF probe matches by KIR3DL3
-  kffNormList <- run.reduce_and_normalize_kff_probes(kffCountList, kffLociList)
-  kffNormDF[currentSample$name,names(kffNormList)] <- kffNormList
+  #kffNormList <- run.reduce_and_normalize_kff_probes(kffCountList, kffLociList)
+  #kffNormDF[currentSample$name,names(kffNormList)] <- kffNormList
     
   ## Write the results to a csv file
-  write.csv(kffNormDF, file = file.path(resultsDirectory, 'kffNormFrame.csv'))
+  #write.csv(kffNormDF, file = file.path(resultsDirectory, 'kffNormFrame.csv'))
   
-  cat('\nDetermining KIR locus presence/absence')
+  #cat('\nDetermining KIR locus presence/absence')
   
   ## Determine locus presence/absence
-  kffPresenceList <- run.kff_determine_presence_from_norm_values(kffNormList, kffThreshold=0.2)
-  kffPresenceDF[currentSample$name,names(kffPresenceList)] <- kffPresenceList
+  #kffPresenceList <- run.kff_determine_presence_from_norm_values(kffNormList, kffThreshold=0.2)
+  #kffPresenceDF[currentSample$name,names(kffPresenceList)] <- kffPresenceList
   
   ## Write the results to a csv file
-  write.csv(kffPresenceDF, file = file.path(resultsDirectory, 'kffPresenceFrame.csv'))
+  #write.csv(kffPresenceDF, file = file.path(resultsDirectory, 'kffPresenceFrame.csv'))
     
-  cat('\n\nFinished with presence/absence determination, moving to copy number determination.')
+  #cat('\n\nFinished with presence/absence determination, moving to copy number determination.')
     
   ### Fill in the path to the alignment file (it may or may not be present)
   currentSample$gcSamPath <- file.path(resultsDirectory,paste0(currentSample$name,'.sam'))
@@ -177,46 +177,46 @@ for(currentSample in sampleList[sampleStart:length(sampleList)]){
     cat('\n\nFound a previous alignment file for this sample, skipping bowtie2 alignment.')
   }
     
-  cat("\nReading in",currentSample$gcSamPath)
+  #cat("\nReading in",currentSample$gcSamPath)
     
   ## Read in the SAM file to analyze where the reads are aligning
-  samTable <- read.bowtie2_sam_nohd(currentSample$gcSamPath)
+  #samTable <- read.bowtie2_sam_nohd(currentSample$gcSamPath)
     
-  cat('\nCounting reads that align uniquely to a locus or allele ')
+  #cat('\nCounting reads that align uniquely to a locus or allele ')
   
   ## Count how many reads align uniquely to a locus or allele
-  countList <- run.count_kir_read_matches(currentSample, samTable, maxReadThreshold, kirLocusList, kirAlleleListRes3)
+  #countList <- run.count_kir_read_matches(currentSample, samTable, maxReadThreshold, kirLocusList, kirAlleleListRes3)
   
   ## Add the counts to the appropriate count dataframe
-  locusCountDF[currentSample$name,names(countList$locusMatches)] = countList$locusMatches
-  alleleCountDF[currentSample$name,names(countList$alleleMatches)] = countList$alleleMatches
+  #locusCountDF[currentSample$name,names(countList$locusMatches)] = countList$locusMatches
+  #alleleCountDF[currentSample$name,names(countList$alleleMatches)] = countList$alleleMatches
     
   ## Write the results to a csv file
-  write.csv(locusCountDF, file = file.path(resultsDirectory, 'locusCountFrame.csv'))
-  write.csv(alleleCountDF, file = file.path(resultsDirectory, 'alleleCountFrame.csv'))
+  #write.csv(locusCountDF, file = file.path(resultsDirectory, 'locusCountFrame.csv'))
+  #write.csv(alleleCountDF, file = file.path(resultsDirectory, 'alleleCountFrame.csv'))
   
-  rm(samTable)
+  #rm(samTable)
 }
 
 cat('\n\n----- Finished with alignment! -----')
-cat('\n\nMoving on to copy number graphing.')
+#cat('\n\nMoving on to copy number graphing.')
 
 ## Read in the csv results
-locusCountDF <- read.csv(locusCountDFFile, stringsAsFactors = F, check.names = F, row.names = 1)
-kffPresenceDF <- read.csv(kffPresenceDFFile, stringsAsFactors = F, check.names = F, row.names = 1)
+#locusCountDF <- read.csv(locusCountDFFile, stringsAsFactors = F, check.names = F, row.names = 1)
+#kffPresenceDF <- read.csv(kffPresenceDFFile, stringsAsFactors = F, check.names = F, row.names = 1)
 
 ## Only analyze samples that have at least 'KIR3DL3MinReadThreshold' number of unique KIR3DL3 reads
-goodRows <- rownames(locusCountDF)[apply(locusCountDF, 1, function(x) x['KIR3DL3']>=KIR3DL3MinReadThreshold)]
+#goodRows <- rownames(locusCountDF)[apply(locusCountDF, 1, function(x) x['KIR3DL3']>=KIR3DL3MinReadThreshold)]
   
 ## Keep track of what samples are being discarded
-badRows <- rownames(locusCountDF)[apply(locusCountDF, 1, function(x) x['KIR3DL3']<KIR3DL3MinReadThreshold)]
-cat('\nSkipping', length(badRows), 'samples that had fewer than',KIR3DL3MinReadThreshold,'KIR3DL3 reads.')
+#badRows <- rownames(locusCountDF)[apply(locusCountDF, 1, function(x) x['KIR3DL3']<KIR3DL3MinReadThreshold)]
+#cat('\nSkipping', length(badRows), 'samples that had fewer than',KIR3DL3MinReadThreshold,'KIR3DL3 reads.')
   
 ## Subset the count dataframe by the samples that were determined to be good, then normalize each locus unique read count by KIR3DL3
-locusRatioDF <- apply(locusCountDF[goodRows,], 2, function(x) x / locusCountDF[goodRows,'KIR3DL3'])
-locusRatioDF <- as.data.frame(locusRatioDF)
+#locusRatioDF <- apply(locusCountDF[goodRows,], 2, function(x) x / locusCountDF[goodRows,'KIR3DL3'])
+#locusRatioDF <- as.data.frame(locusRatioDF)
 
-cat('\nGenerating copy number graphs... ')
-run.generate_copy_number_graphs(locusRatioDF, kffPresenceDF, kirLocusList, resultsDirectory)
+#cat('\nGenerating copy number graphs... ')
+#run.generate_copy_number_graphs(locusRatioDF, kffPresenceDF, kirLocusList, resultsDirectory)
 }
-ping_gc()
+#ping_gc()
