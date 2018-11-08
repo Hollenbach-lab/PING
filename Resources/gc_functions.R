@@ -14,7 +14,7 @@ check.system2_output <- function(system2_output, system2_error){
 }
 
 ## This function finds samples in sampleDirectory and turns them into objects for downstream use
-build.paired_sample_objects <- function(sample_directory, fastq_pattern='fastq'){
+build.paired_sample_objects <- function(sample_directory, fastq_pattern='fastq', resultsDirectory){
   #####
   ## This function takes in a directory and a file name pattern and attempts to pair fastq files
   ## Returns a list of sample objects that contain the paired fastq file names
@@ -88,7 +88,12 @@ build.paired_sample_objects <- function(sample_directory, fastq_pattern='fastq')
                                     fastq1path='character',
                                     fastq2path='character',
                                     gzip='logical',
-                                    gcSamPath='character'))
+                                    gcSamPath='character',
+                                    assembledRefPath='character',
+                                    assembledRefIndex='character',
+                                    assembledSamPath='character',
+                                    assembledBedPath='character',
+                                    assembledDelIndex='character'))
   
   ## Initializing a sample object list. This will be returned
   output.sampleList <- list()
@@ -107,8 +112,11 @@ build.paired_sample_objects <- function(sample_directory, fastq_pattern='fastq')
     ## Checking if the first fastq file is gzipped
     gzip <- substr(fastq1path, nchar(fastq1path)-2, nchar(fastq1path)) == '.gz'
     
+    ## Fill in the path to the alignment file (it may or may not be present)
+    gcSamPath <- file.path(resultsDirectory,paste0(names(pairedFastq),'.sam'))
+    
     ## Building a sample object and adding it to sampleList
-    output.sampleList[[names(pairedFastq)]] <- sample(name=names(pairedFastq),fastq1path=fastq1path,fastq2path=fastq2path,gzip=gzip)
+    output.sampleList[[names(pairedFastq)]] <- sample(name=names(pairedFastq),fastq1path=fastq1path,fastq2path=fastq2path,gzip=gzip,gcSamPath=gcSamPath)
   }
   
   cat("\nAll samples were successfully paired")
@@ -123,6 +131,7 @@ run.bowtie2_gc_alignment <- function(bowtie2_command, reference_index, threads, 
   ## Building up the run command
   optionsCommand <- c(paste0('-x ',reference_index),
                       '-5 0', '-3 6', '-N 0', '--end-to-end', paste0('-p ',threads), '--score-min "C,-2,0"',
+                      '-I 75', '-X 1000',
                       paste0('-1 ',current_sample$fastq1path),
                       paste0('-2 ',current_sample$fastq2path),
                       '--no-unal','--no-hd','-a','--np 0', '--mp 2,2', '--rdg 1,1', '--rfg 1,1',
@@ -146,6 +155,7 @@ run.bowtie2_gc_alignment <- function(bowtie2_command, reference_index, threads, 
 
 ## This function reads in a SAM file with no header to a data.table
 read.bowtie2_sam_nohd <- function(sam_path){
+  cat('\nReading in the SAM file.')
   
   ## Make sure the SAM file can be read in
   sam_path <- normalizePath(sam_path, mustWork=T)
@@ -167,7 +177,16 @@ read.bowtie2_sam_nohd <- function(sam_path){
   ## Save alignment scores to their own columns
   output.samTable$alignment_score <- alignmentScoreList
   
-  cat('\n\nRemoving read alignments that do not include alignment scores')
+  ## Convert the allele names into locus names
+  locusList <- tstrsplit(output.samTable$reference_name, '*', fixed=TRUE)[[1]]
+  
+  locusList[locusList %in% 'KIR2DL5A'] = 'KIR2DL5'
+  locusList[locusList %in% 'KIR2DL5B'] = 'KIR2DL5'
+
+  ## Save locus names to their own columns
+  output.samTable$locus <- locusList
+  
+  cat('\nRemoving read alignments that do not include alignment scores.')
   
   ## Discard any rows of the samTable that do not have alignment scores (can happen for various reasons)
   output.samTable <- output.samTable[!is.na(alignmentScoreList),]
@@ -195,6 +214,68 @@ read.kir_allele_list_from_reference_fasta <- function(fasta_path){
   }
   
   return(output.alleleList)
+}
+
+## This function returns a list of dataframes of allele sequences found in the reference fasta
+read.kir_allele_dataframe_from_reference_fasta <- function(fasta_path, kirLocusList){
+  
+  ## Make sure the fasta can be found
+  fasta_path <- normalizePath(fasta_path, mustWork=T)
+  
+  ## Initialize a list to store the sequence strings from the file
+  alleleSeqList <- list()
+  
+  ## Read in the fasta file and store the allele names and sequences
+  for(currentLine in readLines(fasta_path)){
+    alleleNameBool <- grepl('>',currentLine,fixed=T)
+    
+    if(alleleNameBool){
+      alleleName <- strsplit(currentLine, '>',fixed=TRUE)[[1]][2]
+    }else{
+      alleleSeq <- currentLine
+      alleleSeqList[[alleleName]] <- alleleSeq
+    }
+  }
+  
+  ## Initialize the output list
+  output.alleleSeqDFList <- list()
+  
+  ## Input the allele sequence strings to a dataframe for each locus
+  for(currentLocus in kirLocusList){
+    
+    cat('\nReading in:',currentLocus)
+    
+    if(currentLocus == 'KIR2DL5'){
+      tempCurrentLocus <- c('KIR2DL5A', 'KIR2DL5B')
+    }else{
+      tempCurrentLocus <- currentLocus
+    }
+    
+    ## Pull out all of the allele names for the current locus
+    currentLocusAlleleNames <- names(alleleSeqList)[tstrsplit(names(alleleSeqList), '*', fixed=T)[[1]] %in% tempCurrentLocus]
+    
+    ## Check the size of the largest and smalles allele
+    largestAlleleSize <- max(sapply(alleleSeqList[currentLocusAlleleNames], nchar))
+    minAlleleSize <- min(sapply(alleleSeqList[currentLocusAlleleNames], nchar))
+    
+    ## Make sure the largest and smallest allele are the same sizes
+    if(largestAlleleSize != minAlleleSize){
+      stop(currentLocus,' has alleles of different sizes. Cannot transform into dataframe.')
+    }
+    
+    ## Initialize a dataframe for storing the allele sequence strings
+    alleleSeqDF <- data.frame(matrix(0, length(currentLocusAlleleNames), largestAlleleSize),row.names=currentLocusAlleleNames,check.names=F,stringsAsFactors=F)
+    
+    ## For each allele for the current locus, input the sequence into the dataframe
+    for(currentAlleleName in currentLocusAlleleNames){
+      alleleSeqDF[currentAlleleName,] <- strsplit(alleleSeqList[[currentAlleleName]],'')[[1]]
+    }
+    
+    ## Save the dataframe to the output list
+    output.alleleSeqDFList[[currentLocus]] <- alleleSeqDF
+  }
+  
+  return(output.alleleSeqDFList)
 }
 
 ## This function counts how many reads map to a unique locus or allele
@@ -637,6 +718,579 @@ run.kff_determine_presence_from_norm_values <- function(kffNormList, kffThreshol
   return(locusPresenceList)
 }
 
+## This function reads through the SAM table and assigns reads to different lists for downstream analysis
+run.sam_read_assignment <- function(samTable, sortedReadNames, currentPresentLoci){
+  cat('\nAssigning reads to paired/unpaired/absent/multi... 0% ')
+  
+  ## Initialize list to store reads that match multiple loci
+  multiLocusReads <- c()
+  
+  ## Initialze list to store reads that match absent loci
+  absentLocusReads <- c()
+  
+  ## Initialize list to store reads that are paired and match a single locus
+  singleLocusPairedReads <- c()
+  
+  ## Initialize list tto store reads that are unpaired and match a single locu
+  singleLocusUnpairedReads <- c()
+  
+  ## Initialize variables to check on the progress of the next for loop
+  i = 0
+  max_i = length(sortedReadNames)
+  checkAmount = ceiling(max_i/10)
+  j=0
+  
+  ## Iterate through the sorted read names
+  for(currentReadName in sortedReadNames[(i+1):length(sortedReadNames)]){
+    i = i + 1
+    
+    ## Will display the percent completion every 10%
+    if(i%%checkAmount == 0){
+      j = j+10
+      if(j != 100){
+        cat(paste0(j,'% ', collapse = ''))
+      }
+    }
+    
+    ## Pull out the lines of the SAM file that match the current read name
+    samSubsetTable <- samTable[read_name == currentReadName]
+    
+    ## Pull out the loci matched for this read
+    currentReadLocusList <- unique(samSubsetTable$locus)
+    
+    ## Special KIR2Dl5 finagling
+    #if('KIR2DL5A' %in% currentReadLocusList | 'KIR2DL5B' %in% currentReadLocusList){
+    #  currentReadLocusList <- c(currentReadLocusList, 'KIR2DL5')
+    #}
+    
+    ## Get rid of the extra 2DL5A/B loci names
+    #currentReadLocusList <- currentReadLocusList[currentReadLocusList %in% kirLocusList]
+    
+    ## Only continue if there is only one matched locus
+    if(length(currentReadLocusList) > 1){
+      multiLocusReads <- c(multiLocusReads, currentReadName)
+      next
+    }
+    
+    ## Pull out the current read name alignments that match present loci
+    #samSubsetTable <- samSubsetTable[locus %in% currentPresentLoci]
+    
+    ## Skip this iteration if the samSubsetTable is empty
+    #if(nrow(samSubsetTable)==0){
+    #  absentLocusReads <- c(absentLocusReads, currentReadName)
+    #  next
+    #}
+    
+    ## Interpret the SAM flags
+    samFlagTable <- sapply(samSubsetTable$'2', sam_flag_convert)
+    
+    ## Pull out reads that have proper pair mapping
+    #samSubsetTable <- samSubsetTable[unlist(samFlagTable['properPairMapping',]),]
+    samSubsetTable <- samSubsetTable[!unlist(samFlagTable['mateUnmapped',]),]
+    
+    ## If all of the rows of the subset table are removed, then move on to the next read
+    if(nrow(samSubsetTable)==0){
+      singleLocusUnpairedReads <- c(singleLocusUnpairedReads, currentReadName)
+      next
+    }
+    
+    singleLocusPairedReads <- c(singleLocusPairedReads, currentReadName)
+    next
+  }
+  cat(' 100%')
+  cat('\nSingle locus paired-end reads:',length(singleLocusPairedReads))
+  cat('\nSingle locus unpaired reads:',length(singleLocusUnpairedReads))
+  cat('\nAbsent locus reads:',length(absentLocusReads))
+  cat('\nMulti locus reads:',length(multiLocusReads))
+  
+  return(list(absentLocusReads=absentLocusReads,
+              multiLocusReads=multiLocusReads,
+              singleLocusPairedReads=singleLocusPairedReads,
+              singleLocusUnpairedReads=singleLocusUnpairedReads))
+}
+
+## Assign single locus matched paired-end reads to their mapped postions in the assembly table
+old.run.assemble_paired_reads <- function(samTable, singleLocusPairedReads, assembledSeqList){
+  
+  cat('\nProcessing single locus paired-end reads... 0% ')
+  
+  ## Initialize variables to check on the progress of the next for loop
+  i = 0
+  max_i = length(singleLocusPairedReads)
+  checkAmount = ceiling(max_i/10)
+  j=0
+  
+  for(currentReadName in singleLocusPairedReads){
+    i = i+1
+   
+     ## Will display the percent completion every 10%
+    if(i%%checkAmount == 0){
+      j = j+10
+      cat(paste0(j,'% ', collapse = ''))
+    }
+    
+    ## Pull out the lines of the SAM file that match the current read name
+    samSubsetTable <- samTable[read_name == currentReadName]
+    
+    ## Pull out the loci matched for this read
+    currentReadLocusList <- unique(samSubsetTable$locus)
+    
+    ## Special KIR2Dl5 finagling
+    if('KIR2DL5A' %in% currentReadLocusList | 'KIR2DL5B' %in% currentReadLocusList){
+      currentReadLocusList <- c(currentReadLocusList, 'KIR2DL5')
+    }
+    
+    ## Only consider loci that are present in the sample
+    currentReadLocusList <- currentReadLocusList[currentReadLocusList %in% currentPresentLoci]
+    
+    ## Pull out the current read name alignments that match present loci
+    samSubsetTable <- samSubsetTable[locus %in% currentReadLocusList]
+    
+    ## Pull out the first reference allele name 
+    refAlleleName <- samSubsetTable$reference_name[[1]]
+    
+    ## Pull out the current locus
+    currentLocus <- kir.allele_resolution(refAlleleName, 0)
+    
+    if(currentLocus == 'KIR2DL5A' | currentLocus == 'KIR2DL5B'){
+      currentLocus <- 'KIR2DL5'
+    }
+    
+    ## Subset the table by the current reference allele
+    currentLocusSubsetTable <- samSubsetTable[reference_name == refAlleleName]
+    
+    ## Check to make sure the expected number of rows are in the table
+    if(nrow(currentLocusSubsetTable) != 2){
+      stop('currentLocusSubsetTable has a different number of rows than expected.')
+    }
+    
+    ## Initialize a list to store the full index of both reads of the pair
+    fullIndexList <- c()
+    
+    ## Initialize a list to store the full sequence of both reads of the pair
+    seqListList <- c()
+    
+    ## Iterate over both paired reads and figure out their positions and sequence
+    for(currentRowIndex in 1:2){
+      
+      ## Pull the reference allele position from the SAM table
+      refAllelePos <- as.integer(currentLocusSubsetTable[currentRowIndex,4][[1]])
+      
+      ## Pull the current read sequence from the SAM table
+      currentReadSeq <- currentLocusSubsetTable[currentRowIndex,10][[1]]
+      
+      ## Determine the current read length
+      currentReadLen <- nchar(currentReadSeq)
+      
+      ## If there is more than 1 reference allele, then we have a problem
+      if(length(refAllelePos) > 1){
+        stop('More than 1 reference allele was found in the currentLocusSubsetTable')
+      }
+      
+      ## Establish the starting position, accounting for deletions
+      delStartOffset <- which(kirAlleleDFList[[currentLocus]][refAlleleName,] != '.')[refAllelePos]
+      
+      ## Establish the ending position, accounting for deletions
+      delEndOffset <- which(kirAlleleDFList[[currentLocus]][refAlleleName,] != '.')[refAllelePos+currentReadLen-1]
+      
+      ## Testing if there deletions found in the reference for the current read
+      if((delEndOffset-delStartOffset+1) > currentReadLen){
+        
+        ## Picking out the indices of deletions
+        delIndexList <- which(kirAlleleDFList[[currentLocus]][refAlleleName,(delStartOffset):(delEndOffset)] == '.')
+        
+        ## If the index list is empty, something went wrong
+        if(length(delIndexList) == 0){
+          stop('Something weird happened with the deletion index.')
+        }
+        
+        ## Split apart the read sequence and add in deletion symbols
+        subStringList <- c()
+        for(delIndex in delIndexList){
+          preString <- substr(currentReadSeq, 1, delIndex-1)
+          postString <- substr(currentReadSeq, delIndex, nchar(currentReadSeq))
+          
+          currentReadSeq <- paste0(preString, '.', postString)
+        }
+      }
+      
+      ## Create a full index that cooresponds to the sequence nucleotides and where they go
+      fullIndex <- delStartOffset:delEndOffset
+      
+      ## Add the current index to the list of indices
+      fullIndexList <- c(fullIndexList, fullIndex)
+      
+      ## Turn the sequence string into a list
+      seqList <- strsplit(currentReadSeq,'')[[1]]
+      
+      ## Add the current read nucleotide list to the paired-read nucleotide list
+      seqListList <- c(seqListList,seqList)
+      
+      ## Name the nucleotides by their position
+      names(seqListList) <- fullIndexList
+    }
+    
+    ## Cut down the paired-read nucleotide list by unique positions
+    sequenceToInsert <- seqListList[unique(names(seqListList))]
+    
+    ## Create a depth table for each position (positions overlapping in the paired-end reads will have depth = 2)
+    depthTable <- table(fullIndexList)
+    
+    ## If the length of the depth table and the sequnce list are not the same, then we have a problem
+    if(length(sequenceToInsert) != length(depthTable)){
+      stop('The length of the depth table and the sequence table do not match up')
+    }
+    
+    ## If the name of both are not the same, then something is not running correctly
+    if(!all(names(sequenceToInsert) %in% names(depthTable))){
+      stop('The names of the depth table and sequence table do not match up')
+    }
+    
+    ## This section compares the current read seqence to the assembly frame and determines which row it should be assigned to
+    ## If the full sequence matches the sequence already found in a row, discounting unfilled positions (0's),
+    ## then place the sequence in that row, otherwise go to the next row
+    rowIndex <- -1
+    consensusBool <- FALSE
+    while(!consensusBool){
+      ## Iterate by 2 row indices each iteration since 1 row is for depth
+      rowIndex <- rowIndex + 2
+      
+      ## Pull out the existing assembled sequence for this region
+      assembledSequencePortion <- assembledSeqList[[currentLocus]][rowIndex,names(sequenceToInsert)]
+      
+      ## Figure out which postions are currently unfilled (0's)
+      zeroPositions <- names(assembledSequencePortion)[assembledSequencePortion == 0]
+      
+      ## Figure out which positions are filled
+      filledPositions <- setdiff(names(sequenceToInsert), zeroPositions)
+      
+      ## If one or more positions are filled, then compare the new sequence to the assembled sequence and see if they match
+      if(length(filledPositions) > 0){ 
+        
+        ## Determine if we break out of the loop based on if the sequences match or not
+        consensusBool <- all(assembledSeqList[[currentLocus]][rowIndex,filledPositions] == sequenceToInsert[filledPositions])
+      }else{
+        
+        ## If all current positions are unfilled, then break out of the loop
+        consensusBool <- TRUE
+      }
+      
+      ## If we have not broken out of the loop once we have exceeded the size of the assembly table, then throw an error
+      if(consensusBool == FALSE & rowIndex > nrow(assembledSeqList[[currentLocus]])){
+        consensusBool <- TRUE
+        stop('Exceeded all alternative sequence slots for this region')
+      }
+    }
+    
+    ## Place the new sequence into the assembly table
+    assembledSeqList[[currentLocus]][rowIndex,names(sequenceToInsert)] <- sequenceToInsert
+    
+    ## Increase the depth of the current positions based on the depth table
+    assembledSeqList[[currentLocus]][(rowIndex+1),names(depthTable)] <- as.integer(assembledSeqList[[currentLocus]][(rowIndex+1),names(depthTable)]) + depthTable
+    
+    ## If we are close to maxing out the assembly table, then stop the program.
+    if(rowIndex > 98){
+      stop()
+    }
+  }
+  
+  return(assembledSeqList)
+}
+
+## This function adds single locus paired-end reads to the assembly
+run.assemble_paired_reads <- function(samTable, singleLocusPairedReads, assembledNucList, deletionIndexList, kirAlleleDFList){
+  cat('\nProcessing single locus paired-end reads... 0% ')
+  
+  ## Randomize the read name order
+  set.seed(001) ## Just to make it reproducible
+  randomPairedReads <- sample(singleLocusPairedReads)
+  
+  ## Check if there are more reads than the threshold and take some out if so
+  if(length(randomPairedReads ) > 10000){
+    randomPairedReads <- randomPairedReads[1:10000]
+  }
+  
+  ## Initialize variables to check on the progress of the next for loop
+  i = 0
+  max_i = length(singleLocusPairedReads)
+  checkAmount = ceiling(max_i/10)
+  j=0
+  
+  for(currentReadName in randomPairedReads){
+    i = i+1
+    
+    ## Will display the percent completion every 10%
+    if(i%%checkAmount == 0){
+      j = j+10
+      if(j != 100){
+        cat(paste0(j,'% ', collapse = ''))
+      }
+    }
+    
+    ## Pull out the lines of the SAM file that match the current read name
+    samSubsetTable <- samTable[read_name == currentReadName]
+    
+    ## Pull out the loci matched for this read
+    currentReadLocusList <- unique(samSubsetTable$locus)
+    
+    ## Special KIR2Dl5 finagling
+    if('KIR2DL5A' %in% currentReadLocusList | 'KIR2DL5B' %in% currentReadLocusList){
+      currentReadLocusList <- c(currentReadLocusList, 'KIR2DL5')
+    }
+    
+    ## Only consider loci that are present in the sample
+    currentReadLocusList <- currentReadLocusList[currentReadLocusList %in% currentPresentLoci]
+    
+    ## Pull out the current read name alignments that match present loci
+    samSubsetTable <- samSubsetTable[locus %in% currentReadLocusList]
+    
+    ## Pull out the first reference allele name 
+    refAlleleName <- samSubsetTable$reference_name[[1]]
+    
+    ## Pull out the current locus
+    currentLocus <- kir.allele_resolution(refAlleleName, 0)
+    
+    if(currentLocus == 'KIR2DL5A' | currentLocus == 'KIR2DL5B'){
+      currentLocus <- 'KIR2DL5'
+    }
+    
+    ## Subset the table by the current reference allele
+    currentLocusSubsetTable <- samSubsetTable[reference_name == refAlleleName]
+    
+    ## Check to make sure the expected number of rows are in the table
+    if(nrow(currentLocusSubsetTable) != 2){
+      next
+      #stop('currentLocusSubsetTable has a different number of rows than expected.')
+    }
+    
+    ## Initialize a list to store the full index of both reads of the pair
+    fullIndexList <- c()
+    
+    ## Initialize a list to store the full sequence of both reads of the pair
+    seqListList <- c()
+    
+    ## Iterate over both paired reads and figure out their positions and sequence
+    for(currentRowIndex in 1:2){
+      
+      ## Pull the reference allele position from the SAM table
+      refAllelePos <- as.integer(currentLocusSubsetTable[currentRowIndex,4][[1]])
+      
+      ## Pull the current read sequence from the SAM table
+      currentReadSeq <- currentLocusSubsetTable[currentRowIndex,10][[1]]
+      
+      ## Determine the current read length
+      currentReadLen <- nchar(currentReadSeq)
+      
+      ## If there is more than 1 reference allele, then we have a problem
+      if(length(refAllelePos) > 1){
+        stop('More than 1 reference allele was found in the currentLocusSubsetTable')
+      }
+      
+      ## Establish the starting position, accounting for deletions
+      delStartOffset <- deletionIndexList[[refAlleleName]][refAllelePos]
+      
+      ## Establish the ending position, accounting for deletions
+      delEndOffset <- deletionIndexList[[refAlleleName]][refAllelePos+currentReadLen-1]
+      
+      ## Testing if there deletions found in the reference for the current read
+      if((delEndOffset-delStartOffset+1) > currentReadLen){
+        
+        ## Picking out the indices of deletions
+        delIndexList <- which(kirAlleleDFList[[currentLocus]][refAlleleName,(delStartOffset):(delEndOffset)] == '.')
+        
+        ## If the index list is empty, something went wrong
+        if(length(delIndexList) == 0){
+          stop('Something weird happened with the deletion index.')
+        }
+        
+        ## Split apart the read sequence and add in deletion symbols
+        subStringList <- c()
+        for(delIndex in delIndexList){
+          preString <- substr(currentReadSeq, 1, delIndex-1)
+          postString <- substr(currentReadSeq, delIndex, nchar(currentReadSeq))
+          
+          currentReadSeq <- paste0(preString, '.', postString)
+        }
+      }
+      
+      ## Create a full index that cooresponds to the sequence nucleotides and where they go
+      fullIndex <- delStartOffset:delEndOffset
+      
+      ## Add the current index to the list of indices
+      fullIndexList <- c(fullIndexList, fullIndex)
+      
+      ## Turn the sequence string into a list
+      seqList <- strsplit(currentReadSeq,'')[[1]]
+      
+      seqListList <- c(seqListList,seqList)
+      
+      names(seqListList) <- fullIndexList
+    }
+    
+    ## Cut down the paired-read nucleotide list by unique positions
+    sequenceToInsert <- seqListList[unique(names(seqListList))]
+    
+    ## Create a depth table for each position (positions overlapping in the paired-end reads will have depth = 2)
+    depthTable <- table(fullIndexList)
+    
+    ## If the length of the depth table and the sequnce list are not the same, then we have a problem
+    if(length(sequenceToInsert) != length(depthTable)){
+      stop('The length of the depth table and the sequence table do not match up')
+    }
+    
+    ## If the name of both are not the same, then something is not running correctly
+    if(!all(names(sequenceToInsert) %in% names(depthTable))){
+      stop('The names of the depth table and sequence table do not match up')
+    }
+    
+    ## Add the depth to the corresponding row in the assembledNucList frame
+    for(pos in names(sequenceToInsert)){
+      rowNum <- nucListConv[[sequenceToInsert[pos]]]
+      assembledNucList[[currentLocus]][rowNum,pos] <- depthTable[pos] + as.integer(assembledNucList[[currentLocus]][rowNum,pos])
+    }
+  }
+  cat('100%')
+  return(assembledNucList)
+}
+
+## This function adds single locus unpaired reads to the assembly
+run.assemble_unpaired_reads <- function(samTable, singleLocusUnpairedReads, assembledNucList, deletionIndexDFList, inverseDeletionIndexDFList, kirAlleleDFList, nucListConv, kirLocusList){
+  cat('\nProcessing single locus unpaired reads... 0% ')
+  
+  ## Randomize the read name order
+  set.seed(001) ## Just to make it reproducible
+  randomUnpairedReads <- sample(singleLocusUnpairedReads)
+  
+  ## Check if there are more reads than the threshold and take some out if so
+  if(length(randomUnpairedReads ) > 10000){
+    randomUnpairedReads <- randomUnpairedReads[1:10000]
+  }
+  
+  ## Initialize variables to check on the progress of the next for loop
+  i = 0
+  max_i = length(randomUnpairedReads)
+  checkAmount = ceiling(max_i/10)
+  j=0
+  
+  for(currentReadName in randomUnpairedReads){
+    i = i+1
+    
+    ## Will display the percent completion every 10%
+    if(i%%checkAmount == 0){
+      j = j+10
+      if(j != 100){
+        cat(paste0(j,'% ', collapse = ''))
+      }
+    }
+    
+    ## Pull out the lines of the SAM file that match the current read name
+    samSubsetTable <- samTable[read_name == currentReadName]
+    
+    ## Pull out the loci matched for this read
+    currentReadLocusList <- unique(samSubsetTable$locus)
+    
+    ## Special KIR2Dl5 finagling
+    if('KIR2DL5A' %in% currentReadLocusList | 'KIR2DL5B' %in% currentReadLocusList){
+      currentReadLocusList <- c(currentReadLocusList, 'KIR2DL5')
+      currentReadLocusList <- currentReadLocusList[currentReadLocusList %in% kirLocusList]
+    }
+    
+    ## Only consider loci that are present in the sample
+    #currentReadLocusList <- currentReadLocusList[currentReadLocusList %in% currentPresentLoci]
+    
+    ## Pull out the current read name alignments that match present loci
+    #samSubsetTable <- samSubsetTable[locus %in% currentReadLocusList]
+    
+    ## Pull out the first reference allele name 
+    #refAlleleName <- samSubsetTable$reference_name[[1]]
+    
+    ## Pull out the current locus
+    #currentLocus <- kir.allele_resolution(refAlleleName, 0)
+    
+    #if(currentLocus == 'KIR2DL5A' | currentLocus == 'KIR2DL5B'){
+    #  currentLocus <- 'KIR2DL5'
+    #}
+    
+    ## Subset the table by the current reference allele
+    #currentLocusSubsetTable <- samSubsetTable[reference_name == refAlleleName][1,,drop=F]
+    
+    ## Add the read to the assembly
+    assembledNucList <- build.add_read_to_assembly(assembledNucList,samSubsetTable,delIndexList,inverseDeletionIndexDFList,kirAlleleDFList,nucListConv,currentReadLocusList)
+  }
+  cat('100%')
+  return(assembledNucList)
+}
+
+## This function adds multi locus reads to the assembly (comparing them to the determined good allele list to sort out which locus they belong to)
+run.assemble_multi_reads <- function(samTable, multiLocusReads, assembledNucList, deletionIndexDFList, inverseDeletionIndexDFList, kirAlleleDFList, nucListConv, allGoodAlleles, kirLocusList){
+  
+  cat('\nProcessing multi locus reads... 0% ')
+  
+  ## Randomize the read name order
+  set.seed(001) ## Just to make it reproducible
+  randomMultiReads <- sample(multiLocusReads)
+  
+  ## Check if there are more reads than the threshold and take some out if so
+  if(length(randomMultiReads) > 10000){
+    randomMultiReads <- randomMultiReads[1:10000]
+  }
+  
+  ## Initialize variables to check on the progress of the next for loop
+  i = 0
+  max_i = length(randomMultiReads)
+  checkAmount = ceiling(max_i/10)
+  j=0
+  
+  for(currentReadName in randomMultiReads){
+    i = i+1
+    
+    ## Will display the percent completion every 10%
+    if(i%%checkAmount == 0){
+      j = j+10
+      if(j != 100){
+        cat(paste0(j,'% ', collapse = ''))
+      }
+    }
+    
+    ## Pull out the lines of the SAM file that match the current read name
+    samSubsetTable <- samTable[read_name == currentReadName]
+    
+    ## Pull out the lines of the subset sam table that have references that match the determined good alleles
+    goodAlleleSubsetTable <- samSubsetTable[reference_name %in% allGoodAlleles]
+    
+    ## Pull out the loci matched for this read
+    currentReadLocusList <- unique(goodAlleleSubsetTable$locus)
+    
+    ## Special KIR2Dl5 finagling
+    if('KIR2DL5A' %in% currentReadLocusList | 'KIR2DL5B' %in% currentReadLocusList){
+      currentReadLocusList <- c(currentReadLocusList, 'KIR2DL5')
+      currentReadLocusList <- currentReadLocusList[currentReadLocusList %in% kirLocusList]
+    }
+    
+    if(length(currentReadLocusList) != 1){
+      next
+    }else{
+      ## Pull out the first reference allele name 
+      refAlleleName <- goodAlleleSubsetTable$reference_name[[1]]
+      
+      ## Pull out the current locus
+      currentLocus <- kir.allele_resolution(refAlleleName, 0)
+      
+      if(currentLocus == 'KIR2DL5A' | currentLocus == 'KIR2DL5B'){
+        currentLocus <- 'KIR2DL5'
+      }
+      
+      ## Subset the table by the current reference allele
+      currentLocusSubsetTable <- goodAlleleSubsetTable[reference_name == refAlleleName][1,,drop=F]
+      
+      assembledNucList <- build.add_read_to_assembly(assembledNucList,currentLocusSubsetTable,deletionIndexDFList,inverseDeletionIndexDFList,kirAlleleDFList,nucListConv,currentLocus)
+    }
+  }
+  
+  cat('100%')
+  return(assembledNucList)
+}
+
 ## This function prompts for user input for determining copy number thresholds
 readRatioPrompt <- function(copyNumber){ 
   n <- readline(prompt=paste0('Enter the lowest ratio for copy number ', copyNumber, ': '))
@@ -658,3 +1312,805 @@ copyNumberPrompt <- function(currentLocus,minCopy,maxCopy){
   }
   return(n)
 }
+
+## This function builds a list of deletion indices for each kir allele
+build.deletion_index_list <- function(kirAlleleList, kirAlleleDFList){
+  cat('\nBuilding up a deletion index for faster lookup during read assignment.')
+  
+  ## Initialize a list for storing deletion position conversions
+  deletionIndexDFList <- list()
+  for(currentAllele in kirAlleleList){
+    ## Pull out the current locus
+    currentLocus <- kir.allele_resolution(currentAllele, 0)
+    
+    if(currentLocus == 'KIR2DL5A' | currentLocus == 'KIR2DL5B'){
+      currentLocus <- 'KIR2DL5'
+    }
+    
+    deletionIndexDFList[[currentAllele]] <- which(kirAlleleDFList[[currentLocus]][currentAllele,] != '.')
+  }
+  return(deletionIndexDFList)
+}
+
+## This function builds the inverse of the deletion indices for each kir allele
+build.inverse_deletion_index_list <- function(kirAlleleList, kirAlleleDFList){
+  cat('\nBuilding up an inverse deletion index for faster lookup during read assignment.')
+  
+  ## Initialize a list for storing deletion position conversions
+  deletionIndexDFList <- list()
+  for(currentAllele in kirAlleleList){
+    ## Pull out the current locus
+    currentLocus <- kir.allele_resolution(currentAllele, 0)
+    
+    if(currentLocus == 'KIR2DL5A' | currentLocus == 'KIR2DL5B'){
+      currentLocus <- 'KIR2DL5'
+    }
+    
+    deletionIndexDFList[[currentAllele]] <- which(kirAlleleDFList[[currentLocus]][currentAllele,] == '.')
+  }
+  return(deletionIndexDFList)
+}
+
+## This function initializes a list of dataframes for storing the assembled nucleotides for each kir locus
+build.assembled_nuc_list <- function(kirLocusList, kirAlleleDFList){
+  assembledNucList <- list()
+  for(currentLocus in kirLocusList){
+    refSeqDF <- data.frame(matrix(0, 5, ncol(kirAlleleDFList[[currentLocus]])), check.names=F, stringsAsFactors=F)
+    assembledNucList[[currentLocus]] <- as.data.table(refSeqDF)
+  }
+  return(assembledNucList)
+}
+
+## This function adds single read information to the assembled nuc list
+build.add_read_to_assembly <- function(assembledNucList, samSubsetTable, delIndexDFList, inverseDeletionIndexDFList, kirAlleleDFList, nucListConv, currentLocus){
+
+  ## Pull out the first reference allele name 
+  refAlleleName <- samSubsetTable$reference_name[[1]]
+
+  ## Pull out the the first reference allele position
+  refAllelePos <- as.integer(samSubsetTable[1,4][[1]])
+
+  ## Pull out the current read sequence
+  currentReadSeq <- samSubsetTable[1,10][[1]]
+
+  ## Store the length of the sequence
+  currentReadLen <- nchar(currentReadSeq)
+
+  ## Establish the starting position, accounting for deletions
+  delStartOffset <- deletionIndexDFList[[refAlleleName]][refAllelePos]
+  
+  ## Establish the ending position, accounting for deletions
+  delEndOffset <- deletionIndexDFList[[refAlleleName]][refAllelePos+currentReadLen-1]
+
+  ## Testing if there deletions found in the reference for the current read
+  if((delEndOffset-delStartOffset+1) > currentReadLen){
+
+    delIndexList <- which(delStartOffset:delEndOffset %in% inverseDeletionIndexDFList[[refAlleleName]])
+    
+    ## If the index list is empty, something went wrong
+    if(length(delIndexList) == 0){
+      stop('Something weird happened with the deletion index.')
+    }
+    
+    ## Split apart the read sequence and add in deletion symbols
+    subStringList <- c()
+    for(delIndex in delIndexList){
+      preString <- substr(currentReadSeq, 1, delIndex-1)
+      postString <- substr(currentReadSeq, delIndex, nchar(currentReadSeq))
+      
+      currentReadSeq <- paste0(preString, '.', postString)
+    }
+  }
+
+  ## Create a full index that cooresponds to the sequence nucleotides and where they go
+  fullIndex <- delStartOffset:delEndOffset
+  
+  ## Turn the sequence string into a list
+  seqList <- strsplit(currentReadSeq,'')[[1]]
+  
+  names(seqList) <- fullIndex
+  
+  sequenceToInsert <- seqList[unique(names(seqList))]
+  depthTable <- table(fullIndex)
+  
+  if(length(sequenceToInsert) != length(depthTable)){
+    stop('The length of the depth table and the sequence table do not match up')
+  }
+  
+  if(!all(names(sequenceToInsert) %in% names(depthTable))){
+    stop('The names of the depth table and sequence table do not match up')
+  }
+  
+  for(pos in names(sequenceToInsert)){
+    rowNum <- nucListConv[[sequenceToInsert[pos]]]
+    assembledNucList[[currentLocus]][rowNum,pos] <- as.integer(assembledNucList[[currentLocus]][rowNum,pos]) + 1
+  }
+  return(assembledNucList)
+}
+
+## This function takes in the assembly and determines which positions pass the depthThreshold
+build.good_coord_bad_coord_list <- function(kirLocusList,assembledNucList,depthThreshold){
+  
+  ## Figure out which positions are above or below the set depthThreshold for each locus
+  cat('\nDetermining what proportion of each locus is above the depth threshold.')
+  allLocusGoodCoords <- list()
+  allLocusBadCoords <- list()
+  for(currentLocus in kirLocusList){
+    
+    ## Pull out the assembly for the current locus
+    currentLocusAssembly <- assembledNucList[[currentLocus]]
+    
+    ## Mark above depth coords as positions that have depth above or equal to the depthThreshold
+    aboveDepthCoords <- colnames(currentLocusAssembly)[apply(currentLocusAssembly, 2, sum) >= depthThreshold]
+    
+    ## Do the inverse for below depth coords
+    belowDepthCoords <- colnames(currentLocusAssembly)[apply(currentLocusAssembly, 2, sum) < depthThreshold]
+    
+    ## Put the above depth coords into a list
+    allLocusGoodCoords[[currentLocus]] <- aboveDepthCoords
+    
+    ## Put the below depth coords into a list
+    allLocusBadCoords[[currentLocus]] <- belowDepthCoords
+    filledRatio <- round(length(aboveDepthCoords)/ncol(currentLocusAssembly)*100,1)
+    cat(paste0('\n',currentLocus,': ',filledRatio, '% filled'))
+  }
+  return(list('badCoords'=allLocusBadCoords,'goodCoords'=allLocusGoodCoords))
+}
+
+## This function takes in the assembly and converts depth values to nucleotides
+build.nuc_assembly_frame <- function(assembledNucList, kirLocusList, goodBadCoordList, hetRatio){
+  cat('\nConverting the assembly into a nucleotide frame.')
+  
+  allLocusGoodCoords <- goodBadCoordList$goodCoords
+  
+  allLocusAssemblyList <- list()
+  
+  for(currentLocus in kirLocusList){
+    
+    ## Pull out the assembly for the current locus
+    currentLocusAssembly <- assembledNucList[[currentLocus]]
+    
+    ## Initialize a dataframe for storing the assembled nucleotides
+    currentLocusAssemblyNucDF <- data.frame(matrix('',5,ncol(currentLocusAssembly)),stringsAsFactors=F,check.names=F)
+    colnames(currentLocusAssemblyNucDF) <- colnames(currentLocusAssembly)
+    
+    ## For each coordinate that passes the good call threshold, transfer the nucleotide value(s) to the assembled nucleotide dataframe
+    for(assemblyPos in allLocusGoodCoords[[currentLocus]]){
+      
+      ## Pull out the depth for the current position
+      currentPosReadCount <- currentLocusAssembly[,assemblyPos,drop=F]
+      
+      ## Detemine which nucs pass the hetRatio threshold
+      goodSnps <- (currentPosReadCount/sum(currentPosReadCount))>hetRatio
+      
+      ## If there are no het snps, then fill in the single nuc value
+      if(sum(goodSnps)==1){
+        currentLocusAssemblyNucDF[1,assemblyPos] <- rownames(currentPosReadCount)[goodSnps]
+      }else{
+        
+        ## Otherwise fill in the het snps
+        currentLocusAssemblyNucDF[1:sum(goodSnps),assemblyPos] <- rownames(currentPosReadCount)[goodSnps]
+      }
+    }
+    
+    ## If there are any positions with 3 SNP calls, stop the program for investigation
+    if(sum(currentLocusAssemblyNucDF[3,] != '')>0){
+      stop('Found a position with more than 3 SNP calls')
+    }
+    
+    ## Cut the assembly dataframe down to 2 rows
+    currentLocusAssemblyNucDF <- currentLocusAssemblyNucDF[1:2,]
+    
+    ## Add the current nuc assembly dataframe to the output list of dataframes 
+    allLocusAssemblyList[[currentLocus]] <- currentLocusAssemblyNucDF
+  }
+  return(allLocusAssemblyList)
+}
+
+## Use the determined good alleles to finish off filling in the allLocusNucAssembly
+build.fill_in_remaining_positions_with_good_alleles <- function(currentPresentLoci, allGoodAlleles, kirAlleleDFList,goodBadCoordList, allLocusNucAssembly,copyNumberList){
+  
+  cat('\nUsing the determined good alleles to fill in any remaining unfilled positions.')
+  
+  for(currentLocus in currentPresentLoci){
+    
+    if(currentLocus == 'KIR2DL5'){
+      currentLocusGoodAlleles <- allGoodAlleles[tstrsplit(allGoodAlleles,'*',fixed=T)[[1]] %in% c('KIR2DL5A','KIR2DL5B')]
+    }else{
+      currentLocusGoodAlleles <- allGoodAlleles[tstrsplit(allGoodAlleles,'*',fixed=T)[[1]] == currentLocus]
+    }
+    
+    if(length(currentLocusGoodAlleles)==0){
+      stop('No good alleles found for this locus')
+    }
+    
+    copyNumber <- copyNumberList[[currentLocus]]
+    
+    goodAlleleSequenceDF <- kirAlleleDFList[[currentLocus]][currentLocusGoodAlleles,goodBadCoordList$badCoords[[currentLocus]]]
+    
+    goodAlleleNAllDF <- goodAlleleSequenceDF[,apply(goodAlleleSequenceDF,2,function(x)all(x=='N')),drop=F]
+    
+    if(ncol(goodAlleleNAllDF) != 0){
+      cat('\n',colnames(goodAlleleNAllDF))
+      stop('good alleles all have N for at least one position')
+    }
+    
+    for(colPos in colnames(goodAlleleSequenceDF)){
+      uniqueNucs <- unique(goodAlleleSequenceDF[,colPos])
+      uniqueNucs <- uniqueNucs[uniqueNucs != 'N']
+      
+      if(length(uniqueNucs) > copyNumber){
+        nucTable <- table(goodAlleleSequenceDF[,colPos])
+        uniqueNucs <- names(nucTable)[order(nucTable, decreasing=T)][1:copyNumber]
+      }
+      
+      allLocusNucAssembly[[currentLocus]][1:length(uniqueNucs),colPos] <- uniqueNucs
+    }
+    
+    currentLocusFilledSum <- sum(allLocusNucAssembly[[currentLocus]][1,] != '')
+    currentLocusAllSum <- ncol(allLocusNucAssembly[[currentLocus]])
+    
+    if(currentLocusFilledSum != currentLocusAllSum){
+      stop('Not all positions were filled in!')
+    }
+  }
+  
+  return(allLocusNucAssembly)
+}
+
+## This function compares the nuc assembly to known alleles to try and find the closest allele matches for each locus
+run.find_allele_matches_for_assembly <- function(allLocusNucAssembly,currentPresentLoci,kirAlleleDFList,copyNumberList){
+  
+  cat('\nUsing the assembly to find the closest matching alleles for each locus')
+  
+  ## Initializing lists for storing the mismatch flexibility for each locus for both heterozygous and homozygous position allele matching
+  locusMinHetDistanceAddition <- list('KIR3DL3' = 4,'KIR2DS2'=4, 'KIR2DL2'=4,'KIR2DL3' = 4,'KIR2DL1' = 2,'KIR2DL4'=4,'KIR3DL1'=4,'KIR3DL2'=4,'KIR2DP1'=3,'KIR3DS1'=2,'KIR2DL5'=4,'KIR2DS5'=4,
+                                      'KIR2DS1' = 4, 'KIR2DS4'=4,'KIR3DP1'=4,'KIR2DS3'=4)
+  
+  locusMinHomDistanceAddition <- list('KIR3DL3' = 4,'KIR2DS2'=4, 'KIR2DL2'=4, 'KIR2DL3' = 4,'KIR2DL1' = 4,'KIR2DL4'=4,'KIR3DL1'=4,'KIR3DL2'=4,'KIR2DP1'=3,'KIR3DS1'=4,
+                                      'KIR2DL5'=99,'KIR2DS5'=9,'KIR2DS1'=1,'KIR2DS4'=4,'KIR3DP1'=4, 'KIR2DS3'=4)
+  
+  allGoodAlleleVector <- c() 
+  for(currentLocus in currentPresentLoci){
+    cat('\n',currentLocus)
+    copyNumber <- copyNumberList[[currentLocus]]
+    currentLocusAssemblyNucDF <- allLocusNucAssembly[[currentLocus]]
+    
+    ## Pull out the heterozygous coordinates
+    currentLocusHetCoords <- colnames(currentLocusAssemblyNucDF)[currentLocusAssemblyNucDF[2,] != '']
+    
+    ## Pull out the homozygous coordinates
+    currentLocusHomCoords <- setdiff(colnames(currentLocusAssemblyNucDF)[currentLocusAssemblyNucDF[1,] != ''], currentLocusHetCoords)
+    
+    ## Create a dataframe of the het coords
+    currentLocusHetSnpDF <- currentLocusAssemblyNucDF[,currentLocusHetCoords,drop=F]
+    
+    ## Create a dataframe of the hom coords
+    currentLocusHomSnpDF <- currentLocusAssemblyNucDF[,currentLocusHomCoords,drop=F]
+    
+    cat('\nNumber of het positions:',length(currentLocusHetCoords))
+    cat('\nNumber of hom positions:',length(currentLocusHomCoords))
+    
+    ## Initializing a list of possible alleles / allele combinations (for heterozygous loci)
+    possibleAlleles <- rownames(kirAlleleDFList[[currentLocus]])
+    #possibleAlleles <- rownames(kirAlleleDFList[[currentLocus]])[apply(kirAlleleDFList[[currentLocus]]=='N', 1, sum) < 4000]
+    
+    
+    #for(currentLocus in kirLocusList){
+    #  cat('\n',currentLocus)
+    #  print(table(apply(kirAlleleDFList[[currentLocus]]=='N', 1, sum)))
+    #}
+    
+    ## If there are more than 1 copies of this locus, then generate all possible 2-allele combinations
+    if(copyNumber>1){
+      
+      ## Generate all 2-allele combinations
+      possibleAlleleComboDF <- combinations(length(possibleAlleles),2,possibleAlleles)
+      
+      ## Initialize a list for storing the combinations once they have been merged
+      possibleAlleleList <- c()
+      
+      ## For each allele combination, merged the two columns into a single string
+      for(rowNum in 1:nrow(possibleAlleleComboDF)){
+        possibleAlleleList <- c(possibleAlleleList, paste0(possibleAlleleComboDF[rowNum,],collapse='+'))
+      }
+    }else{
+      
+      ## If there is only 1 copy of this locus, then set the current locus allele list as all possible alleles
+      possibleAlleleList <- possibleAlleles
+    }
+    
+    ## Initialize a dataframe of the possible alleles, this will be used to judge each possible alleles distance to the assembly
+    possibleAlleleDF <- data.frame(matrix(0,length(possibleAlleleList),2),stringsAsFactors=F,row.names=possibleAlleleList,check.names=F)
+    colnames(possibleAlleleDF) <- c('hetDistance','homDistance')
+    
+    ## Pull out the sequence information for all known allele for this locus
+    allCurrentLocusAlleles <- kirAlleleDFList[[currentLocus]]
+    
+    ## Generate a unique position frame to analyze the homozygous positions (or else it takes forever)
+    allCurrentLocusAllelesUniquePos <- make_unique_pos_frame(allCurrentLocusAlleles)
+    
+    ## intersect the coordinates between the newly generated unique position frame and the homozygous coords from the assembly
+    uniquePosHetCoords <- intersect(colnames(allCurrentLocusAllelesUniquePos),currentLocusHetCoords)
+    
+    cat('\nComparing',length(uniquePosHetCoords),'het positions from the assembly to',nrow(possibleAlleleDF),'known alleles/allele combinations')
+    for(alleleCombo in rownames(possibleAlleleDF)){
+      
+      if(copyNumber>1){
+        alleleVector <- strsplit(alleleCombo,'+',fixed=T)[[1]]
+      }else{
+        alleleVector <- alleleCombo
+      }
+      
+      for(hetPos in uniquePosHetCoords){
+        possibleSnpVect <- allCurrentLocusAlleles[alleleVector,hetPos]
+        assembledSnpVect <- currentLocusHetSnpDF[,hetPos]
+        
+        possibleAlleleDF[alleleCombo,'hetDistance'] <- as.integer(possibleAlleleDF[alleleCombo,'hetDistance']) + sum(!(assembledSnpVect %in% possibleSnpVect))
+      }
+    }
+    
+    ## Keep all allele combos that score within 5 of the best score (lower is better)
+    possibleAlleleList <- rownames(possibleAlleleDF)[possibleAlleleDF$hetDistance <= min(possibleAlleleDF$hetDistance)+locusMinHetDistanceAddition[[currentLocus]]]
+    
+    ## Subset the possible allele DF by these new allele combos
+    possibleAlleleDF <- possibleAlleleDF[possibleAlleleList,]
+    
+    ## intersect the coordinates between the newly generated unique position frame and the homozygous coords from the assembly
+    uniquePosHomCoords <- intersect(colnames(allCurrentLocusAllelesUniquePos),currentLocusHomCoords)
+    
+    cat('\nComparing',length(uniquePosHomCoords),'hom positions from the assembly to',nrow(possibleAlleleDF),'known alleles/allele combinations')
+    for(alleleCombo in rownames(possibleAlleleDF)){
+      
+      if(copyNumber > 1){
+        alleleVector <- strsplit(alleleCombo,'+',fixed=T)[[1]]
+      }else{
+        alleleVector <- alleleCombo
+      }
+      
+      #alleleComboHetCoords <- colnames(allCurrentLocusAlleles)[apply(allCurrentLocusAlleles[alleleVector,],2,num_unique_nuc)>1]
+      if(copyNumber>1){
+        possibleAlleleDF[alleleCombo,2] <- sum(apply(allCurrentLocusAllelesUniquePos[alleleVector,uniquePosHomCoords] != currentLocusAssemblyNucDF[c(1,1),uniquePosHomCoords],2,sum))
+      }else{
+        possibleAlleleDF[alleleCombo,2] <- sum(apply(allCurrentLocusAllelesUniquePos[alleleVector,uniquePosHomCoords] != currentLocusAssemblyNucDF[1,uniquePosHomCoords],2,sum))
+      }
+    }
+    
+    ## Keep all allele combos that score within 5 of the best score (lower is better)
+    possibleAlleleList <- rownames(possibleAlleleDF)[possibleAlleleDF$homDistance <= min(possibleAlleleDF$homDistance)+locusMinHomDistanceAddition[[currentLocus]]]
+    
+    ## Subset the possible allele DF by these new allele combos
+    possibleAlleleDF <- possibleAlleleDF[possibleAlleleList,]
+    
+    ## Pull out the remaining alleles and separate them if needed
+    if(copyNumber > 1){
+      currentLocusGoodAlleles <- unique(unlist(sapply(rownames(possibleAlleleDF),tstrsplit,'+',fixed=T)))
+    }else{
+      currentLocusGoodAlleles <- rownames(possibleAlleleDF)
+    }
+    
+    ## Add the good alleles to the output list
+    allGoodAlleleVector <- c(allGoodAlleleVector, currentLocusGoodAlleles)
+  }
+  
+  return(allGoodAlleleVector)
+}
+
+## This function writes the final assembly to a fasta file
+run.convert_assembly_to_fasta <- function(currentPresentLoci, copyNumberList, allLocusNucAssembly, currentSample, assembledReferenceDirectory){
+  cat('\nWriting the assembly to a fasta file.')
+  
+  ## Setting all of the important file paths
+  currentSample$assembledRefPath <- file.path(assembledReferenceDirectory,paste0(currentSample$name,'assembled.fasta'))
+  currentSample$assembledRefIndex <- file.path(assembledReferenceDirectory,paste0(currentSample$name,'assembled'))
+  currentSample$assembledBedPath <- file.path(assembledReferenceDirectory,paste0(currentSample$name,'assembled.bed'))
+  currentSample$assembledDelIndex <- file.path(assembledReferenceDirectory, paste0(currentSample$name,'assembled_deletion.index'))
+  
+  ## Initializing a list to store the deletion indices (which we will be removing when converting to fasta)
+  assemblyDelIndexList <- list()
+  
+  ## Initializing a dataframe to store all the sequences that will be written to the fasta file
+  allLocusSequenceDF <- data.frame(matrix('',sum(unlist(copyNumberList)),2),stringsAsFactors=F,check.names=F)
+  
+  ## Initializing a counter to know which row of the dataframe we are writing to
+  currentRow <- 1
+  for(currentLocus in currentPresentLoci){
+    
+    ## Pull out the copy number for the current locus
+    copyNumber <- copyNumberList[[currentLocus]]
+    
+    ## Pull out the nucleotide assembly for the current locus
+    currentLocusAssembly <- allLocusNucAssembly[[currentLocus]]
+    
+    ## If there is more than 1 copy for this locus, then we will write 2 sequences for this locus
+    if(copyNumber > 1){
+      
+      ## Figure out which columns of row 2 are empty (this initially held het nucs, but now we want it all filled out)
+      emptyCols <- colnames(currentLocusAssembly)[currentLocusAssembly[2,] == '']
+      
+      ## Fill in the empty row 2 columns with the nucs from row 1
+      currentLocusAssembly[2,emptyCols] <- currentLocusAssembly[1,emptyCols]
+      
+      ## Figure out which columns in row 1 have deletions
+      delIndices1 <- colnames(currentLocusAssembly[1,currentLocusAssembly[1,] == '.',drop=F])
+      
+      ## Figure out which columns in row 2 have deletions
+      delIndices2 <- colnames(currentLocusAssembly[2,currentLocusAssembly[2,] == '.',drop=F])
+      
+      ## If there are deletions in row 1, then we want to store those positions in the delIndexList
+      if(length(delIndices1) > 0){
+        assemblyDelIndexList[[paste0(currentLocus,'_build1')]] <- c(assemblyDelIndexList[[currentLocus]], delIndices)
+        
+        ## Write over the deletion positions with empty space
+        currentLocusAssembly[1,currentLocusAssembly[1,] == '.'] <- ''
+      }
+      
+      ## If there are deletions in row 2, then we want to store those positions in the delIndexList
+      if(length(delIndices2) > 0){
+        assemblyDelIndexList[[paste0(currentLocus,'_build2')]] <- c(assemblyDelIndexList[[currentLocus]], delIndices)
+        
+        ## Write over the deletion positions with empty space
+        currentLocusAssembly[2,currentLocusAssembly[2,] == '.'] <- ''
+      }
+      
+      ## Merge the nucs from row 1 into a single string
+      sequence1 <- paste0(currentLocusAssembly[1,], collapse='')
+      
+      ## Merge the nucs from row 2 into a single string
+      sequence2 <- paste0(currentLocusAssembly[2,], collapse='')
+      
+      ## Give the nuc string a name according to what locus it is, and store it in the dataframe
+      allLocusSequenceDF[currentRow,1] <- paste0('>',currentLocus,'_build1')
+      allLocusSequenceDF[currentRow,2] <- sequence1
+      
+      ## Do the same for the second sequence
+      allLocusSequenceDF[(currentRow+1),1] <- paste0('>',currentLocus,'_build2')
+      allLocusSequenceDF[(currentRow+1),2] <- sequence2
+      
+      ## iterate the rows by 2 since we placed 2 sequence builds in the dataframe
+      currentRow <- currentRow + 2
+    }else{
+      
+      ## Figure out which columns in row 1 have deletions
+      delIndices <- colnames(currentLocusAssembly[1,currentLocusAssembly[1,] == '.',drop=F])
+      
+      ## If there are deletions in row 1, then we want to store those positions in the delIndexList
+      if(length(delIndices) > 0){
+        assemblyDelIndexList[[paste0(currentLocus,'_build1')]] <- c(assemblyDelIndexList[[currentLocus]], delIndices)
+        
+        ## Overwrite the del positions with empty space
+        currentLocusAssembly[1,delIndices] <- ''
+      }
+      
+      ## Collapse the sequence into a single string
+      sequence1 <- paste0(currentLocusAssembly[1,], collapse='')
+      
+      ## Give the sequence a name based on the current locus and write both to the dataframe
+      allLocusSequenceDF[currentRow,1] <- paste0('>',currentLocus,'_build1')
+      allLocusSequenceDF[currentRow,2] <- sequence1
+      
+      ## Iterate the row count by 1 since we placed 1 sequence build in the dataframe
+      currentRow <- currentRow + 1
+    }
+  }
+  
+  ## Use the sequence string information to make a bed file
+  allLocusBedDF <- data.frame(matrix('',nrow(allLocusSequenceDF),3),stringsAsFactors=F,check.names=F)
+  allLocusBedDF[,1] <- allLocusSequenceDF[,1]
+  allLocusBedDF[,2] <- 0
+  allLocusBedDF[,3] <- nchar(allLocusSequenceDF[,2])
+  
+  allLocusBedDF[,1] <- tstrsplit(allLocusBedDF[,1],'>',fixed=T)[[2]]
+  
+  ## Write the deletion indices to a text file for easy read in later
+  run.write_list(assemblyDelIndexList, currentSample$assembledDelIndex)
+  
+  ## Write the fasta file and bed file
+  write.table(allLocusSequenceDF,file=currentSample$assembledRefPath,col.names=F,row.names=F,sep='\n',quote=F)
+  write.table(allLocusBedDF,file=currentSample$assembledBedPath,col.names=F,row.names=F,sep=' ',quote=F)
+  
+  ## Return the sample object with the new file paths filled out
+  return(currentSample)
+}
+
+## This function runs a bowtie2 alignment
+run.bowtie2_assembly_alignment <- function(bowtie2_command, reference_index, threads, currentSample, assembledReferenceDirectory){
+  ## Intitialize an output path for the SAM file
+  currentSample$assembledSamPath <- file.path(assembledReferenceDirectory,paste0(currentSample$name,'.sam'))
+  
+  ## Building up the run command
+  optionsCommand <- c(paste0('-x ',reference_index),
+                      '-5 3', '-3 7', '--end-to-end', paste0('-p ',threads), '--score-min "L,0,-0.187"',
+                      '-I 75', '-X 1000',
+                      paste0('-1 ',currentSample$fastq1path),
+                      paste0('-2 ',currentSample$fastq2path),
+                      '-a',paste0('-S ',currentSample$assembledSamPath))
+  
+  ## Run the bowtie2 alignment command
+  cat('\n\n',bowtie2_command,optionsCommand)
+  output.sampleAlign <- system2(bowtie2_command, optionsCommand, stdout=T, stderr=T)
+  check.system2_output(output.sampleAlign, 'bowtie2 gc alignment failed')
+  
+  ## Print the bowtie2 output
+  cat('\n',paste0(output.sampleAlign, collapse='\n'))
+  
+  ## Check to make sure the SAM file actually exists
+  currentSample$assembledSamPath <- normalizePath(currentSample$assembledSamPath, mustWork=T)
+  
+  cat('\n\nSuccessfully aligned',currentSample$name,'to',reference_index)
+  
+  return(output.sampleAlign)
+}
+
+
+## This function takes in a list and writes it to a text file
+run.write_list <- function(listToWrite, filePath){
+  firstLineBool = T
+  
+  for(listElemName in names(listToWrite)){
+    listElem <- listToWrite[[listElemName]]
+    
+    write(listElemName, file=filePath, ncolumns=1, append=!firstLineBool, sep=' ')
+    
+    if(firstLineBool){
+      firstLineBool = F
+    }
+    
+    write(listElem, file=filePath, ncolumns=length(listElem), append=!firstLineBool, sep=' ')
+  }
+  
+  return(filePath)
+}
+
+## This function takes in a text file reads it in as a list (its really only meant to work with run.write_list)
+run.read_list <- function(filePath){
+  filePath <- file.path(assembledReferenceDirectory, paste0(currentSample$name,'assembled_deletion.index'))
+  
+  listToReturn <- list()
+  
+  conn <- file(filePath,open="r")
+  linn <-readLines(conn)
+  
+  for (i in 1:length(linn)){
+    if(i%%2 == 1){
+      elemName <- linn[i]
+    }else{
+      elemValues <- linn[i]
+      listToReturn[[elemName]] <- strsplit(elemValues, ' ', fixed=T)[[1]]
+    }
+  }
+  close(conn)
+  
+  return(listToReturn)
+}
+
+sam_flag_convert <- function(samFlag){
+  flagList <- list(readPaired=F,properPairMapping=F,readUnmapped=F,mateUnmapped=F,
+                   readReverseStrand=F,mateReverseStrand=F,firstInPair=F,secondInPair=F,
+                   notPrimaryAlignment=F,readFailsQualityChecks=F,readIsPcrOrOpticalDuplicate=F,
+                   supplementaryAlignment=F)
+  
+  #read paired (0x1)
+  #read mapped in proper pair (0x2)
+  #read unmapped (0x4)
+  #mate unmapped (0x8)
+  #read reverse strand (0x10)
+  #mate reverse strand (0x20)
+  #first in pair (0x40)
+  #second in pair (0x80)
+  #not primary alignment (0x100)
+  #read fails platform/vendor quality checks (0x200)
+  #read is PCR or optical duplicate (0x400)
+  #supplementary alignment (0x800)
+  
+  
+  hexInt <- as.integer(samFlag)
+  
+  if(hexInt >= 2048){
+    hexInt <- hexInt - 2048
+    flagList$supplementaryAlignment <- T
+  }
+  
+  if(hexInt >= 1024){
+    hexInt <- hexInt - 1024
+    flagList$readIsPcrOrOpticalDuplicate <- T
+  }
+  
+  if(hexInt >= 512){
+    hexInt <- hexInt - 512
+    flagList$readFailsQualityChecks <- T
+  }
+  
+  if(hexInt >= 256){
+    hexInt <- hexInt - 256
+    flagList$notPrimaryAlignment <- T
+  }
+  
+  if(hexInt >= 128){
+    hexInt <- hexInt - 128
+    flagList$secondInPair <- T
+  }
+  
+  if(hexInt >= 64){
+    hexInt <- hexInt - 64
+    flagList$firstInPair <- T
+  }
+  
+  if(hexInt >= 32){
+    hexInt <- hexInt - 32
+    flagList$mateReverseStrand <- T
+  }
+  
+  if(hexInt >= 16){
+    hexInt <- hexInt - 16
+    flagList$readReverseStrand <- T
+  }
+  
+  if(hexInt >= 8){
+    hexInt <- hexInt - 8
+    flagList$mateUnmapped <- T
+  }
+  
+  if(hexInt >= 4){
+    hexInt <- hexInt - 4
+    flagList$readUnmapped <- T
+  }
+  
+  if(hexInt >= 2){
+    hexInt <- hexInt - 2
+    flagList$properPairMapping <- T
+  }
+  
+  if(hexInt >= 1){
+    hexInt <- hexInt - 1
+    flagList$readPaired <- T
+  }
+  
+  return(flagList)
+}
+
+## Condenses allele fram into only positions that have multiple nucleotides
+make_unique_pos_frame <- function(pos_frame){
+  num_unique <- lapply(pos_frame, num_unique_nuc)
+  unique_pos_frame <- pos_frame[,names(num_unique[num_unique > 1]), drop=F]
+  return(unique_pos_frame)
+}
+
+## Returns boolean
+is_nuc <- function(chr){
+  nuc_list <- c('A', 'T', 'C', 'G', '.')
+  return(as.character(chr) %in% nuc_list)
+}
+
+## Counts how many unique nucleotides are in a vector
+num_unique_nuc <- function(vector_to_check){
+  return(sum(is_nuc(names(table(vector_to_check)))))
+}
+
+nucMatching <- function(x,assemblyRownames){
+  return(assemblyRownames[x])
+}
+
+nucListConv <- list('A'=1,
+                    'T'=2,
+                    'C'=3,
+                    'G'=4,
+                    '.'=5)
+
+
+kirExonCoords <- list('KIR3DP1'=list('5UTR'=1:267,'E1'=268:301,'I1'=302:1323,'E2'=1324:1359,
+                                     'I2'=1360:2117,'E3'=2118:2402,'I3'=2403:3852,'E4'=3853:4152,
+                                     'I4'=4153:5679,'E5'=5680:5973,'3UTR'=5974:5982),
+                      'KIR2DS5'=list('5UTR'=1:268,'E1'=269:304,'I1'=305:1799,'E2'=1800:1835,
+                                     'I2'=1836:2562,'E3'=2563:2844,'I3'=2845:4279,'E4'=4280:4579,
+                                     'I4'=4580:6107,'E5'=6108:6401,'I5'=6402:9554,'E6'=9555:9605,
+                                     'I6'=9606:13870,'E7'=13871:13975,'I7'=13976:14437,'E8'=14438:14490,
+                                     'I8'=14491:14588,'E9'=14589:14630,'3UTR'=14631:15275),
+                      'KIR2DL3'=list('5UTR'=1:268,'E1'=269:302,'I1'=303:1229,'E2'=1230:1265,
+                                     'I2'=1266:1992,'E3'=1993:2274,'I3'=2274:3702,'E4'=3703:4002,
+                                     'I4'=4003:5520,'E5'=5521:5814,'I5'=5815:9095,'E6'=9096:9146,
+                                     'I6'=9147:13411,'E7'=13412:13516,'I7'=13517:13978,'E8'=13979:14031,
+                                     'I8'=14032:14129,'E9'=14130:14282,'3UTR'=14283:14816),
+                      'KIR2DP1'=list('5UTR'=1:267,'E1'=268:301,'I1'=302:1358,'E2'=1359:1394,
+                                     'I2'=1395:2119,'E3'=2120:2401,'I3'=2402:3854,'E4'=3855:4153,
+                                     'I4'=4154:5679,'E5'=5680:5973,'I5'=5974:9141,'E6'=9142:9192,
+                                     'I6'=9193:11728,'E7'=11729:11833,'I7'=11834:12295,'E8'=12296:12348,
+                                     'I8'=12349:12446,'E9'=12447:12623,'3UTR'=12624:13133),
+                      'KIR2DS3'=list('5UTR'=1:300,'E1'=301:334,'I1'=335:1639,'E2'=1640:1675,
+                                     'I2'=1676:2402,'E3'=2403:2684,'I3'=2685:4118,'E4'=4119:4418,
+                                     'I4'=4419:5937,'E5'=5938:6231,'I5'=6232:9384,'E6'=9385:9435,
+                                     'I6'=9436:13700,'E7'=13701:13805,'I7'=13806:14267,'E8'=14268:14320,
+                                     'I8'=14321:14418,'E9'=14419:14460,'3UTR'=14461:15105),
+                      'KIR2DS2'=list('5UTR'=1:300,'E1'=301:334,'I1'=335:1126,'E2'=1127:1162,
+                                     'I2'=1163:1889,'E3'=1890:2170,'I3'=2171:3598,'E4'=3599:3898,
+                                     'I4'=3899:5416,'E5'=5417:5710,'I5'=5711:8879,'E6'=8880:8930,
+                                     'I6'=8931:13196,'E7'=13197:13301,'I7'=13302:13763,'E8'=13764:13816,
+                                     'I8'=13817:13914,'E9'=13915:13956,'3UTR'=13957:14580),
+                      'KIR2DL4'=list('5UTR'=1:267,'E1'=268:307,'I1'=308:506,'E2'=507:542,
+                                     'I2'=543:1476,'E3'=1477:1761,'I3'=1762:2497,'I4'=2498:2640,
+                                     'E5'=2641:2934,'I5'=2935:5529,'E6'=5530:5580,'I6'=5581:9824,
+                                     'E7'=9825:9929,'I7'=9930:10390,'E8'=10391:10443,'I8'=10444:10542,
+                                     'E9'=10543:10812,'3UTR'=10813:11219),
+                      'KIR3DL3'=list('5UTR'=1:321,'E1'=322:357,'I1'=358:1071,'E2'=1072:1107,
+                                     'I2'=1108:1877,'E3'=1878:2162,'I3'=2163:3435,'E4'=3436:3735,
+                                     'I4'=3736:5317,'E5'=5318:5611,'I5'=5612:7212,'I6'=7213:11086,
+                                     'E7'=11087:11191,'I7'=11192:11653,'E8'=11654:11706,'I8'=11707:11804,
+                                     'E9'=11805:11930,'3UTR'=11931:12491),
+                      'KIR3DL1'=list('5UTR'=1:267,'E1'=268:301,'I1'=302:1323,'E2'=1324:1359,
+                                     'I2'=1360:2104,'E3'=2105:2389,'I3'=2390:3502,'E4'=3503:3802,
+                                     'I4'=3803:5354,'E5'=5355:5648,'I5'=5649:8820,'E6'=8821:8871,
+                                     'I6'=8871:15550,'E7'=15551:15655,'I7'=15656:16118,'E8'=16119:16171,
+                                     'I8'=16172:16290,'E9'=16291:16467,'3UTR'=16468:16977),
+                      'KIR3DS1'=list('5UTR'=1:479,'E1'=480:513,'I1'=514:1513,'E2'=1514:1549,
+                                     'I2'=1550:2293,'E3'=2294:2578,'I3'=2579:4066,'E4'=4067:4366,
+                                     'I4'=4367:5946,'E5'=5947:6240,'I5'=6241:9410,'E6'=9411:9461,
+                                     'I6'=9462:13741,'E7'=13742:13847,'I7'=13848:14309,'E8'=14310:14360,
+                                     'I8'=14361:14458,'E9'=14459:14466,'3UTR'=14467:15145),
+                      'KIR2DL2'=list('5UTR'=1:300,'E1'=301:334,'I1'=335:1242,'E2'=1243:1278,
+                                     'I2'=1279:2015,'E3'=2016:2296,'I3'=2297:3724,'E4'=3725:4024,
+                                     'I4'=4025:5538,'E5'=5539:5832,'I5'=5833:9111,'E6'=9112:9162,
+                                     'I6'=9163:13427,'E7'=13428:13529,'I7'=13530:13991,'E8'=13992:14044,
+                                     'I8'=14045:14142,'E9'=14143:14319,'3UTR'=14320:14829),
+                      'KIR3DL2'=list('5UTR'=1:268,'E1'=269:302,'I1'=303:1031,'E2'=1032:1067,
+                                     'I2'=1068:1809,'E3'=1810:2094,'I3'=2095:3558,'E4'=3559:3858,
+                                     'I4'=3859:5437,'E5'=5438:5731,'I5'=5732:8898,'E6'=8899:8949,
+                                     'I6'=8950:15632,'E7'=15633:15737,'I7'=15738:16197,'E8'=16198:16250,
+                                     'I8'=16251:16349,'E9'=16350:16559,'3UTR'=16560:17044),
+                      'KIR2DS4'=list('5UTR'=1:267,'E1'=268:301,'I1'=302:2683,'E2'=2684:2719,
+                                     'I2'=2720:3446,'E3'=3447:3728,'I3'=3729:5180,'E4'=5181:5480,
+                                     'I4'=5481:7032,'E5'=7033:7326,'I5'=7327:10495,'E6'=10496:10546,
+                                     'I6'=10547:14813,'E7'=14814:14918,'I7'=14919:15380,'E8'=15381:15433,
+                                     'I8'=15434:15531,'E9'=15532:15573,'3UTR'=15574:16197),
+                      'KIR2DL1'=list('5UTR'=1:268,'E1'=269:302,'I1'=303:1266,'E2'=1267:1302,
+                                     'I2'=1303:2030,'E3'=2031:2312,'I3'=2313:3753,'E4'=3754:4053,
+                                     'I4'=4054:5587,'E5'=5588:5881,'I5'=5882:9037,'E6'=9038:9088,
+                                     'I6'=9089:13357,'E7'=13358:13459,'I7'=13460:13921,'E8'=13922:13974,
+                                     'I8'=13975:14072,'E9'=14073:14249,'3UTR'=14250:14759),
+                      'KIR2DS1'=list('5UTR'=1:267,'E1'=268:301,'I1'=302:1265,'E2'=1266:1301,
+                                     'I2'=1302:2028,'E3'=2029:2310,'I3'=2311:3749,'E4'=3750:4049,
+                                     'I4'=4050:5574,'E5'=5575:5868,'I5'=5869:9022,'E6'=9023:9073,
+                                     'I6'=9074:13336,'E7'=13337:13441,'I7'=13442:13903,'E8'=13904:13956,
+                                     'I8'=13957:14054,'E9'=14055:14096,'3UTR'=14097:14720),
+                      'KIR2DL5'=list('5UTR'=1:547,'E1'=548:581,'I1'=582:1451,'E2'=1452:1487,
+                                     'I2'=1488:2249,'E3'=2250:2534,'I3'=2535:3277,'I4'=3278:3409,
+                                     'E5'=3410:3703,'I5'=3704:5875,'E6'=5876:5926,'I6'=5927:8692,
+                                     'E7'=8693:8797,'I7'=8797:9259,'E8'=9260:9312,'I8'=9313:9412,
+                                     'E9'=9413:9682,'3UTR'=9683:10097))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  

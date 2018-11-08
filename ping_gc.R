@@ -1,28 +1,31 @@
+.libPaths("/home/wmarin/R/x86_64-redhat-linux-gnu-library/3.4")
 library(data.table)
 library(ggplot2)
 library(stringr)
 library(methods)
-library(plotly)
+library(pryr)
+#library(plotly)
+
 
 
 source('Resources/gc_functions.R')
 
 
 ########## INPUT variables
-setwd('/home/wmarin/PING_projects/PING2/')
-sampleDirectory <- '/home/common_arse/INDIGO/2_KIR_runs_extracted/ALL_batches/'
-fastqPattern <- 'fastq'
-threads <- 12
-resultsDirectory <- 'indigo_ALL_batches'
-KIR3DL3MinReadThreshold <- 100
-maxReadThreshold <- 30000
-probelistFile <- 'probelist_2018_08_02.csv'
+#setwd('/home/wmarin/PING_projects/PING2/')
+#sampleDirectory <- '/home/common_arse/INDIGO/2_KIR_runs_extracted/indigo_plates1-4_extracted_8-5-17/'
+#fastqPattern <- 'fastq'
+#threads <- 12
+#resultsDirectory <- 'indigo_filled_one_mismatch_kir_results'
+#KIR3DL3MinReadThreshold <- 100
+#maxReadThreshold <- 30000
+#probelistFile <- 'probelist_2018_08_02.csv'
 ###########
 
 ping_gc <- function(sampleDirectory='/home/common_arse/INDIGO/2_KIR_runs_extracted/ALL_batches/',
                     fastqPattern='fastq',
-                    threads=12,
-                    resultsDirectory='indigo_ALL_batches',
+                    threads=18,
+                    resultsDirectory='/home/wmarin/PING_projects/PING2/indigo_ALL_batches/',
                     KIR3DL3MinReadThreshold=100,
                     maxReadThreshold=30000,
                     probelistFile='probelist_2018_08_02.csv'){
@@ -42,6 +45,7 @@ kirReferenceIndex <- file.path(gcResourceDirectory,'filled_kir_reference','KIR_g
 
 kirAlleleList <- read.kir_allele_list_from_reference_fasta(kirReferenceFasta)
 kirAlleleListRes3 <- unique(unlist(lapply(kirAlleleList, kir.allele_resolution, 3)))
+kirAlleleListRes5 <- unique(unlist(lapply(kirAlleleList, kir.allele_resolution, 5)))
   
 ## Read in the probelist CSV file as a dataframe
 cat('\n\nReading in the KFF probelist file: ', file.path(gcResourceDirectory, probelistFile))
@@ -55,15 +59,15 @@ kffPresenceProbeNameList <- grep('>', probeDF$Name, fixed=T, value=T)
 kffLociList <- unique(tstrsplit(kffPresenceProbeNameList,'>',fixed=T)[[2]])
   
 ## Check to make sure bowtie2-build is accessible
-#bowtie2Build <- system2('which', c('bowtie2-build'), stdout=T, stderr=T)
-#check.system2_output(bowtie2Build, 'bowtie2-build not found')
+bowtie2Build <- system2('which', c('bowtie2-build'), stdout=T, stderr=T)
+check.system2_output(bowtie2Build, 'bowtie2-build not found')
   
 ## Creqte a bowtie2 index for the kir_reference.fasta file
 #createIndex <- system2(bowtie2Build, c(fullKirReferenceFasta, fullKirReferenceIndex))
 #check.system2_output(createIndex, 'bowtie2 index building failed')
   
 ## Building a list of sample objects from files in sampleDirectory that match fastqPattern
-sampleList <- build.paired_sample_objects(sampleDirectory,fastqPattern)
+sampleList <- build.paired_sample_objects(sampleDirectory,fastqPattern,resultsDirectory)
   
 ## Check to make sure bowtie2is accessible
 bowtie2 <- system2('which', c('bowtie2'), stdout=T, stderr=T)
@@ -161,11 +165,12 @@ for(currentSample in sampleList[sampleStart:length(sampleList)]){
     
   cat('\n\nFinished with presence/absence determination, moving to copy number determination.')
     
-  ## Fill in the path to the alignment file (it may or may not be present)
+  ### Fill in the path to the alignment file (it may or may not be present)
   currentSample$gcSamPath <- file.path(resultsDirectory,paste0(currentSample$name,'.sam'))
     
   ## If the alignment file does not exist, then run bowtie2 alignment, otherwise continue
   if(!file.exists(currentSample$gcSamPath)){
+    cat('\n\nCurrent used memory: ', mem_used())
     cat('\n\nPerforming bowtie2 alignment for this sample.')
     sampleAlign <- run.bowtie2_gc_alignment(bowtie2, kirReferenceIndex, threads, currentSample, resultsDirectory)
   }else{
@@ -189,6 +194,8 @@ for(currentSample in sampleList[sampleStart:length(sampleList)]){
   ## Write the results to a csv file
   write.csv(locusCountDF, file = file.path(resultsDirectory, 'locusCountFrame.csv'))
   write.csv(alleleCountDF, file = file.path(resultsDirectory, 'alleleCountFrame.csv'))
+  
+  rm(samTable)
 }
 
 cat('\n\n----- Finished with alignment! -----')
@@ -212,3 +219,4 @@ locusRatioDF <- as.data.frame(locusRatioDF)
 cat('\nGenerating copy number graphs... ')
 run.generate_copy_number_graphs(locusRatioDF, kffPresenceDF, kirLocusList, resultsDirectory)
 }
+ping_gc()

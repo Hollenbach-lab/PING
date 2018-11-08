@@ -23,6 +23,11 @@ $RECYCLE.BIN/
 *.msm
 *.msp
 
+filled_*
+danillo*
+allele_threshold*
+copy_number*
+kff_threshold_graphs*
 Sequences/*.fastq
 .Rhistory
 *.csv
