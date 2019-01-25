@@ -279,7 +279,7 @@ read.kir_allele_dataframe_from_reference_fasta <- function(fasta_path, kirLocusL
 }
 
 ## This function counts how many reads map to a unique locus or allele
-run.count_kir_read_matches <- function(currentSample, samTable, maxReadThreshold, kirLocusList, kirAlleleListRes3){
+run.count_kir_read_matches <- function(currentSample, samTable, maxReadThreshold, kirLocusList, kirAlleleList){
   
   ## Pull out the unique read names
   uniqueReadNames <- unique(samTable$read_name)
@@ -289,9 +289,9 @@ run.count_kir_read_matches <- function(currentSample, samTable, maxReadThreshold
   randomUniqueReadNames <- sample(uniqueReadNames)
   
   ## Check if there are more reads than the threshold and take some out if so
-  if(length(randomUniqueReadNames) > maxReadThreshold){
-    randomUniqueReadNames <- randomUniqueReadNames[1:maxReadThreshold]
-  }
+  #if(length(randomUniqueReadNames) > maxReadThreshold){
+  #  randomUniqueReadNames <- randomUniqueReadNames[1:maxReadThreshold]
+  #}
   
   ## Initialize the list for storing reference matches
   uniqueLocusMatchList <- as.list(kirLocusList)
@@ -299,9 +299,9 @@ run.count_kir_read_matches <- function(currentSample, samTable, maxReadThreshold
   uniqueLocusMatchList[kirLocusList] <- 0
   
   ## Initialize the list for storing reference matches
-  uniqueAlleleMatchList <- as.list(kirAlleleListRes3)
-  names(uniqueAlleleMatchList) <- kirAlleleListRes3
-  uniqueAlleleMatchList[kirAlleleListRes3] <- 0
+  uniqueAlleleMatchList <- as.list(kirAlleleList)
+  names(uniqueAlleleMatchList) <- kirAlleleList
+  uniqueAlleleMatchList[kirAlleleList] <- 0
   
   ## Initialize variables to check on the progress of the next for loop
   i = 1
@@ -325,10 +325,12 @@ run.count_kir_read_matches <- function(currentSample, samTable, maxReadThreshold
     matchedAlleleList <- samSubsetTable$reference_name
     
     ## Pull out the res 3 allele names
-    matchedAlleleList <- unique(unlist(lapply(matchedAlleleList, kir.allele_resolution, 3)))
+    #matchedAlleleList <- unique(unlist(lapply(matchedAlleleList, kir.allele_resolution, 3)))
     
     ## Pull out the unique locus names from the matched allele list
-    matchedLocusList <- unique(unlist(lapply(matchedAlleleList, kir.allele_resolution, 0)))
+    matchedLocusList <- unique(samSubsetTable$locus)
+    ## Pull out the unique locus names from the matched allele list
+    #matchedLocusList <- unique(unlist(lapply(matchedAlleleList, kir.allele_resolution, 0)))
     
     ###### This section will count all locus matches (as opposed to only unique locus matches)
     #for(matchedLocus in matchedLocusList){
@@ -341,26 +343,21 @@ run.count_kir_read_matches <- function(currentSample, samTable, maxReadThreshold
     
     ###### This section will count only unique locus matches (as opposed to all locus matches)
     ## If there is only 1 unique locus, then add 1 to the unique match count for that locus
-    if(length(matchedLocusList) <= 2){
+    
+    if(length(matchedLocusList) == 1){
+      uniqueLocusMatchList[matchedLocusList] = uniqueLocusMatchList[matchedLocusList][[1]] + 1
+        
       
-      if(length(matchedLocusList) == 1){
-        
-        ## Special processing for 2DL5 because of the A/B naming scheme
-        if('KIR2DL5A' %in% matchedLocusList | 'KIR2DL5B' %in% matchedLocusList){
-          uniqueLocusMatchList['KIR2DL5'] = uniqueLocusMatchList['KIR2DL5'][[1]] + 1
-        }else{
-          uniqueLocusMatchList[matchedLocusList] = uniqueLocusMatchList[matchedLocusList][[1]] + 1
-        }
-        
-        ## Adding in some special processing for 2DL5 because of the A/B naming scheme
-      }else if('KIR2DL5A' %in% matchedLocusList & 'KIR2DL5B' %in% matchedLocusList){
-        uniqueLocusMatchList['KIR2DL5'] = uniqueLocusMatchList['KIR2DL5'][[1]] + 1
+      
+      ## This will count all allele matches
+      for(matchedAllele in matchedAlleleList){
+        uniqueAlleleMatchList[matchedAllele] = uniqueAlleleMatchList[matchedAllele][[1]] + 1
       }
       
       ## If there is only a single matching reference allele, then iterate the count of that allele
-      if(length(matchedAlleleList) == 1){
-        uniqueAlleleMatchList[matchedAlleleList] = uniqueAlleleMatchList[matchedAlleleList][[1]] + 1
-      }
+      #if(length(matchedAlleleList) == 1){
+      #  uniqueAlleleMatchList[matchedAlleleList] = uniqueAlleleMatchList[matchedAlleleList][[1]] + 1
+      #}
     }
     ###### /s
     
@@ -371,7 +368,7 @@ run.count_kir_read_matches <- function(currentSample, samTable, maxReadThreshold
       cat(paste0(j,'% ', collapse = ''))
     }
   }
-  
+  cat('\n',i)
   cat("\n\nFinished counting!")
   
   ## Cutting the function short for now to test what a good threshold would be

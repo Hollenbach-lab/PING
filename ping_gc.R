@@ -34,7 +34,7 @@ ping_gc <- function(sampleDirectory='',
                     maxReadThreshold=30000,
                     probelistFile='probelist_2018_08_02.csv',
                     predictCopy=T){
-
+  
   kirLocusList <- c('KIR3DP1','KIR2DS5','KIR2DL3','KIR2DP1',
                     'KIR2DS3','KIR2DS2','KIR2DL4','KIR3DL3',
                     'KIR3DL1','KIR3DS1','KIR2DL2','KIR3DL2','KIR2DS4','KIR2DL1', 'KIR2DS1', 'KIR2DL5')
@@ -67,21 +67,21 @@ ping_gc <- function(sampleDirectory='',
   
   ### Pull out all the probe names with '>'
   kffPresenceProbeNameList <- grep('>', probeDF$Name, fixed=T, value=T)
-    
+  
   ### Split the pulled out probe names by '>', then grab all the unique locus names
   kffLociList <- unique(tstrsplit(kffPresenceProbeNameList,'>',fixed=T)[[2]])
-    
+  
   ### Check to make sure bowtie2-build is accessible <- only needed when building a new reference index
   #bowtie2Build <- system2('which', c('bowtie2-build'), stdout=T, stderr=T)
   #check.system2_output(bowtie2Build, 'bowtie2-build not found')
-    
+  
   ## Creqte a bowtie2 index for the kir_reference.fasta file <- only needed when building a new reference index
   #createIndex <- system2(bowtie2Build, c(fullKirReferenceFasta, fullKirReferenceIndex))
   #check.system2_output(createIndex, 'bowtie2 index building failed')
-    
+  
   ### Building a list of sample objects from files in sampleDirectory that match fastqPattern
   sampleList <- build.paired_sample_objects(sampleDirectory,fastqPattern,resultsDirectory)
-    
+  
   ### Check to make sure bowtie2is accessible
   bowtie2 <- system2('which', c('bowtie2'), stdout=T, stderr=T)
   check.system2_output(bowtie2, 'bowtie2 not found')
@@ -144,7 +144,7 @@ ping_gc <- function(sampleDirectory='',
     sampleStart <- 1
   }
   ### /Check
-    
+  
   
   ## Run all samples through bowtie2 gc alignment
   for(currentSample in sampleList[sampleStart:length(sampleList)]){
@@ -152,20 +152,20 @@ ping_gc <- function(sampleDirectory='',
     cat('\n------------------------------------')
     
     cat('\n\nCounting KFF primer matches.')
-      
+    
     ## Count KFF probe matches for the currentSample
     kffCountList <- run.count_kff_probes(currentSample, probeDF, maxReadThreshold)
     kffCountDF[currentSample$name,names(kffCountList)] <- kffCountList 
-      
+    
     ## Write the results to a csv file
     write.csv(kffCountDF, file = file.path(resultsDirectory, 'kffCountFrame.csv'))
-      
+    
     cat('\nNormalizing KFF primer matches.')
-      
+    
     ## Normalize the KFF probe matches by KIR3DL3
     kffNormList <- run.reduce_and_normalize_kff_probes(kffCountList, kffLociList)
     kffNormDF[currentSample$name,names(kffNormList)] <- kffNormList
-      
+    
     ## Write the results to a csv file
     write.csv(kffNormDF, file = file.path(resultsDirectory, 'kffNormFrame.csv'))
     
@@ -177,12 +177,12 @@ ping_gc <- function(sampleDirectory='',
     
     ## Write the results to a csv file
     write.csv(kffPresenceDF, file = file.path(resultsDirectory, 'kffPresenceFrame.csv'))
-      
+    
     cat('\n\nFinished with presence/absence determination, moving to copy number determination.')
-      
+    
     ## Fill in the path to the alignment file (it may or may not be present)
     currentSample$gcSamPath <- file.path(resultsDirectory,paste0(currentSample$name,'.sam'))
-      
+    
     ## If the alignment file does not exist, then run bowtie2 alignment, otherwise continue
     if(!file.exists(currentSample$gcSamPath)){
       cat('\n\nCurrent used memory: ', mem_used())
@@ -191,12 +191,12 @@ ping_gc <- function(sampleDirectory='',
     }else{
       cat('\n\nFound a previous alignment file for this sample, skipping bowtie2 alignment.')
     }
-      
+    
     cat("\nReading in",currentSample$gcSamPath)
-      
+    
     ## Read in the SAM file to analyze where the reads are aligning
     samTable <- read.bowtie2_sam_nohd(currentSample$gcSamPath)
-      
+    
     cat('\nCounting reads that align uniquely to a locus or allele ')
     
     ## Count how many reads align uniquely to a locus or allele
@@ -205,7 +205,7 @@ ping_gc <- function(sampleDirectory='',
     ## Add the counts to the appropriate count dataframe
     locusCountDF[currentSample$name,names(countList$locusMatches)] = countList$locusMatches
     alleleCountDF[currentSample$name,names(countList$alleleMatches)] = countList$alleleMatches
-      
+    
     ## Write the results to a csv file
     write.csv(locusCountDF, file = file.path(resultsDirectory, 'locusCountFrame.csv'))
     write.csv(alleleCountDF, file = file.path(resultsDirectory, 'alleleCountFrame.csv'))
@@ -229,11 +229,11 @@ ping_gc <- function(sampleDirectory='',
   
   ## Only analyze samples that have at least 'KIR3DL3MinReadThreshold' number of unique KIR3DL3 reads
   goodRows <- rownames(locusCountDF[sampleNameList,])[apply(locusCountDF[sampleNameList,], 1, function(x) x['KIR3DL3']>=KIR3DL3MinReadThreshold)]
-    
+  
   ## Keep track of what samples are being discarded
   badRows <- rownames(locusCountDF[sampleNameList,])[apply(locusCountDF[sampleNameList,], 1, function(x) x['KIR3DL3']<KIR3DL3MinReadThreshold)]
   cat('\nSkipping', length(badRows), 'samples that had fewer than',KIR3DL3MinReadThreshold,'KIR3DL3 reads.')
-    
+  
   ## Subset the count dataframe by the samples that were determined to be good, then normalize each locus unique read count by KIR3DL3
   locusRatioDF <- apply(locusCountDF[goodRows,], 2, function(x) x / locusCountDF[goodRows,'KIR3DL3'])
   locusRatioDF <- as.data.frame(locusRatioDF)
@@ -258,5 +258,5 @@ ping_gc <- function(sampleDirectory='',
     cat('\nGenerating copy number graphs... ')
     run.generate_copy_number_graphs(locusRatioDF, kffPresenceDF, kirLocusList, resultsDirectory, locusCountDF)
   }
-
+  
 }
