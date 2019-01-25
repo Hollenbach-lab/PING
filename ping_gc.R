@@ -23,6 +23,9 @@ source('Resources/gc_functions.R')
 #predictCopy <- T
 ###########
 
+ping_gc.version <- '1.0'
+cat('\nPING_gc version:',ping_gc.version)
+
 ping_gc <- function(sampleDirectory='',
                     fastqPattern='fastq',
                     threads=4,
