@@ -401,7 +401,7 @@ kir.allele_resolution <- function(allele_name, res){
 }
 
 ## This function generates copy number graphs
-run.generate_copy_number_graphs <- function(countRatioDF, kffDF, kirLocusList, resultsDirectory){
+run.generate_copy_number_graphs <- function(countRatioDF, kffDF, kirLocusList, resultsDirectory, countDF){
   
   ## Check to see what samples are in both data frames
   samplesInBoth <- intersect(row.names(countRatioDF), row.names(kffDF))
@@ -414,6 +414,7 @@ run.generate_copy_number_graphs <- function(countRatioDF, kffDF, kirLocusList, r
   ## Subset both data frames by the samples found in both
   countRatioDF <- countRatioDF[samplesInBoth,]
   kffDF <- kffDF[samplesInBoth,]
+  countDF <- countDF[samplesInBoth,]
   
   ## Give sample id their own column
   countRatioDF$id <- rownames(countRatioDF)
@@ -435,8 +436,14 @@ run.generate_copy_number_graphs <- function(countRatioDF, kffDF, kirLocusList, r
     ## Initialize neg locus name for currentLocus
     currentNeg <- paste0(currentLocus,'_kff_neg')
     
+    ## Initialize 3DL3 ratio to max 3DL3 count
+    countRatioDF$overall3DL3Ratio <- 0
+    
     ## Set the currentLocus kff presence values
     countRatioDF[samplesInBoth,'kffPresence'] <- kffDF[samplesInBoth,currentLocus]
+    
+    ## Set the 3DL3 ratio to max 3DL3 count
+    countRatioDF[samplesInBoth,'overall3DL3Ratio'] <- countDF[samplesInBoth,'KIR3DL3']/max(countDF[samplesInBoth,'KIR3DL3'])
     
     ## Find the sample id's that match each condition for currentLocus
     currentLocusPresent <- samplesInBoth[countRatioDF[samplesInBoth,'kffPresence'] > 0]
@@ -541,17 +548,23 @@ run.generate_copy_number_graphs <- function(countRatioDF, kffDF, kirLocusList, r
       ## Set no samples names for alternative loci
       altLocusPresent <- currentLocus[0]
       altLocusAbsent <- currentLocus[0]
+      kir3DL3 <- samplesInBoth[countRatioDF[samplesInBoth,'']]
     }
+    kir3DL3RatioToMax <- 'KIR3DL3_ratio_to_max3DL3'
     
     ## Initialize color scheme for plots
-    pal <- c("black", "gray", "red", "pink")
-    pal <- setNames(pal, c(currentLocus, altLocus, currentNeg, altNeg))
+    pal1 <- c("black","red")
+    pal1 <- setNames(pal1, c(currentLocus, currentNeg))
+    
+    pal2 <- c("#d3dcff", "gray", "pink", "red", "black")
+    pal2 <- setNames(pal2, c(kir3DL3RatioToMax, altLocus, altNeg, currentNeg, currentLocus))
     
     ## Set labels for the positive and negative points
-    posPointText <- paste('Sample ID:',countRatioDF[currentLocusPresent,'id'],'$<br>Ratio:',countRatioDF[currentLocusPresent,currentLocus])
-    negPointText <- paste('Sample ID:',countRatioDF[currentLocusAbsent,'id'],'$<br>Ratio:',countRatioDF[currentLocusAbsent,currentLocus])
+    posPointText <- paste('Sample ID:',countRatioDF[currentLocusPresent,'id'],'$<br>Ratio:',countRatioDF[currentLocusPresent,currentLocus],'$<br>3DL3Ratio:',countRatioDF[currentLocusPresent,'overall3DL3Ratio'])
+    negPointText <- paste('Sample ID:',countRatioDF[currentLocusAbsent,'id'],'$<br>Ratio:',countRatioDF[currentLocusAbsent,currentLocus],'$<br>3DL3Ratio:',countRatioDF[currentLocusAbsent,'overall3DL3Ratio'])
     altPosPointText <- paste('Sample ID:',countRatioDF[altLocusPresent,'id'],'$<br>Ratio:',countRatioDF[altLocusPresent,altLocus])
     altNegPointText <- paste('Sample ID:',countRatioDF[altLocusAbsent,'id'],'$<br>Ratio:',countRatioDF[altLocusAbsent,altLocus])
+    kir3DL3RatioText <- paste('Sample ID:',countRatioDF[samplesInBoth,'id'],'$<br>Ratio:',countRatioDF[samplesInBoth,'overall3DL3Ratio'])
     
     ## Set a title for the graph
     currentLocusTitle <- currentLocus
@@ -583,7 +596,7 @@ run.generate_copy_number_graphs <- function(countRatioDF, kffDF, kirLocusList, r
     ## Snippet of code to remove list elements with empty names from the color pallete
     i=1
     removeList = c()
-    for(keyName in names(pal)){
+    for(keyName in names(pal1)){
       if(is.na(keyName)){
         removeList <- c(removeList, i)
       }else if(nchar(keyName)==0){
@@ -592,31 +605,61 @@ run.generate_copy_number_graphs <- function(countRatioDF, kffDF, kirLocusList, r
       i = i+1
     }
     if(length(removeList>0)){
-      pal <- pal[-removeList]
+      pal1 <- pal1[-removeList]
     }
     
+    i=1
+    removeList = c()
+    for(keyName in names(pal2)){
+      if(is.na(keyName)){
+        removeList <- c(removeList, i)
+      }else if(nchar(keyName)==0){
+        removeList <- c(removeList, i)
+      }
+      i = i+1
+    }
+    if(length(removeList>0)){
+      pal2 <- pal2[-removeList]
+    }
+    
+    maxY <- max(c(1,unlist(countRatioDF[samplesInBoth,c(currentLocus,altLocus)])))+0.2
+    
     ## Create the plot
-    p <- plot_ly(colors=pal) %>%
-      add_trace(x=countRatioDF[currentLocusPresent,'ratioRank'],
-                y=countRatioDF[currentLocusPresent,currentLocusTitle],
-                mode='markers',type='scatter',name=currentLocusTitle,color=currentLocusTitle,
-                text=posPointText) %>%
+    p1 <- plot_ly(colors=pal1) %>%
+      add_histogram(y=~countRatioDF[currentLocusPresent,currentLocusTitle],name=currentLocusTitle,
+                    color=currentLocusTitle) %>%
+      add_histogram(y=~countRatioDF[currentLocusAbsent,currentLocus],name=currentNeg,
+                    color=currentNeg) %>%
+      layout(title='KIR3DL3',
+             xaxis=list(title='density',showgrid=F),
+             yaxis=list(title=paste(currentLocus,'/ KIR3DL3 Ratio'),range=c(0,maxY)))
+    
+    p2 <- plot_ly(colors=pal2) %>%
+      add_trace(x=countRatioDF[samplesInBoth,'ratioRank'],
+                y=countRatioDF[samplesInBoth,'overall3DL3Ratio'],
+                mode='markers',type='scatter',name=kir3DL3RatioToMax,color=kir3DL3RatioToMax,
+                text=kir3DL3RatioText) %>%
       add_trace(x=countRatioDF[altLocusPresent, 'ratioRank'],
                 y=countRatioDF[altLocusPresent,altLocus], 
                 mode='markers',type='scatter',name=altLocus,color=altLocus,
                 text=altPosPointText) %>%
-      add_trace(x=countRatioDF[currentLocusAbsent, 'ratioRank'],
-                y=countRatioDF[currentLocusAbsent,currentLocus], 
-                mode='markers',type='scatter',name=currentNeg,color=currentNeg,
-                text=negPointText) %>%
       add_trace(x=countRatioDF[altLocusAbsent,'ratioRank'],
                 y=countRatioDF[altLocusAbsent,altLocus],
                 mode='markers',type='scatter',name=altNeg,color=altNeg,
                 text=altNegPointText) %>%
+      add_trace(x=countRatioDF[currentLocusAbsent, 'ratioRank'],
+                y=countRatioDF[currentLocusAbsent,currentLocus], 
+                mode='markers',type='scatter',name=currentNeg,color=currentNeg,
+                text=negPointText) %>%
+      add_trace(x=countRatioDF[currentLocusPresent,'ratioRank'],
+                y=countRatioDF[currentLocusPresent,currentLocusTitle],
+                mode='markers',type='scatter',name=currentLocusTitle,color=currentLocusTitle,
+                text=posPointText) %>%
       layout(title=currentLocus,
-             xaxis = list(title='Sample rank'),
-             yaxis = list(title=paste(currentLocus,'/ KIR3DL3 Ratio'),rangemode='tozero'))
+             xaxis = list(title='Sample rank',showgrid=F),
+             yaxis = list(title='',range=c(0,maxY),showgrid=T))
     
+    p <- subplot(p1, p2, shareY=T, widths = c(0.15,0.85),titleX=T)
     print(p)
     
     ## Max copy number prompt
@@ -625,6 +668,101 @@ run.generate_copy_number_graphs <- function(countRatioDF, kffDF, kirLocusList, r
     ## Save each plot
     htmlwidgets::saveWidget(p, file=file.path(resultsDirectory,paste0(currentLocus, '_copy_number_plot.html')))
     
+  }
+}
+
+## This function generates copy number graphs
+run.generate_predicted_copy_number_graphs <- function(countRatioDF, kirLocusList, resultsDirectory, countDF, copyDF){
+  
+  ## Check to see what samples are in both data frames
+  samplesInBoth <- intersect(row.names(countRatioDF), row.names(copyDF))
+  
+  ## If there are no samples in both data frames, stop the script
+  if(length(samplesInBoth) < 1){
+    stop('\n\nThe kff presence table does not match up with the locus count table.')
+  }
+  
+  ## Subset both data frames by the samples found in both
+  countRatioDF <- countRatioDF[samplesInBoth,]
+  countDF <- countDF[samplesInBoth,]
+  copyDF <- copyDF[samplesInBoth,]
+  
+  ## Give sample id their own column
+  countRatioDF$id <- rownames(countRatioDF)
+  
+  ## Initialize 3DL3 ratio to max 3DL3 count
+  countRatioDF$overall3DL3Ratio <- 0
+  
+  ## Set the 3DL3 ratio to max 3DL3 count
+  countRatioDF[samplesInBoth,'overall3DL3Ratio'] <- countDF[samplesInBoth,'KIR3DL3']/max(countDF[samplesInBoth,'KIR3DL3'])
+  
+  ## Iterate over all KIR loci, create a plot for each one
+  for(currentLocus in kirLocusList){
+    
+    if(currentLocus =='KIR3DL3'){
+      next
+    }
+    
+    ## Determine the rank of the ratios (x-axis order from lowest to highest)
+    countRatioDF$ratioRank <- sample(rank(countRatioDF[,currentLocus], ties.method = 'first'))
+    
+    ## Set the predicted copy number for the current sample
+    countRatioDF$copyNumber <- copyDF[,currentLocus]
+    
+    ## Set the color scheme
+    pal <- c("#ff0000", "#000cff", "#ff00ff", "#00d6dd", "#cda425")
+    pal <- setNames(pal, c('0', '1', '2', '3', '4'))
+    pal <- pal[as.character(unique(countRatioDF$copyNumber))]
+    pal[['KIR3DL3']] <- '#cdcdcd' 
+    
+    ## Set the maximum Y value
+    maxY <- max(c(1,unlist(countRatioDF[samplesInBoth,currentLocus])))+0.2
+    
+    ## Initialize the plot
+    p1 <- plot_ly(colors=pal)
+
+    ## Plot the copy number predictions
+    for(copyNumber in unique(countRatioDF$copyNumber)){
+      
+
+      ## Pull out the current copy sample names
+      currentCopySamples <- row.names(countRatioDF)[countRatioDF[,'copyNumber'] == copyNumber]
+      
+      ## Initialize the overlay text
+      currentCopyText <- paste('Sample ID:',countRatioDF[currentCopySamples,'id'],
+                               '$<br>Ratio:',countRatioDF[currentCopySamples,currentLocus],
+                               '$<br>KIR3DL3_ratio:',countRatioDF[currentCopySamples,'overall3DL3Ratio'])
+      
+      ## Add the trace for the current copy information
+      #p1 <- add_trace(p1, 
+      #                x=countRatioDF[currentCopySamples,'ratioRank'], 
+      #                y=countRatioDF[currentCopySamples,'overall3DL3Ratio'],
+      #                type="scatter",mode="markers",
+      #                showlegend=F,
+      #                color='KIR3DL3',
+      #                text=currentCopyText)
+      
+      ## Add the trace for the current copy information
+      p1 <- add_trace(p1, 
+                      x=countRatioDF[currentCopySamples,'ratioRank'], 
+                      y=countRatioDF[currentCopySamples,currentLocus],
+                      type="scatter",mode="markers",
+                      name=as.character(copyNumber),
+                      color=as.character(copyNumber),
+                      text=currentCopyText)
+    }
+    
+    ## Format the layout of the graph
+    p1 <- layout(p1,
+                 title=currentLocus,
+                 xaxis = list(title='Sample rank',showgrid=F),
+                 yaxis = list(title='',range=c(0,maxY),showgrid=T))
+    
+    ## Print the graph
+    print(p1)
+    
+    ## Save each plot
+    htmlwidgets::saveWidget(p1, file=file.path(resultsDirectory,paste0(currentLocus, '_predicted_copy_number_plot.html')))
   }
 }
 
@@ -1291,6 +1429,35 @@ run.assemble_multi_reads <- function(samTable, multiLocusReads, assembledNucList
   return(assembledNucList)
 }
 
+## This function runs the count data through a trained random forest model for predicting copy number
+run.predict_copy <- function(locusRatioDF, locusCountDF, copyNumberDF, goodRows, resultsDirectory, rfAllPathList){
+  
+  ### Prepare data for merging
+  colnames(locusCountDF) <- paste0('locusCount_', colnames(locusCountDF))
+  colnames(locusRatioDF) <- paste0('locusNorm_', colnames(locusRatioDF))
+  ###
+  
+  locusCountDF <- locusCountDF[goodRows,]
+  locusRatioDF <- locusRatioDF[goodRows,]
+  
+  ### Merge the data used for prediction
+  mergedData <- merge(locusCountDF[,'locusCount_KIR3DL3',drop=F], locusRatioDF, by=0, all=T)
+  rownames(mergedData) <- mergedData$Row.names
+  mergedData <- mergedData[,2:ncol(mergedData)]
+  ###
+  
+  ### Predict
+  for(currentLocus in names(rfAllPathList)){
+    load(rfAllPathList[[currentLocus]])
+    predData <- predict(model1, mergedData, type='class')
+    copyNumberDF[names(predData),currentLocus] <- as.numeric(levels(predData))[predData]
+  }
+  copyNumberDF[,'KIR3DL3'] <- 2
+  ###
+  
+  return(copyNumberDF)
+}
+
 ## This function prompts for user input for determining copy number thresholds
 readRatioPrompt <- function(copyNumber){ 
   n <- readline(prompt=paste0('Enter the lowest ratio for copy number ', copyNumber, ': '))
@@ -1864,7 +2031,7 @@ run.write_list <- function(listToWrite, filePath){
 
 ## This function takes in a text file reads it in as a list (its really only meant to work with run.write_list)
 run.read_list <- function(filePath){
-  filePath <- file.path(assembledReferenceDirectory, paste0(currentSample$name,'assembled_deletion.index'))
+  #filePath <- file.path(assembledReferenceDirectory, paste0(currentSample$name,'assembled_deletion.index'))
   
   listToReturn <- list()
   
@@ -2078,9 +2245,43 @@ kirExonCoords <- list('KIR3DP1'=list('5UTR'=1:267,'E1'=268:301,'I1'=302:1323,'E2
                                      'E9'=9413:9682,'3UTR'=9683:10097))
 
 
+### Setting paths to random forest models
+rfSaveDirectory <- 'Resources/gc_resources/rf_models/'
+rfKIR2DL1path <- file.path(rfSaveDirectory,'rfKIR2DL1.Rdata')
+rfKIR2DL2path <- file.path(rfSaveDirectory,'rfKIR2DL2.Rdata')
+rfKIR2DL3path <- file.path(rfSaveDirectory,'rfKIR2DL3.Rdata')
+rfKIR2DL4path <- file.path(rfSaveDirectory,'rfKIR2DL4.Rdata')
+rfKIR2DL5path <- file.path(rfSaveDirectory,'rfKIR2DL5.Rdata')
+rfKIR2DS1path <- file.path(rfSaveDirectory,'rfKIR2DS1.Rdata')
+rfKIR2DS2path <- file.path(rfSaveDirectory,'rfKIR2DS2.Rdata')
+rfKIR2DS3path <- file.path(rfSaveDirectory,'rfKIR2DS3.Rdata')
+rfKIR2DS4path <- file.path(rfSaveDirectory,'rfKIR2DS4.Rdata')
+rfKIR2DS5path <- file.path(rfSaveDirectory,'rfKIR2DS5.Rdata')
+rfKIR2DP1path <- file.path(rfSaveDirectory,'rfKIR2DP1.Rdata')
+rfKIR3DL1path <- file.path(rfSaveDirectory,'rfKIR3DL1.Rdata')
+rfKIR3DS1path <- file.path(rfSaveDirectory,'rfKIR3DS1.Rdata')
+rfKIR3DP1path <- file.path(rfSaveDirectory,'rfKIR3DP1.Rdata')
+rfKIR3DL2path <- file.path(rfSaveDirectory,'rfKIR3DL2.Rdata')
+### /Paths
 
-
-
+### Initialize a list for storing the rf model paths
+rfAllPathList <- list()
+rfAllPathList[['KIR2DL1']] <- rfKIR2DL1path
+rfAllPathList[['KIR2DL2']] <- rfKIR2DL2path
+rfAllPathList[['KIR2DL3']] <- rfKIR2DL3path
+rfAllPathList[['KIR2DL4']] <- rfKIR2DL4path
+rfAllPathList[['KIR2DL5']] <- rfKIR2DL5path
+rfAllPathList[['KIR2DS1']] <- rfKIR2DS1path
+rfAllPathList[['KIR2DS2']] <- rfKIR2DS2path
+rfAllPathList[['KIR2DS3']] <- rfKIR2DS3path
+rfAllPathList[['KIR2DS4']] <- rfKIR2DS4path
+rfAllPathList[['KIR2DS5']] <- rfKIR2DS5path
+rfAllPathList[['KIR2DP1']] <- rfKIR2DP1path
+rfAllPathList[['KIR3DL1']] <- rfKIR3DL1path
+rfAllPathList[['KIR3DS1']] <- rfKIR3DS1path
+rfAllPathList[['KIR3DP1']] <- rfKIR3DP1path
+rfAllPathList[['KIR3DL2']] <- rfKIR3DL2path
+### /Initialize
 
 
 

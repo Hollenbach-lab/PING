@@ -2,6 +2,7 @@
 .Rhistory
 .RData
 .Ruserdata
+PING2.Rproj
 
 *.txt
 *.html
@@ -39,6 +40,7 @@ filled_kir_results*
 indigo*
 old_ping_kir_results*
 subset_kir_results*
+kff_threshold*
 
 # =========================
 # Operating System Files
