@@ -140,6 +140,12 @@ run.bowtie2_gc_alignment <- function(bowtie2_command, reference_index, threads, 
   ## Run the bowtie2 alignment command
   cat('\n\n',bowtie2_command,optionsCommand)
   output.sampleAlign <- system2(bowtie2_command, optionsCommand, stdout=T, stderr=T)
+  
+  if(!is.null(attributes(output.sampleAlign))){
+    cat('\nBowtie2 failed, retrying alignment...')
+    output.sampleAlign <- system2(bowtie2_command, optionsCommand, stdout=T, stderr=T)
+  }
+  
   check.system2_output(output.sampleAlign, 'bowtie2 gc alignment failed')
   
   ## Print the bowtie2 output
@@ -170,12 +176,15 @@ read.bowtie2_sam_nohd <- function(sam_path){
   ## Name the columns that are used for downstream analysis
   colnames(output.samTable)[1] <- 'read_name'
   colnames(output.samTable)[3] <- 'reference_name'
+  colnames(output.samTable)[4] <- 'ref_pos'
+  colnames(output.samTable)[10] <- 'read_seq'
   
   ## Convert the alignment scores into integers
   alignmentScoreList <- as.integer(tstrsplit(output.samTable$`12`, ':', fixed=TRUE)[[3]])
   
   ## Save alignment scores to their own columns
-  output.samTable$alignment_score <- alignmentScoreList
+  cat('\nSetting alignment scores.')
+  output.samTable[,alignment_score := alignmentScoreList]
   
   ## Convert the allele names into locus names
   locusList <- tstrsplit(output.samTable$reference_name, '*', fixed=TRUE)[[1]]
@@ -184,7 +193,16 @@ read.bowtie2_sam_nohd <- function(sam_path){
   locusList[locusList %in% 'KIR2DL5B'] = 'KIR2DL5'
 
   ## Save locus names to their own columns
-  output.samTable$locus <- locusList
+  cat('\nSetting locus names.')
+  output.samTable[,locus:=locusList]
+  
+  ## Create new column names to store universal coordinates
+  output.samTable$startPos <- 0
+  output.samTable$endPos <- 0
+  
+  ## Create a new column to store read lengths
+  cat('\nSetting read lengths.')
+  output.samTable[,readLen := nchar(read_seq)]
   
   cat('\nRemoving read alignments that do not include alignment scores.')
   
@@ -289,9 +307,9 @@ run.count_kir_read_matches <- function(currentSample, samTable, maxReadThreshold
   randomUniqueReadNames <- sample(uniqueReadNames)
   
   ## Check if there are more reads than the threshold and take some out if so
-  #if(length(randomUniqueReadNames) > maxReadThreshold){
-  #  randomUniqueReadNames <- randomUniqueReadNames[1:maxReadThreshold]
-  #}
+  if(length(randomUniqueReadNames) > maxReadThreshold){
+    randomUniqueReadNames <- randomUniqueReadNames[1:maxReadThreshold]
+  }
   
   ## Initialize the list for storing reference matches
   uniqueLocusMatchList <- as.list(kirLocusList)
@@ -325,12 +343,10 @@ run.count_kir_read_matches <- function(currentSample, samTable, maxReadThreshold
     matchedAlleleList <- samSubsetTable$reference_name
     
     ## Pull out the res 3 allele names
-    #matchedAlleleList <- unique(unlist(lapply(matchedAlleleList, kir.allele_resolution, 3)))
+    matchedAlleleList <- unique(unlist(lapply(matchedAlleleList, kir.allele_resolution, 3)))
     
     ## Pull out the unique locus names from the matched allele list
     matchedLocusList <- unique(samSubsetTable$locus)
-    ## Pull out the unique locus names from the matched allele list
-    #matchedLocusList <- unique(unlist(lapply(matchedAlleleList, kir.allele_resolution, 0)))
     
     ###### This section will count all locus matches (as opposed to only unique locus matches)
     #for(matchedLocus in matchedLocusList){
@@ -347,8 +363,6 @@ run.count_kir_read_matches <- function(currentSample, samTable, maxReadThreshold
     if(length(matchedLocusList) == 1){
       uniqueLocusMatchList[matchedLocusList] = uniqueLocusMatchList[matchedLocusList][[1]] + 1
         
-      
-      
       ## This will count all allele matches
       for(matchedAllele in matchedAlleleList){
         uniqueAlleleMatchList[matchedAllele] = uniqueAlleleMatchList[matchedAllele][[1]] + 1
@@ -942,6 +956,16 @@ run.sam_read_assignment <- function(samTable, sortedReadNames, currentPresentLoc
               multiLocusReads=multiLocusReads,
               singleLocusPairedReads=singleLocusPairedReads,
               singleLocusUnpairedReads=singleLocusUnpairedReads))
+}
+
+## This function sets the universal read start position
+run.setStartPos <- function(ref_name, ref_pos){
+  return(deletionIndexDFList[[ref_name]][ref_pos])
+}
+
+## This function sets the universal read end position
+run.setEndPos <- function(ref_name, ref_pos, currentReadLen){
+  return(deletionIndexDFList[[ref_name]][ref_pos+currentReadLen-1])
 }
 
 ## Assign single locus matched paired-end reads to their mapped postions in the assembly table
@@ -1623,16 +1647,16 @@ build.good_coord_bad_coord_list <- function(kirLocusList,assembledNucList,depthT
 
 ## This function takes in the assembly and converts depth values to nucleotides
 build.nuc_assembly_frame <- function(assembledNucList, kirLocusList, goodBadCoordList, hetRatio){
-  cat('\nConverting the assembly into a nucleotide frame.')
   
   allLocusGoodCoords <- goodBadCoordList$goodCoords
   
   allLocusAssemblyList <- list()
   
-  for(currentLocus in kirLocusList){
+  for(currentLocus in names(assembledNucList)){
+    cat('\nProcessing:',currentLocus)
     
     ## Pull out the assembly for the current locus
-    currentLocusAssembly <- assembledNucList[[currentLocus]]
+    currentLocusAssembly <- as.data.frame(assembledNucList[[currentLocus]])
     
     ## Initialize a dataframe for storing the assembled nucleotides
     currentLocusAssemblyNucDF <- data.frame(matrix('',5,ncol(currentLocusAssembly)),stringsAsFactors=F,check.names=F)
@@ -1647,14 +1671,8 @@ build.nuc_assembly_frame <- function(assembledNucList, kirLocusList, goodBadCoor
       ## Detemine which nucs pass the hetRatio threshold
       goodSnps <- (currentPosReadCount/sum(currentPosReadCount))>hetRatio
       
-      ## If there are no het snps, then fill in the single nuc value
-      if(sum(goodSnps)==1){
-        currentLocusAssemblyNucDF[1,assemblyPos] <- rownames(currentPosReadCount)[goodSnps]
-      }else{
-        
-        ## Otherwise fill in the het snps
-        currentLocusAssemblyNucDF[1:sum(goodSnps),assemblyPos] <- rownames(currentPosReadCount)[goodSnps]
-      }
+      ### Fill in the nuc value
+      currentLocusAssemblyNucDF[1:sum(goodSnps),assemblyPos] <- rownames(currentPosReadCount)[goodSnps]
     }
     
     ## If there are any positions with 3 SNP calls, stop the program for investigation
@@ -1736,7 +1754,7 @@ run.find_allele_matches_for_assembly <- function(allLocusNucAssembly,currentPres
   
   allGoodAlleleVector <- c() 
   for(currentLocus in currentPresentLoci){
-    cat('\n',currentLocus)
+    cat('\n\n',currentLocus)
     copyNumber <- copyNumberList[[currentLocus]]
     currentLocusAssemblyNucDF <- allLocusNucAssembly[[currentLocus]]
     
@@ -2046,6 +2064,221 @@ run.read_list <- function(filePath){
   close(conn)
   
   return(listToReturn)
+}
+
+### This function attempts to phase het SNPs using unpaired and paired-end reads
+run.snp_phaser <- function(samTable, currentLocus, currentLocusHetSnpDF){
+  
+  ## Initialize a list for storing the phased snps (new elements are added when phasing cannot be completed)
+  phasedList <- list()
+  
+  ## Initialze a count for keeping track of what list element we are on
+  i <- 1
+  
+  ## Initialize the previous snp position
+  prevPos <- 0
+  
+  ## Loop over all het snps
+  for(snpPos in colnames(currentLocusHetSnpDF)){
+    cat('\n',snpPos)
+    
+    ## Pull out the nucleotides for the current position
+    snpVect <- names(nucListConv)[as.numeric(currentLocusHetSnpDF[,snpPos])]
+    
+    ## If this is the first iteration, then initialize a dataframe for storing the phased Snps
+    if(prevPos == 0){
+      ## Data frame with two rows for storing strand1 and strand2 SNPs (s1 and s2 from different list elements do not match up)
+      phasedList[[i]] <- data.frame(matrix('',nrow=2,ncol=1),row.names=c('s1','s2'))
+      
+      ## Name the dataframe colums based on the current snp position
+      colnames(phasedList[[i]]) <- snpPos
+      
+      ## Save the dataframe to the current list element
+      phasedList[[i]][,snpPos] <- snpVect
+    }else{
+      
+      ## Pull out all unpaired reads that overlap prevPos and snpPos for the current locus
+      spanningUnpairedReads <- unique(samTable[read_name %in% readAssignmentList$singleLocusUnpairedReads][locus == currentLocus][startPos <= as.numeric(prevPos) & endPos >= as.numeric(snpPos)]$read_name)
+      
+      ## Pull out all paired reads that start before prevPos
+      spanningPairedReads <- unique(samTable[read_name %in% readAssignmentList$singleLocusPairedReads][locus == currentLocus][startPos <= as.numeric(prevPos)]$read_name)# & endPos >= as.numeric(snpPos)]$read_name)
+      
+      ## Subset prevPos paired reads by the paired reads that also end after snpPos
+      spanningPairedReads <- unique(samTable[read_name %in% spanningPairedReads][locus == currentLocus][endPos >= as.numeric(snpPos)]$read_name)
+      
+      ## Combine the unpaired and paired reads
+      allSpanningReads <- c(spanningUnpairedReads, spanningPairedReads)
+      
+      ## If there are no reads that span both positions, then move on to the next list element and initalize a new phased dataframe
+      ## else attempt to phase the prevPos snps with the snpPos snps using the overlapping reads
+      if(length(allSpanningReads) == 0){
+        i <- i + 1
+        phasedList[[i]] <- data.frame(matrix('',nrow=2,ncol=1),row.names=c('s1','s2'))
+        colnames(phasedList[[i]]) <- snpPos
+        phasedList[[i]][,snpPos] <- snpVect
+      }else{
+        
+        ## Pull out the prevPos snps
+        s1Snp1 <- phasedList[[i]]['s1',prevPos]
+        s2Snp1 <- phasedList[[i]]['s2',prevPos]
+        
+        ## Set the snpPos snps
+        s1Snp2 <- snpVect[1]
+        s2Snp2 <- snpVect[2]
+        
+        ## Initialize a new table based on the reads that overlap both positions from the SAM table
+        miniTable <- samTable[read_name %in% allSpanningReads][locus == currentLocus]
+        
+        ## Subset the new table based on unique read sequences (get rid of duplicated entries)
+        miniTable <- unique(miniTable, by=c('read_seq'))
+        
+        ## Apply the read_formatter function to the overlapping reads (creates a named vector of the read, adds in deletion positions)
+        miniTable[,read_table:=mapply(run.read_formatter, read_seq, startPos, endPos, reference_name)]
+        
+        ## Paired-end read combining and formatting
+        miniTable[,read_table := run.paired_read_combiner(read_name, startPos, endPos, read_table, spanningPairedReads), by=list(read_name)]
+        
+        ## Set the start position for paired end reads to be the minimum start position for both reads of the pair
+        miniTable[,startPos := min(as.integer(startPos)), by=list(read_name)]
+        
+        ## Set the end position for paired end reads to be the maximum end position for both reads of the pair
+        miniTable[,endPos := max(as.integer(endPos)), by=list(read_name)]
+        
+        ## Drop duplicate reads from the table (the information has been consolidated at this point)
+        miniTable <- miniTable[startPos <= as.numeric(prevPos) & endPos >= as.numeric(snpPos)]
+        miniTable <- unique(miniTable, by=c('startPos', 'endPos', 'locus'))
+        
+        ## Apply the snp_phaser_bool function to each named read vector to see if the s1-Snp1 and s1-Snp2 snps are in phase
+        miniTable[,phasedS1:=mapply(run.snp_phaser_bool, read_table, prevPos, s1Snp1, snpPos, s1Snp2)]
+        miniTable[,phasedS2:=mapply(run.snp_phaser_bool, read_table, prevPos, s2Snp1, snpPos, s2Snp2)]
+        
+        ## Save the results to a bool vector (TRUE/FALSE if the snps are in phase for each read)
+        case1 <- miniTable$phasedS1 | miniTable$phasedS2
+        
+        ## Apply the snp_phaser_bool function to each named read vector to see if the s2-Snp1 and s1-Snp2 snps are in phase
+        miniTable[,phasedS1:=mapply(run.snp_phaser_bool, read_table, prevPos, s2Snp1, snpPos, s1Snp2)]
+        miniTable[,phasedS2:=mapply(run.snp_phaser_bool, read_table, prevPos, s1Snp1, snpPos, s2Snp2)]
+        
+        ## Save the results to a bool vector (TRUE/FALSE if the snps are in phase for each read)
+        case2 <- miniTable$phasedS1 | miniTable$phasedS2
+        
+        ## If case1 has more TRUE values than case2, then s1-Snp1 and s1-Snp2 are in phase and saved to the phased list
+        ## Else if case2 hase more TRUE values than case1, then s2-Snp1 and s1-Snp2 are in phased and saved to the phased list
+        ## else no phased could be determined and we move on to the next list element and initialze a new phased dataframe
+        if(sum(case1) > sum(case2)){
+          phasedList[[i]]['s1',snpPos] <- s1Snp2
+          phasedList[[i]]['s2',snpPos] <- s2Snp2
+        }else if(sum(case2) > sum(case1)){
+          phasedList[[i]]['s1',snpPos] <- s2Snp2
+          phasedList[[i]]['s2',snpPos] <- s1Snp2
+        }else{
+          i <- i + 1
+          phasedList[[i]] <- data.frame(matrix('',nrow=2,ncol=1),row.names=c('s1','s2'))
+          colnames(phasedList[[i]]) <- snpPos
+          phasedList[[i]][,snpPos] <- snpVect
+        }
+      }
+    }
+    
+    ## Set the prevPos to be the current snpPos, then move on to the next snpPos
+    prevPos <- snpPos
+  }
+}
+
+## This function combines paired-end read named vectors into a single named vector
+run.paired_read_combiner <- function(readName, startPos, endPos, pairedList, spanningPairedReads){
+  
+  ## If there are two startPos values for this entry and the read name is in the spanningPairedReads list, then continue with combining
+  ## else return the current named vector with no editing
+  if(length(startPos) == 2 & readName %in% spanningPairedReads){
+    
+    ## Unlist the named paired-end read vectors
+    combinedList <- unlist(pairedList)
+    
+    ## Pull out the position names
+    realPositionList <- names(combinedList)
+    
+    ## Format the starting position for the paired-end read
+    minPosition <- min(as.numeric(startPos))
+    
+    ## Format the ending position for the paired-end read
+    maxPosition <- max(as.numeric(endPos))
+    
+    ## Set a full spanning position list that goes from the min to the max position
+    fullPositionList <- as.character(minPosition:maxPosition)
+    
+    ## Compare the fullPosition list to the realPositionList to see what positions are not actually found in the reads (non-overlapping paired-end reads)
+    absentPositionList <- setdiff(fullPositionList, realPositionList)
+    
+    ## If there are absent positions, then we want to set those positions to 'N' in the named vector we will return
+    if(length(absentPositionList) > 0){
+      
+      ## Initialize the named vector
+      absentPositionVect <- vector(mode="character", length=length(absentPositionList))
+      
+      ## Set absent positions to 'N'
+      absentPositionVect[1:length(absentPositionVect)] <- 'N'
+      
+      ## Set the names of the absent position vector 
+      names(absentPositionVect) <- as.character(absentPositionList)
+      
+      ## Add the named absent position vector to the named paired-end read vector
+      combinedList <- c(combinedList, absentPositionVect)
+    }
+    
+    ## Return the named combined list vector
+    return(list(list(combinedList[fullPositionList])))
+  }else{
+    return(list(pairedList))
+  }
+}
+
+## Format reads for snp phasing (fill in deletion positions with '.')
+run.read_formatter <- function(readSeq, startPos, endPos, refAlleleName){
+  
+  ## Format the start position
+  startPos <- as.numeric(startPos)
+  
+  ## Format the end position
+  endPos <- as.numeric(endPos)
+  
+  ## Testing if there deletions found in the reference for the current read
+  if((endPos-startPos+1) > nchar(readSeq)){
+    
+    delIndexList <- which(startPos:endPos %in% inverseDeletionIndexDFList[[refAlleleName]])
+    
+    ## If the index list is empty, something went wrong
+    if(length(delIndexList) == 0){
+      stop('Something weird happened with the deletion index.')
+    }
+    
+    ## Split apart the read sequence and add in deletion symbols
+    subStringList <- c()
+    for(delIndex in delIndexList){
+      preString <- substr(readSeq, 1, delIndex-1)
+      postString <- substr(readSeq, delIndex, nchar(readSeq))
+      
+      readSeq <- paste0(preString, '.', postString)
+    }
+  }
+  
+  ## Create a full index that cooresponds to the sequence nucleotides and where they go
+  fullIndex <- startPos:endPos
+  
+  ## Turn the sequence string into a list
+  seqList <- strsplit(readSeq,'')[[1]]
+  
+  names(seqList) <- fullIndex
+  
+  seqListList <- list(seqList)
+  return(seqListList)
+}
+
+## Return if the two snps are present in the same read
+run.snp_phaser_bool <- function(readTab, snp1Pos, snp1Nuc, snp2Pos, snp2Nuc, read_name){
+  
+  ## If snp1 is found in the read and snp2 is found in the read, then the snps are phased and return TRUE
+  return(readTab[[snp1Pos]] == snp1Nuc & readTab[[snp2Pos]] == snp2Nuc)
 }
 
 sam_flag_convert <- function(samFlag){
