@@ -8,7 +8,7 @@ library(plotly)
 library(randomForest)
 
 
-source('Resources/gc_functions.R')
+
 
 
 ########## Development INPUT variables
@@ -22,16 +22,18 @@ source('Resources/gc_functions.R')
 #probelistFile <- 'probelist_2018_08_02.csv'
 #predictCopy <- T
 ###########
+source('Resources/gc_functions.R')
 
 ping_gc.version <- '1.0'
 cat('\nPING_gc version:',ping_gc.version)
+cat('\nRun using: ping_gc(sampleDirectory="/YOUR/SAMPLE/DIRECTORY",resultsDirectory="/DESIRED/RESULTS/DIRECTORY")')
 
 ping_gc <- function(sampleDirectory='',
                     fastqPattern='fastq',
                     threads=4,
                     resultsDirectory='',
                     KIR3DL3MinReadThreshold=100,
-                    maxReadThreshold=30000,
+                    maxReadThreshold=50000,
                     probelistFile='probelist_2018_08_02.csv',
                     predictCopy=T){
   
@@ -200,7 +202,7 @@ ping_gc <- function(sampleDirectory='',
     cat('\nCounting reads that align uniquely to a locus or allele ')
     
     ## Count how many reads align uniquely to a locus or allele
-    countList <- run.count_kir_read_matches(currentSample, samTable, maxReadThreshold, kirLocusList, kirAlleleListRes3)
+    countList <- run.count_kir_read_matches(currentSample, samTable, maxReadThreshold, kirLocusList, kirAlleleList)
     
     ## Add the counts to the appropriate count dataframe
     locusCountDF[currentSample$name,names(countList$locusMatches)] = countList$locusMatches
@@ -258,5 +260,10 @@ ping_gc <- function(sampleDirectory='',
     cat('\nGenerating copy number graphs... ')
     run.generate_copy_number_graphs(locusRatioDF, kffPresenceDF, kirLocusList, resultsDirectory, locusCountDF)
   }
-  
+
+cat('\n\nALL FINISHED!!')
 }
+
+
+ping_gc(sampleDirectory='/home/common_arse/INDIGO/2_KIR_runs_extracted/indigo_plates1-4_extracted_8-5-17/',resultsDirectory='/home/wmarin/PING_projects/PING2/validation_test/',threads=16)
+
