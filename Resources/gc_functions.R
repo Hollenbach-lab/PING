@@ -160,7 +160,7 @@ run.bowtie2_gc_alignment <- function(bowtie2_command, reference_index, threads, 
 }
 
 ## This function reads in a SAM file with no header to a data.table
-read.bowtie2_sam_nohd <- function(sam_path){
+read.bowtie2_sam_nohd <- function(sam_path, allele_alignment=F){
   cat('\nReading in the SAM file.')
   
   ## Make sure the SAM file can be read in
@@ -187,7 +187,11 @@ read.bowtie2_sam_nohd <- function(sam_path){
   output.samTable[,alignment_score := alignmentScoreList]
   
   ## Convert the allele names into locus names
-  locusList <- tstrsplit(output.samTable$reference_name, '*', fixed=TRUE)[[1]]
+  if(allele_alignment){
+    locusList <- tstrsplit(output.samTable$reference_name, '_', fixed=T)[[1]]
+  }else{
+    locusList <- tstrsplit(output.samTable$reference_name, '*', fixed=TRUE)[[1]]
+  }
   
   locusList[locusList %in% 'KIR2DL5A'] = 'KIR2DL5'
   locusList[locusList %in% 'KIR2DL5B'] = 'KIR2DL5'
@@ -868,7 +872,7 @@ run.kff_determine_presence_from_norm_values <- function(kffNormList, kffThreshol
 }
 
 ## This function reads through the SAM table and assigns reads to different lists for downstream analysis
-run.sam_read_assignment <- function(samTable, sortedReadNames, currentPresentLoci){
+run.sam_read_assignment <- function(samTable, sortedReadNames, currentPresentLoci, multiLocusSorting=F){
   cat('\nAssigning reads to paired/unpaired/absent/multi... 0% ')
   
   ## Initialize list to store reads that match multiple loci
@@ -914,6 +918,10 @@ run.sam_read_assignment <- function(samTable, sortedReadNames, currentPresentLoc
     
     ## Get rid of the extra 2DL5A/B loci names
     #currentReadLocusList <- currentReadLocusList[currentReadLocusList %in% kirLocusList]
+    
+    if(multiLocusSorting){
+      currentReadLocusList <- intersect(currentReadLocusList, currentPresentLoci)
+    }
     
     ## Only continue if there is only one matched locus
     if(length(currentReadLocusList) > 1){
@@ -966,6 +974,34 @@ run.setStartPos <- function(ref_name, ref_pos){
 ## This function sets the universal read end position
 run.setEndPos <- function(ref_name, ref_pos, currentReadLen){
   return(deletionIndexDFList[[ref_name]][ref_pos+currentReadLen-1])
+}
+
+## This function sets the universal read start position
+allele.setStartPos <- function(ref_name, ref_pos, del_list){
+  sumAmount <- sum(ref_pos >= del_list[[ref_name]])
+  
+  newSumAmount <- sum(sumAmount+ref_pos >= del_list[[ref_name]])
+  
+  while(sumAmount != newSumAmount){
+    sumAmount <- newSumAmount
+    newSumAmount <- sum(sumAmount+ref_pos >= del_list[[ref_name]])
+  }
+  
+  return(as.integer(sumAmount + ref_pos))
+}
+
+## This function sets the universal read end position
+allele.setEndPos <- function(ref_name, ref_pos, currentReadLen, del_list){
+  sumAmount <- sum(ref_pos >= del_list[[ref_name]])
+  
+  newSumAmount <- sum(sumAmount+ref_pos >= del_list[[ref_name]])
+  
+  while(sumAmount != newSumAmount){
+    sumAmount <- newSumAmount
+    newSumAmount <- sum(sumAmount+ref_pos >= del_list[[ref_name]])
+  }
+  
+  return(as.integer(sumAmount + ref_pos + currentReadLen - 1))
 }
 
 ## Assign single locus matched paired-end reads to their mapped postions in the assembly table
@@ -1677,7 +1713,7 @@ build.nuc_assembly_frame <- function(assembledNucList, kirLocusList, goodBadCoor
     
     ## If there are any positions with 3 SNP calls, stop the program for investigation
     if(sum(currentLocusAssemblyNucDF[3,] != '')>0){
-      stop('Found a position with more than 3 SNP calls')
+      #stop('Found a position with more than 3 SNP calls')
     }
     
     ## Cut the assembly dataframe down to 2 rows
@@ -1738,6 +1774,175 @@ build.fill_in_remaining_positions_with_good_alleles <- function(currentPresentLo
   }
   
   return(allLocusNucAssembly)
+}
+
+
+new.run.assemble_unpaired_reads <- function(currentReadName, samTable, deletionIndexDFList, inverseDeletionIndexDFList){
+  samSubsetTable <- samTable[read_name == currentReadName]
+  currentReadLocus <- samSubsetTable$locus[[1]]
+  
+  return(new.build.add_read_to_assembly(samSubsetTable, deletionIndexDFList, inverseDeletionIndexDFList, currentReadLocus))
+}
+
+new.build.add_read_to_assembly <- function(samSubsetTable, deletionIndexDFList, inverseDeletionIndexDFList, currentReadLocus){
+  ## Pull out the first reference allele name 
+  refAlleleName <- samSubsetTable$reference_name[[1]]
+  
+  ## Pull out the the first reference allele position
+  refAllelePos <- as.integer(samSubsetTable[1,4][[1]])
+  
+  ## Pull out the current read sequence
+  currentReadSeq <- samSubsetTable[1,10][[1]]
+  
+  ## Store the length of the sequence
+  currentReadLen <- nchar(currentReadSeq)
+  
+  ## Establish the starting position, accounting for deletions
+  #delStartOffset <- deletionIndexDFList[[refAlleleName]][refAllelePos]
+  #samTable[read_name == samSubsetTable$read_name[1], startPos := delStartOffset]
+  delStartOffset <- samSubsetTable$startPos[[1]]
+  
+  ## Establish the ending position, accounting for deletions
+  #delEndOffset <- deletionIndexDFList[[refAlleleName]][refAllelePos+currentReadLen-1]
+  #samTable[read_name == samSubsetTable$read_name[1], endPos := delEndOffset]
+  delEndOffset <- samSubsetTable$endPos[[1]]
+  
+  ## Testing if there deletions found in the reference for the current read
+  if((delEndOffset-delStartOffset+1) > currentReadLen){
+    
+    delIndexList <- which(delStartOffset:delEndOffset %in% inverseDeletionIndexDFList[[refAlleleName]])
+    
+    ## If the index list is empty, something went wrong
+    if(length(delIndexList) == 0){
+      stop('Something weird happened with the deletion index.')
+    }
+    
+    ## Split apart the read sequence and add in deletion symbols
+    subStringList <- c()
+    for(delIndex in delIndexList){
+      preString <- substr(currentReadSeq, 1, delIndex-1)
+      postString <- substr(currentReadSeq, delIndex, nchar(currentReadSeq))
+      
+      currentReadSeq <- paste0(preString, '.', postString)
+    }
+  }
+  
+  ## Create a full index that cooresponds to the sequence nucleotides and where they go
+  fullIndex <- delStartOffset:delEndOffset
+  
+  ## Turn the sequence string into a list
+  seqList <- strsplit(currentReadSeq,'')[[1]]
+  
+  names(seqList) <- fullIndex
+  
+  #sequenceToInsert <- seqList[unique(names(seqList))]
+  #depthTable <- table(fullIndex)
+  seqListList <- list(seqList)
+  return(setNames(seqListList, currentReadLocus))
+}
+
+new.run.assemble_paired_reads <- function(currentReadName, samTable, deletionIndexDFList, inverseDeletionIndexDFList){
+  samSubsetTable <- samTable[read_name == currentReadName]
+  currentReadLocus <- samSubsetTable$locus[[1]]
+  
+  samFlagTable <- sapply(samSubsetTable$'2', sam_flag_convert)
+  
+  samSubsetTableFirst <- samSubsetTable[unlist(samFlagTable['firstInPair',]),]
+  samSubsetTableSecond <- samSubsetTable[unlist(samFlagTable['secondInPair',]),]
+  
+  return(sapply(list(samSubsetTableFirst, samSubsetTableSecond), new.build.add_read_to_assembly, deletionIndexDFList, inverseDeletionIndexDFList, currentReadLocus))
+}
+
+run.condense_assembly_list <- function(assemblyReadList, assembledNucList, nucListConv){
+  
+  allLocusPosCountList <- list()
+  allUnpairedByLocus <- unlist(assemblyReadList, recursive=F)
+  for(currentLocus in unique(names(allUnpairedByLocus))){
+    allLocusPosCountList[[currentLocus]] <- list()
+    
+    allUnpairedCurrentLocus <- unlist(allUnpairedByLocus[names(allUnpairedByLocus) == currentLocus])
+    names(allUnpairedCurrentLocus) <- tstrsplit(names(allUnpairedCurrentLocus),'.',fixed=T)[[2]]
+    
+    for(currentNuc in unique(allUnpairedCurrentLocus)){
+      allLocusPosCountList[[currentLocus]][[currentNuc]] <- list()
+      currentNucPosVect <- names(allUnpairedCurrentLocus)[allUnpairedCurrentLocus == currentNuc]
+      currentNucPosTable <- table(currentNucPosVect)
+      
+      for(i in unique(currentNucPosTable)){
+        allLocusPosCountList[[currentLocus]][[currentNuc]][[as.character(i)]] <- names(currentNucPosTable)[currentNucPosTable == i]
+      }
+    }
+  }
+  
+  
+  for(currentLocus in names(allLocusPosCountList)){
+    for(currentNuc in names(allLocusPosCountList[[currentLocus]])){
+      rowInd <- unlist(nucListConv[currentNuc],use.names=F)
+      for(depthValue in names(allLocusPosCountList[[currentLocus]][[currentNuc]])){
+        
+        columnList <- allLocusPosCountList[[currentLocus]][[currentNuc]][[depthValue]]
+        depthInt <- as.integer(depthValue)
+        
+        assembledNucList[[currentLocus]][rowInd,(columnList) := depthInt]
+      }
+    }
+  }
+  return(NULL)
+}
+
+
+new.run.find_allele_matches_for_assembly <- function(allLocusNucAssembly, currentPresentLoci, kirAlleleDFList, copyNumberList){
+  allGoodAlleleList <- list()
+  for(currentLocus in currentPresentLoci){
+    cat('\n\n',currentLocus)
+    copyNumber <- copyNumberList[[currentLocus]]
+    currentLocusAssemblyNucDF <- allLocusNucAssembly[[currentLocus]]
+    
+    ## Pull out the heterozygous coordinates
+    currentLocusHetCoords <- colnames(currentLocusAssemblyNucDF)[currentLocusAssemblyNucDF[2,] != '']
+    
+    ## Pull out the homozygous coordinates
+    currentLocusHomCoords <- setdiff(colnames(currentLocusAssemblyNucDF)[currentLocusAssemblyNucDF[1,] != ''], currentLocusHetCoords)
+    
+    ## Create a dataframe of the het coords
+    currentLocusHetSnpDF <- currentLocusAssemblyNucDF[,currentLocusHetCoords,drop=F]
+    
+    ## Create a dataframe of the hom coords
+    currentLocusHomSnpDF <- currentLocusAssemblyNucDF[,currentLocusHomCoords,drop=F]
+    
+    cat('\nNumber of het positions:',length(currentLocusHetCoords))
+    cat('\nNumber of hom positions:',length(currentLocusHomCoords))
+    
+    ## Pull out the sequence information for all known allele for this locus
+    allCurrentLocusAlleles <- kirAlleleDFList[[currentLocus]]
+    
+    ## Generate a unique position frame to analyze the homozygous positions (or else it takes forever)
+    allCurrentLocusAllelesUniquePos <- make_unique_pos_frame(allCurrentLocusAlleles)
+    
+    ## Initializing a list of possible alleles / allele combinations (for heterozygous loci)
+    possibleAlleles <- rownames(kirAlleleDFList[[currentLocus]])
+    
+    possibleAlleleDF <- data.frame(matrix(0,length(possibleAlleles),2),stringsAsFactors=F,row.names=possibleAlleles,check.names=F)
+    colnames(possibleAlleleDF) <- c('hetDistance','homDistance')
+    
+    currentLocusHomPosVect <- intersect(colnames(currentLocusHomSnpDF), colnames(allCurrentLocusAlleles))
+    
+    currentLocusHomSnpVect <- apply(currentLocusHomSnpDF[1,currentLocusHomPosVect,drop=F],2,function(x){names(nucListConv)[as.integer(x)]})
+    
+    ## Determining the homozygous position distance (calculated for all present loci)
+    for(singleAllele in possibleAlleles){
+      allCurrentLocusAllelesHomSnpVect <- unlist(allCurrentLocusAlleles[singleAllele,currentLocusHomPosVect])
+      Nsum <- 0# sum(allCurrentLocusAlleles[singleAllele,currentLocusHomPosVect] == 'N')
+      possibleAlleleDF[singleAllele,'homDistance'] <- sum(currentLocusHomSnpVect != allCurrentLocusAllelesHomSnpVect) - Nsum
+    }
+    
+    ## Determining the het position distance (only calculated for copy 2 loci)
+    cat('\nMin distance:',min(possibleAlleleDF$homDistance))
+    possibleAlleleHits <- rownames(possibleAlleleDF)[possibleAlleleDF$homDistance == min(possibleAlleleDF$homDistance)]
+    cat('\nNumber of alleles matching min distance:',length(possibleAlleleHits))
+    allGoodAlleleList[[currentLocus]] <- possibleAlleleHits
+  }
+  return(allGoodAlleleList)
 }
 
 ## This function compares the nuc assembly to known alleles to try and find the closest allele matches for each locus
@@ -1921,7 +2126,7 @@ run.convert_assembly_to_fasta <- function(currentPresentLoci, copyNumberList, al
       
       ## If there are deletions in row 1, then we want to store those positions in the delIndexList
       if(length(delIndices1) > 0){
-        assemblyDelIndexList[[paste0(currentLocus,'_build1')]] <- c(assemblyDelIndexList[[currentLocus]], delIndices)
+        assemblyDelIndexList[[paste0(currentLocus,'_build1')]] <- c(assemblyDelIndexList[[currentLocus]], delIndices1)
         
         ## Write over the deletion positions with empty space
         currentLocusAssembly[1,currentLocusAssembly[1,] == '.'] <- ''
@@ -1929,7 +2134,7 @@ run.convert_assembly_to_fasta <- function(currentPresentLoci, copyNumberList, al
       
       ## If there are deletions in row 2, then we want to store those positions in the delIndexList
       if(length(delIndices2) > 0){
-        assemblyDelIndexList[[paste0(currentLocus,'_build2')]] <- c(assemblyDelIndexList[[currentLocus]], delIndices)
+        assemblyDelIndexList[[paste0(currentLocus,'_build2')]] <- c(assemblyDelIndexList[[currentLocus]], delIndices2)
         
         ## Write over the deletion positions with empty space
         currentLocusAssembly[2,currentLocusAssembly[2,] == '.'] <- ''
@@ -2006,7 +2211,8 @@ run.bowtie2_assembly_alignment <- function(bowtie2_command, reference_index, thr
                       '-I 75', '-X 1000',
                       paste0('-1 ',currentSample$fastq1path),
                       paste0('-2 ',currentSample$fastq2path),
-                      '-a',paste0('-S ',currentSample$assembledSamPath))
+                      '--no-unal','--no-hd','-a',
+                      paste0('-S ',currentSample$assembledSamPath))
   
   ## Run the bowtie2 alignment command
   cat('\n\n',bowtie2_command,optionsCommand)
@@ -2067,8 +2273,8 @@ run.read_list <- function(filePath){
 }
 
 ### This function attempts to phase het SNPs using unpaired and paired-end reads
-run.snp_phaser <- function(samTable, currentLocus, currentLocusHetSnpDF){
-  
+run.snp_phaser <- function(samTable, currentLocus, currentLocusHetSnpDF, readAssignmentList, nucConv = T){
+  cat('\nPhasing',ncol(currentLocusHetSnpDF),'het SNPs')
   ## Initialize a list for storing the phased snps (new elements are added when phasing cannot be completed)
   phasedList <- list()
   
@@ -2080,10 +2286,12 @@ run.snp_phaser <- function(samTable, currentLocus, currentLocusHetSnpDF){
   
   ## Loop over all het snps
   for(snpPos in colnames(currentLocusHetSnpDF)){
-    cat('\n',snpPos)
-    
     ## Pull out the nucleotides for the current position
-    snpVect <- names(nucListConv)[as.numeric(currentLocusHetSnpDF[,snpPos])]
+    if(nucConv){
+      snpVect <- names(nucListConv)[as.numeric(currentLocusHetSnpDF[,snpPos])]
+    }else{
+      snpVect <- as.vector(currentLocusHetSnpDF[,snpPos])
+    }
     
     ## If this is the first iteration, then initialize a dataframe for storing the phased Snps
     if(prevPos == 0){
@@ -2183,6 +2391,7 @@ run.snp_phaser <- function(samTable, currentLocus, currentLocusHetSnpDF){
     ## Set the prevPos to be the current snpPos, then move on to the next snpPos
     prevPos <- snpPos
   }
+  return(phasedList)
 }
 
 ## This function combines paired-end read named vectors into a single named vector
@@ -2279,6 +2488,132 @@ run.snp_phaser_bool <- function(readTab, snp1Pos, snp1Nuc, snp2Pos, snp2Nuc, rea
   
   ## If snp1 is found in the read and snp2 is found in the read, then the snps are phased and return TRUE
   return(readTab[[snp1Pos]] == snp1Nuc & readTab[[snp2Pos]] == snp2Nuc)
+}
+
+## Fill in positions from fillNucList into allLocusNucAssembly
+run.fill_nucs <- function(allLocusNucAssembly, currentLocus, nucListConv, fillNucList){
+  for(fillPos in names(fillNucList)){
+    fillNucs <- fillNucList[[fillPos]]
+    if(length(fillNucs) > 2){
+      fillNucs <- fillNucs[1:2]
+      cat('\nFound 3 nucs for this locus-------------------------')
+    }
+    allLocusNucAssembly[[currentLocus]][1:length(fillNucs),fillPos] <- unlist(nucListConv[fillNucs], use.names=F)
+  }
+  return(allLocusNucAssembly)
+}
+
+allele.format_vcf <- function(currentVcf, currentDelIndex, depthThreshold){
+  ## Initialize global positions
+  currentVcf$pos <- currentVcf$V2
+  
+  ## Pull out the locus names
+  currentVcf$locus <- tstrsplit(currentVcf$V1, '_', fixed=T)[[1]]
+  
+  ## Set up the depth statistic
+  currentVcf$depth <- tstrsplit(currentVcf$V8, ';', fixed=T)[[1]]
+  
+  ## Discard Indels
+  currentVcf <- currentVcf[depth != 'INDEL']
+  
+  ## Set the depth field
+  currentVcf$depth <- as.integer(tstrsplit(currentVcf$depth, '=', fixed=T)[[2]])
+  
+  ## Drop snps that do not pass the depth threshold
+  currentVcf <- currentVcf[depth >= depthThreshold]
+  
+  ## Update the global positions based on the deletion index
+  currentVcf[,pos := mapply(allele.add_del_index, pos, V1)]
+  
+  ## Initialize snp1 calls
+  currentVcf$snp1 <- ''
+  
+  ## Initialize snp2 calls
+  currentVcf$snp2 <- ''
+  
+  ## Format the geno field call
+  currentVcf$V10 <- tstrsplit(currentVcf$V10, ':', fixed=T)[[1]]
+  
+  ## Discard no calls
+  currentVcf <- currentVcf[V10 != './.']
+  
+  ## Set up the geno calls for snp1 and snp2
+  snp1Call <- as.integer(tstrsplit(currentVcf$V10, '/', fixed=T)[[1]])+1
+  snp2Call <- as.integer(tstrsplit(currentVcf$V10, '/', fixed=T)[[2]])+1
+  
+  ## Assign nucs to the snp columns based on the geno calls
+  callMatrix <- cbind(currentVcf$V4, currentVcf$V5)
+  currentVcf$snp1 <- sapply(1:length(snp1Call), function(x){callMatrix[x,snp1Call[x]]})
+  currentVcf$snp2 <- sapply(1:length(snp2Call), function(x){callMatrix[x,snp2Call[x]]})
+  
+  ## Set the regions based on the kirExonCoords list
+  currentVcf[,region := mapply(allele.set_vcf_region, locus, pos)]
+  
+  return(currentVcf)
+}
+
+allele.set_vcf_region <- function(locus, pos){
+  return(names(kirExonCoords[[locus]])[sapply(kirExonCoords[[locus]],function(x) pos %in% x)])
+}
+
+allele.add_del_index <- function(pos, currentBuild){
+  sumAmount <- sum(pos >= currentDelIndex[[currentBuild]])
+  
+  newSumAmount <- sum(sumAmount+pos >= currentDelIndex[[currentBuild]])
+  
+  while(sumAmount != newSumAmount){
+    sumAmount <- newSumAmount
+    newSumAmount <- sum(sumAmount+pos >= currentDelIndex[[currentBuild]])
+  }
+  
+  return(sumAmount + pos)
+}
+
+allele.find_hom_region_alleles <- function(homRegionVect, kirExonCoords, currentLocusSnpFrame, kirAlleleDFList, onlyExons=F){
+  cat('\nFinding homozygous region allele matches...')
+  
+  homRegionAlleleList <- list()
+  for(currentRegion in homRegionVect){
+    cat('\nExamining: ', currentRegion)
+    currentRegionPosVect <- kirExonCoords[[currentLocus]][[currentRegion]]
+    currentRegionPosVect <- intersect(as.character(currentRegionPosVect), colnames(currentLocusSnpFrame))
+    
+    if(length(currentRegionPosVect) == 0){
+      next
+    }
+    
+    currentRegionAlleleFrame <- kirAlleleDFList[[currentLocus]][,currentRegionPosVect,drop=F]
+    possibleAlleleList <- rownames(currentRegionAlleleFrame)
+    
+    for(currentPos in currentRegionPosVect){
+      possibleAlleleList <- possibleAlleleList[sapply(currentRegionAlleleFrame[possibleAlleleList,currentPos,drop=F], function(x){x %in% c(currentLocusSnpFrame[,currentPos], 'N')})]
+      if(length(possibleAlleleList) == 0){
+        break
+      }
+    }
+    
+    if(length(possibleAlleleList) > 0){
+      homRegionAlleleList[[currentRegion]] <- possibleAlleleList
+    }
+  }
+  
+  cat('\nCondensing all homozygous region allele matches.')
+  
+  if(onlyExons){
+    onlyExonNames <- names(homRegionAlleleList)[sapply(names(homRegionAlleleList), grepl, pattern='E', fixed=T)]
+    
+    if(length(onlyExonNames) == 0){
+      cat('\nUh oh! The onlyExons paramater was set to TRUE, but no homozygous exons were found.')
+      stop()
+    }
+    homRegionAlleleVect <- Reduce(intersect, homRegionAlleleList[onlyExonNames])
+  }else{
+    homRegionAlleleVect <- Reduce(intersect, homRegionAlleleList)
+  }
+  
+  cat('\nMatched alleles: ', homRegionAlleleVect)
+  
+  return(homRegionAlleleVect)
 }
 
 sam_flag_convert <- function(samFlag){
@@ -2394,6 +2729,8 @@ nucListConv <- list('A'=1,
                     'G'=4,
                     '.'=5)
 
+strandConvList <- list('s1'='s2',
+                       's2'='s1')
 
 kirExonCoords <- list('KIR3DP1'=list('5UTR'=1:267,'E1'=268:301,'I1'=302:1323,'E2'=1324:1359,
                                      'I2'=1360:2117,'E3'=2118:2402,'I3'=2403:3852,'E4'=3853:4152,
