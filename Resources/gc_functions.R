@@ -168,7 +168,7 @@ read.bowtie2_sam_nohd <- function(sam_path, allele_alignment=F, rows_to_skip=0){
   
   ## SAM files can have a variable number of column names, the col.names=1:25 is a possible
   ## point of failure if the SAM file has more than 25 columns
-  output.samTable <- read.table(sam_path, sep='\t', col.names=1:25, stringsAsFactors=F, check.names=F, fill=T, skip=rows_to_skip)
+  output.samTable <- read.table(sam_path, sep='\t', col.names=1:25, stringsAsFactors=F, check.names=F, fill=T, skip=rows_to_skip, nrows = 30000000)
   
   #output.samTable <- read.table(sam_path, sep='\t', col.names=1:25, stringsAsFactors=F, check.names=F, fill=T, comment.char='@')
   
