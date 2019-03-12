@@ -265,5 +265,5 @@ cat('\n\nALL FINISHED!!')
 }
 
 
-#ping_gc(sampleDirectory='/home/common_arse/INDIGO/2_KIR_runs_extracted/indigo_plates1-4_extracted_8-5-17/',resultsDirectory='/home/wmarin/PING_projects/PING2/validation_test/',threads=16)
+#ping_gc(sampleDirectory='/home/common_arse/INDIGO/2_KIR_runs_extracted/indigo_plates1-4_extracted_8-5-17/',resultsDirectory='/home/wmarin/PING_projects/PING2/validation_test/',threads=16,predictCopy=F)
 
