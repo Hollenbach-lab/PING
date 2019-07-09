@@ -1,6 +1,5 @@
 #.libPaths("/home/wmarin/R/x86_64-redhat-linux-gnu-library/3.4")
 library(data.table)
-library(ggplot2)
 library(stringr)
 library(methods)
 library(pryr)
@@ -12,7 +11,7 @@ library(randomForest)
 
 
 ########## Development INPUT variables
-#setwd('/home/wmarin/PING_projects/PING2/')
+setwd('/home/wmarin/PING_projects/PING2/')
 #sampleDirectory <- '/home/common_arse/ping_development_projects/KIR_extracted_all_INDIGO_June2018/'
 #fastqPattern <- 'fastq'
 #threads <- 24
@@ -27,6 +26,7 @@ source('Resources/gc_functions.R')
 ping_gc.version <- '1.0'
 cat('\nPING_gc version:',ping_gc.version)
 cat('\nRun using: ping_gc(sampleDirectory="/YOUR/SAMPLE/DIRECTORY",resultsDirectory="/DESIRED/RESULTS/DIRECTORY")')
+cat('\nRun manual copy resetting using: ping_gc.manual_threshold(resultsDirectory="/PING_GC/RESULTS/DIRECTORY")')
 
 ping_gc <- function(sampleDirectory='',
                     fastqPattern='fastq',
@@ -264,6 +264,51 @@ ping_gc <- function(sampleDirectory='',
 cat('\n\nALL FINISHED!!')
 }
 
+ping_gc.manual_threshold <- function(resultsDirectory=''){
+  kirLocusList <- c('KIR3DP1','KIR2DS5','KIR2DL3','KIR2DP1',
+                    'KIR2DS3','KIR2DS2','KIR2DL4','KIR3DL3',
+                    'KIR3DL1','KIR3DS1','KIR2DL2','KIR3DL2','KIR2DS4','KIR2DL1', 'KIR2DS1', 'KIR2DL5')
+  
+  cat('Current working directory: ', getwd(),'\n')
+  
+  ### Set up directory paths, make sure they exist
+  resultsDirectory <- normalizePath(resultsDirectory, mustWork=T)
+  cat('Running manual thresholding on:',resultsDirectory)
+  
+  ## Load in KFF presence file
+  kffPresenceDFFile <- normalizePath(file.path(resultsDirectory, 'kffPresenceFrame.csv'), mustWork=T)
+  cat(paste0('\nFound kffPresenceFrame.csv in ', resultsDirectory, '. Loading these results.'))
+  kffPresenceDF <- read.csv(kffPresenceDFFile, stringsAsFactors = F, check.names = F, row.names = 1)
+  
+  ## Load in locus count file
+  locusCountDFFile <- normalizePath(file.path(resultsDirectory, 'locusCountFrame.csv'), mustWork=T)
+  cat(paste0('\nFound locusCountFrame.csv in ',resultsDirectory,'. Loading these results.'))
+  locusCountDF <- read.csv(locusCountDFFile, stringsAsFactors=F, check.names=F,row.names=1)
+  
+  ## Load in locus ratio file
+  locusRatioDFFile <- normalizePath(file.path(resultsDirectory, 'locusRatioFrame.csv'), mustWork=T)
+  cat(paste0('\nFound locusRatioFrame.csv in ',resultsDirectory,'. Loading these results.'))
+  locusRatioDF <- read.csv(locusRatioDFFile, stringsAsFactors=F, check.names=F,row.names=1)
+  
+  
+  ## Generate ratio graphs and color according to kff presence/absence
+  cat('\nGenerating copy number graphs... ')
+  run.generate_copy_number_graphs(locusRatioDF, kffPresenceDF, kirLocusList, resultsDirectory, locusCountDF)
+  
+  ## Initialize a copy number frame
+  copyNumberDF <- data.frame(locusCountDF)
+  copyNumberDF[,] <- 0
+  
+  copyNumberDF <- run.set_copy(kirLocusList=kirLocusList,
+                               copyNumberDF=copyNumberDF,
+                               locusRatioDF=locusRatioDF,
+                               locusCountDF=locusCountDF)
+  
+  ## Write the copy number results to a csv file
+  write.csv(copyNumberDF, file = file.path(resultsDirectory, 'manualCopyNumberFrame.csv'))
+  
+  cat('\nFinished with copy number setting. Results are written to',file.path(resultsDirectory,'manualCopyNumberFrame.csv'))
+}
 
 #ping_gc(sampleDirectory='/home/common_arse/INDIGO/2_KIR_runs_extracted/indigo_plates1-4_extracted_8-5-17/',resultsDirectory='/home/wmarin/PING_projects/PING2/validation_test/',threads=16,predictCopy=F)
 

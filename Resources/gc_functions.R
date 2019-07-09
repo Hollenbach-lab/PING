@@ -690,6 +690,85 @@ run.generate_copy_number_graphs <- function(countRatioDF, kffDF, kirLocusList, r
   }
 }
 
+## This function sets copy number manually
+run.set_copy <- function(kirLocusList, 
+                         copyNumberDF, 
+                         locusRatioDF,
+                         locusCountDF){
+  
+  ## Set aside the samples that we do not know the copy
+  unsetCopySampleList <- row.names(locusRatioDF)
+  failedSampleList <- setdiff(row.names(locusCountDF),unsetCopySampleList)
+  
+  copyNumberDF[failedSampleList,] <- 'failed'
+  
+  for(kirLocus in kirLocusList){
+    
+    cat('\n\nProcessing',kirLocus)
+    
+    ## Set aside the samples that we do not know the copy
+    unsetCopySampleList <- row.names(locusRatioDF)
+    
+    ## Skip KIR3DL3 (since that is the normalization locus)
+    if(kirLocus == 'KIR3DL3'){
+      cat('\nAuto-setting all KIR3DL3 copy to 2.')
+      copyNumberDF[unsetCopySampleList,kirLocus] <- 2
+      next
+    }
+    
+    maxCopyInt <- readMaxCopyInt(kirLocus)
+    
+    if(maxCopyInt == 0){
+      copyNumberDF[,kirLocus] <- 0
+    }else{
+      for(topCopy in 1:maxCopyInt){
+        copyThresholdDouble <- readThresholdFloat(topCopy)
+        
+        ## Subset the sample list by the names of samples that fall in the lower copy group
+        lowerSampleList <- unsetCopySampleList[locusRatioDF[unsetCopySampleList,kirLocus] < copyThresholdDouble]
+        
+        ## Subset the sample list by the names of samples that fall in the upper copy group
+        upperSampleList <- unsetCopySampleList[locusRatioDF[unsetCopySampleList,kirLocus] >= copyThresholdDouble]
+        
+        ## Set copy number for samples that fall under the threshold
+        copyNumberDF[lowerSampleList,kirLocus] <- topCopy-1
+        
+        ## Set copy number for samples that fall above the threshold
+        copyNumberDF[upperSampleList,kirLocus] <- topCopy
+        
+        ## Remove sample names that had copy set
+        unsetCopySampleList <- setdiff(unsetCopySampleList,lowerSampleList)
+        
+        ## Break out of the loop if we run out of samples to set
+        if(length(unsetCopySampleList) == 0){
+          break
+        }
+      }
+    }
+    
+  }
+  return(copyNumberDF)
+}
+
+## Helper function for run.set_copy()
+readMaxCopyInt <- function(kirLocus){ 
+  n <- readline(prompt=paste("Please enter the maximum copy number for",kirLocus,"as an integer: "))
+  if(!grepl("^[0-9]+$",n)){
+    return(readMaxCopyInt(kirLocus))
+  }
+  return(as.integer(n))
+}
+
+## Helper function for run.set_copy()
+readThresholdFloat <- function(topCopy){
+  n <- readline(prompt=paste("Please enter the threshold value that separates copy groups",topCopy-1,"and",topCopy,": "))
+  n <- as.double(n)
+  if(is.na(n)){
+    n <- readThresholdFloat(topCopy)
+  }
+  return(n)
+}
+
 ## This function generates copy number graphs
 run.generate_predicted_copy_number_graphs <- function(countRatioDF, kirLocusList, resultsDirectory, countDF, copyDF){
   
