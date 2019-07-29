@@ -2,6 +2,9 @@
 #library(data.table)
 #library(ggplot2)
 #library(plotly)
+kirLocusList <- c('KIR3DP1','KIR2DS5','KIR2DL3','KIR2DP1',
+                  'KIR2DS3','KIR2DS2','KIR2DL4','KIR3DL3',
+                  'KIR3DL1','KIR3DS1','KIR2DL2','KIR3DL2','KIR2DS4','KIR2DL1', 'KIR2DS1', 'KIR2DL5')
 
 ## This function checks to make sure the output of system2 is valid
 check.system2_output <- function(system2_output, system2_error){
@@ -1637,6 +1640,21 @@ build.assembled_nuc_list <- function(kirLocusList, kirAlleleDFList){
   return(assembledNucList)
 }
 
+## This function initializes a list of dataframes for storing the assembled nucleotides for each kir locus
+build.promoter_nuc_list <- function(kirLocusList, kirExonCoords){
+  assembledNucList <- list()
+  for(currentLocus in kirLocusList){
+    
+    ## Pull out up through the first intron, and then the last intron to the end
+    posVect <- unlist(kirExonCoords[[currentLocus]][c('5UTR','E1','I1', tail(names(kirExonCoords[[currentLocus]]), 3))], use.names=F)
+    
+    refSeqDF <- data.frame(matrix(0, 5, length(posVect)), check.names=F, stringsAsFactors=F)
+    colnames(refSeqDF) <- as.character(posVect)
+    assembledNucList[[currentLocus]] <- refSeqDF
+  }
+  return(assembledNucList)
+}
+
 ## This function adds single read information to the assembled nuc list
 build.add_read_to_assembly <- function(assembledNucList, samSubsetTable, delIndexDFList, inverseDeletionIndexDFList, kirAlleleDFList, nucListConv, currentLocus){
 
@@ -2604,6 +2622,10 @@ allele.read_formatter <- function(readSeq, startPos, endPos, refAlleleName){
   ## Turn the sequence string into a list
   seqList <- strsplit(readSeq,'')[[1]]
   
+  if(length(seqList) != length(fullIndex)){
+    cat('\n',startPos,endPos,refAlleleName)
+  }
+  
   names(seqList) <- fullIndex
   
   seqListList <- list(seqList)
@@ -3030,6 +3052,17 @@ nucListConv <- list('A'=1,
                     'C'=3,
                     'G'=4,
                     '.'=5)
+
+hetNucConv <- list('R'=c('A','G'),
+                   'Y'=c('C','T'),
+                   'K'=c('G','T'),
+                   'M'=c('A','C'),
+                   'S'=c('G','C'),
+                   'W'=c('A','T'),
+                   'E'=c('A','.'),
+                   'F'=c('T','.'),
+                   'I'=c('C','.'),
+                   'J'=c('G','.'))
 
 strandConvList <- list('s1'='s2',
                        's2'='s1')
