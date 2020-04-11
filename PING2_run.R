@@ -3,7 +3,7 @@ setwd('/home/LAB_PROJECTS/PING2_PAPER/PING2') #Set this to your own PING2 workin
 
 source('Resources/general_functions.R') # do not change
 source('Resources/extractor_functions.R') # do not change
-source('ping_copy.R') # do not change
+source('Resources/ping_copy.R') # do not change
 
 # Initialization variables ------------------------------------------------
 rawFastqDirectory <- '/home/LAB_PROJECTS/PING2_PAPER/3_script_results/extractedFastq/' # can be set to raw sequence or extractedFastq directory
