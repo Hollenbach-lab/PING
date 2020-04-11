@@ -7,138 +7,146 @@ kirLocusList <- c('KIR3DP1','KIR2DS5','KIR2DL3','KIR2DP1',
                   'KIR3DL1','KIR3DS1','KIR2DL2','KIR3DL2','KIR2DS4','KIR2DL1', 'KIR2DS1', 'KIR2DL5')
 
 ## This function checks to make sure the output of system2 is valid
-check.system2_output <- function(system2_output, system2_error){
-  
-  ## Checking if the attributes of system2_command are NULL, if not the command was not found
-  if(!is.null(attributes(system2_output))){
-    cat('\n',system2_output)
-    stop(system2_error, '. Stopping program.')
-  }
-}
+#check.system2_output <- function(system2_output, system2_error){
+#  
+#  ## Checking if the attributes of system2_command are NULL, if not the command was not found
+#  if(!is.null(attributes(system2_output))){
+##    cat('\n',system2_output)
+#    stop(system2_error, '. Stopping program.')
+#  }
+#}
+
+## Check to make sure samtools is accessible
+#samtools <- system2('which', c('samtools'), stdout=T, stderr=T)
+#check.system2_output(samtools, 'samtools not found')
 
 ## This function finds samples in sampleDirectory and turns them into objects for downstream use
-build.paired_sample_objects <- function(sample_directory, fastq_pattern='fastq', resultsDirectory){
-  #####
-  ## This function takes in a directory and a file name pattern and attempts to pair fastq files
-  ## Returns a list of sample objects that contain the paired fastq file names
-  #####
-  
-  cat("\nAttempting automatic fastq pairing in", sample_directory, "using", fastq_pattern)
-  
-  ## Find all the files in sampleDirectory that match fastqPattern
-  unpairedFastqList <- list.files(path=sample_directory, pattern=fastq_pattern)
-  
-  ## To pair reads, we will split the file names by fastqPattern, then continuously chop a
-  ## character off the end of each name until the number of unique names is exactly half of the total names
-  
-  ## Setting up an initial fastq list that splits the files names by fastqPattern
-  strList <- sapply(unpairedFastqList, function(x) str_split(x, fastq_pattern)[[1]][1])
-  
-  ## Setting the maximum number of times to chop off the last character to the length of the shortest name
-  maxChop <- min(sapply(strList, nchar))
-  
-  ## Iterate from 0 to maxChop, cutting off i characters from the file names each time
-  for(i in 0:maxChop){
-    
-    ## In each iteration, the file names are reset. There is no particular reason I implemented it this way
-    subStrList <- strList
-    
-    ## Cut off i characters from the end of each fastq file name
-    subStrList <- sapply(subStrList, function(x) substr(x, 1, nchar(x)-i))
-    
-    ## After cutting, determine the unique names
-    uniqueFastqList <- unique(subStrList)
-    
-    ## If the number of unique names is exactly half of the total names, then cutting should be finished
-    ## and it is time to move on to matching!
-    if(length(uniqueFastqList) == (length(subStrList)/2)){
-      break
-    }
-    
-    ## Pairing failed if i reaches maxChop. This will raise a fatal error.
-    if(i == maxChop){
-      stop("Was not able to pair fastq file names, please check that fastqPattern and sampleDirectory are set correctly.")
-    }
-  }
-  
-  ## Initialize a list for storing the paired fastq file names
-  pairedFastqList <- list()
-  
-  ## Iterate through the unique fastq names to make pairings
-  for(fastqName in uniqueFastqList){
-    
-    ## Pull out the matches for fastqName in the subStrList
-    fastqMatches <- subStrList[fastqName == subStrList]
-    
-    ## Determine how many matches there are for fastqName in the subStrList
-    matchCount <- length(fastqMatches)
-    
-    ## Stop the program if more or less than 2 matches are found for fastqName
-    if(matchCount != 2){
-      cat('\n',names(fastqMatches))
-      stop('Auto fastq matching failed due to an improper number of matches for ',fastqName)
-    }
-    
-    ## Save the file names in the pairedFastqList under the unique name
-    pairedFastqList[[fastqName]] <- names(fastqMatches)
-  }
-  
-  cat("\nFound", length(uniqueFastqList), "samples in", sample_directory)
-  
-  ## Creating the sample object class
-  sample <- setRefClass("sample",
-                        fields=list(name='character',
-                                    fastq1path='character',
-                                    fastq2path='character',
-                                    gzip='logical',
-                                    gcSamPath='character',
-                                    assembledRefPath='character',
-                                    assembledRefIndex='character',
-                                    assembledSamPath='character',
-                                    assembledBedPath='character',
-                                    assembledDelIndex='character'))
-  
-  ## Initializing a sample object list. This will be returned
-  output.sampleList <- list()
-  
-  for(i in 1:length(pairedFastqList)){
-    
-    ## Pulling the current working element out of the list
-    pairedFastq <- pairedFastqList[i]
-    
-    ## Creating an absolute path to the first fastq file
-    fastq1path <- normalizePath(file.path(sample_directory, pairedFastq[[1]][1]), mustWork=T)
-    
-    ## Creating a absolute path to the second fastq file
-    fastq2path <- normalizePath(file.path(sample_directory, pairedFastq[[1]][2]), mustWork=T)
-    
-    ## Checking if the first fastq file is gzipped
-    gzip <- substr(fastq1path, nchar(fastq1path)-2, nchar(fastq1path)) == '.gz'
-    
-    ## Fill in the path to the alignment file (it may or may not be present)
-    gcSamPath <- file.path(resultsDirectory,paste0(names(pairedFastq),'.sam'))
-    
-    ## Building a sample object and adding it to sampleList
-    output.sampleList[[names(pairedFastq)]] <- sample(name=names(pairedFastq),fastq1path=fastq1path,fastq2path=fastq2path,gzip=gzip,gcSamPath=gcSamPath)
-  }
-  
-  cat("\nAll samples were successfully paired")
-  return(output.sampleList)
-}
+# build.paired_sample_objects <- function(sample_directory, fastq_pattern='fastq', resultsDirectory){
+#   #####
+#   ## This function takes in a directory and a file name pattern and attempts to pair fastq files
+#   ## Returns a list of sample objects that contain the paired fastq file names
+#   #####
+#   
+#   cat("\nAttempting automatic fastq pairing in", sample_directory, "using", fastq_pattern)
+#   
+#   ## Find all the files in sampleDirectory that match fastqPattern
+#   unpairedFastqList <- list.files(path=sample_directory, pattern=fastq_pattern)
+#   
+#   ## To pair reads, we will split the file names by fastqPattern, then continuously chop a
+#   ## character off the end of each name until the number of unique names is exactly half of the total names
+#   
+#   ## Setting up an initial fastq list that splits the files names by fastqPattern
+#   strList <- sapply(unpairedFastqList, function(x) str_split(x, fastq_pattern)[[1]][1])
+#   
+#   ## Setting the maximum number of times to chop off the last character to the length of the shortest name
+#   maxChop <- min(sapply(strList, nchar))
+#   
+#   ## Iterate from 0 to maxChop, cutting off i characters from the file names each time
+#   for(i in 0:maxChop){
+#     
+#     ## In each iteration, the file names are reset. There is no particular reason I implemented it this way
+#     subStrList <- strList
+#     
+#     ## Cut off i characters from the end of each fastq file name
+#     subStrList <- sapply(subStrList, function(x) substr(x, 1, nchar(x)-i))
+#     
+#     ## After cutting, determine the unique names
+#     uniqueFastqList <- unique(subStrList)
+#     
+#     ## If the number of unique names is exactly half of the total names, then cutting should be finished
+#     ## and it is time to move on to matching!
+#     if(length(uniqueFastqList) == (length(subStrList)/2)){
+#       break
+#     }
+#     
+#     ## Pairing failed if i reaches maxChop. This will raise a fatal error.
+#     if(i == maxChop){
+#       stop("Was not able to pair fastq file names, please check that fastqPattern and sampleDirectory are set correctly.")
+#     }
+#   }
+#   
+#   ## Initialize a list for storing the paired fastq file names
+#   pairedFastqList <- list()
+#   
+#   ## Iterate through the unique fastq names to make pairings
+#   for(fastqName in uniqueFastqList){
+#     
+#     ## Pull out the matches for fastqName in the subStrList
+#     fastqMatches <- subStrList[fastqName == subStrList]
+#     
+#     ## Determine how many matches there are for fastqName in the subStrList
+#     matchCount <- length(fastqMatches)
+#     
+#     ## Stop the program if more or less than 2 matches are found for fastqName
+#     if(matchCount != 2){
+#       cat('\n',names(fastqMatches))
+#       stop('Auto fastq matching failed due to an improper number of matches for ',fastqName)
+#     }
+#     
+#     ## Save the file names in the pairedFastqList under the unique name
+#     pairedFastqList[[fastqName]] <- names(fastqMatches)
+#   }
+#   
+#   cat("\nFound", length(uniqueFastqList), "samples in", sample_directory)
+#   
+#   ## Creating the sample object class
+#   sample <- setRefClass("sample",
+#                         fields=list(name='character',
+#                                     fastq1path='character',
+#                                     fastq2path='character',
+#                                     gzip='logical',
+#                                     samPath='character',
+#                                     bamPath='character',
+#                                     assembledRefPath='character',
+#                                     assembledRefIndex='character',
+#                                     assembledSamPath='character',
+#                                     assembledBedPath='character',
+#                                     assembledDelIndex='character'))
+#   
+#   ## Initializing a sample object list. This will be returned
+#   output.sampleList <- list()
+#   
+#   for(i in 1:length(pairedFastqList)){
+#     
+#     ## Pulling the current working element out of the list
+#     pairedFastq <- pairedFastqList[i]
+#     
+#     ## Creating an absolute path to the first fastq file
+#     fastq1path <- normalizePath(file.path(sample_directory, pairedFastq[[1]][1]), mustWork=T)
+#     
+#     ## Creating a absolute path to the second fastq file
+#     fastq2path <- normalizePath(file.path(sample_directory, pairedFastq[[1]][2]), mustWork=T)
+#     
+#     ## Checking if the first fastq file is gzipped
+#     gzip <- substr(fastq1path, nchar(fastq1path)-2, nchar(fastq1path)) == '.gz'
+#     
+#     ## Fill in the path to the alignment file (it may or may not be present)
+#     samPath <- file.path(resultsDirectory,paste0(names(pairedFastq),'.sam'))
+#     
+#     ## Fill in the path to the alignment file (it may or may not be present)
+#     bamPath <- file.path(resultsDirectory,paste0(names(pairedFastq),'.bam'))
+#     
+#     ## Building a sample object and adding it to sampleList
+#     output.sampleList[[names(pairedFastq)]] <- sample(name=names(pairedFastq),fastq1path=fastq1path,fastq2path=fastq2path,gzip=gzip,samPath=samPath,bamPath=bamPath)
+#   }
+#   
+#   cat("\nAll samples were successfully paired")
+#   return(output.sampleList)
+# }
 
 ## This function runs a bowtie2 alignment looking for exact matches to all KIR references in subsetKirReference
-run.bowtie2_gc_alignment <- function(bowtie2_command, reference_index, threads, current_sample, resultsDirectory){
+run.bowtie2_gc_alignment <- function(bowtie2_command, reference_index, threads, current_sample, bamDirectory){
   ## Intitialize an output path for the SAM file
-  current_sample$gcSamPath <- file.path(resultsDirectory,paste0(current_sample$name,'.sam'))
+  current_sample$samPath <- file.path(bamDirectory,paste0(current_sample$name,'.sam'))
   
   ## Building up the run command
   optionsCommand <- c(paste0('-x ',reference_index),
                       '-5 0', '-3 6', '-N 0', '--end-to-end', paste0('-p ',threads), '--score-min "C,-2,0"',
                       '-I 75', '-X 1000',
-                      paste0('-1 ',current_sample$fastq1path),
-                      paste0('-2 ',current_sample$fastq2path),
-                      '--no-unal','--no-hd','-a','--np 0', '--mp 2,2', '--rdg 1,1', '--rfg 1,1',
-                      paste0('-S ',current_sample$gcSamPath))
+                      paste0('-1 ',current_sample$kirfastq1path),
+                      paste0('-2 ',current_sample$kirfastq2path),
+                      '--no-unal','-a','--np 0', '--mp 2,2', '--rdg 1,1', '--rfg 1,1',
+                      paste0('-S ',current_sample$samPath))
   
   ## Run the bowtie2 alignment command
   cat('\n\n',bowtie2_command,optionsCommand)
@@ -155,25 +163,99 @@ run.bowtie2_gc_alignment <- function(bowtie2_command, reference_index, threads, 
   cat('\n',paste0(output.sampleAlign, collapse='\n'))
   
   ## Check to make sure the SAM file actually exists
-  current_sample$gcSamPath <- normalizePath(current_sample$gcSamPath, mustWork=T)
+  current_sample$samPath <- normalizePath(current_sample$samPath, mustWork=T)
   
   cat('\n\nSuccessfully aligned',current_sample$name,'to',reference_index)
   
-  return(output.sampleAlign)
+  return(current_sample)
+}
+
+## This function counts the number of header lines in a SAM file (using '@SQ')
+samfile.count_header_lines <- function(currentSample){
+  if(!file.exists(currentSample$samPath)){
+    stop('This sam file does not exist')
+  }
+  
+  headerLines <- 0
+  con = file(currentSample$samPath, "r")
+  
+  while(TRUE){
+    
+    line = readLines(con, n = 1)
+    #if(strsplit(line,'\t')[[1]][1] != "@SQ"){
+    #  break
+    #}
+    
+    if(substr(line,1,1) != '@'){
+      break
+    }
+    
+    headerLines <- headerLines + 1
+  }
+  close(con)
+  
+  return(headerLines)
+}
+
+## This function runs a samtools sam to bam conversion
+samtools.sam_to_bam <- function(samtools_command, currentSample, bamDirectory, threads){
+  
+  ## Initialize an output path for the BAM file
+  currentSample[['bamPath']] <- file.path(bamDirectory,paste0(currentSample$name,'.bam'))
+  
+  ## Building up the run command
+  optionsCommand <- c('view',paste0('-@', threads),
+                      currentSample$samPath, '-o', currentSample$bamPath)
+  
+  cat('\n\n',samtools_command, optionsCommand)
+  output.bamConv <- system2(samtools_command, optionsCommand, stdout=T, stderr=T)
+  check.system2_output(output.bamConv, 'samtools sam to bam conversion failed')
+  
+  ## Print the conversion output
+  cat('\n',paste0(output.bamConv), collapse='\n')
+  
+  ## Check to make sure the BAM file actually exists
+  currentSample[['bamPath']] <- normalizePath(currentSample$bamPath, mustWork=T)
+  
+  cat('\n\nSuccessfully converted',currentSample$samPath,'to',currentSample$bamPath)
+  
+  return(currentSample)
+}
+
+
+## This function runs a samtools bam to sam conversion
+samtools.bam_to_sam <- function(samtools_command, currentSample, bamDirectory, threads){
+  
+  ## Building up the run command
+  optionsCommand <- c('view',paste0('-@', threads),'-h',
+                      currentSample$bamPath, '-o', currentSample$samPath)
+  
+  cat('\n\n',samtools_command, optionsCommand)
+  output.samConv <- system2(samtools_command, optionsCommand, stdout=T, stderr=T)
+  check.system2_output(output.samConv, 'samtools bam to sam conversion failed')
+  
+  ## Print the conversion output
+  cat('\n',paste0(output.samConv), collapse='\n')
+  
+  ## Check to make sure the BAM file actually exists
+  currentSample[['samPath']] <- normalizePath(currentSample$samPath, mustWork=T)
+  
+  cat('\n\nSuccessfully converted',currentSample$bamPath,'to',currentSample$samPath)
+  
+  return(currentSample)
 }
 
 ## This function reads in a SAM file with no header to a data.table
-read.bowtie2_sam_nohd <- function(sam_path, allele_alignment=F, rows_to_skip=0){
-  cat('\nReading in the SAM file.')
+read.bowtie2_sam_nohd <- function(currentSample, allele_alignment=F, rows_to_skip=0){
+  cat("\n\nReading in",currentSample$samPath)
   
   ## Make sure the SAM file can be read in
-  sam_path <- normalizePath(sam_path, mustWork=T)
+  sam_path <- normalizePath(currentSample$samPath, mustWork=T)
   
   ## SAM files can have a variable number of column names, the col.names=1:25 is a possible
   ## point of failure if the SAM file has more than 25 columns
-  output.samTable <- read.table(sam_path, sep='\t', col.names=1:25, stringsAsFactors=F, check.names=F, fill=T, skip=rows_to_skip, nrows = 30000000)
-  
-  #output.samTable <- read.table(sam_path, sep='\t', col.names=1:25, stringsAsFactors=F, check.names=F, fill=T, comment.char='@')
+  #output.samTable <- read.table(sam_path, sep='\t', col.names=1:25, stringsAsFactors=F, check.names=F, fill=T, skip=rows_to_skip, nrows = 30000000)
+  output.samTable <- read.table(sam_path, sep='\t', stringsAsFactors=F, check.names=F, fill=T, skip=rows_to_skip,col.names=1:25)
   
   ## Convert the dataframe to a datatable for faster access
   output.samTable <- as.data.table(output.samTable)
@@ -328,9 +410,9 @@ run.count_kir_read_matches <- function(currentSample, samTable, maxReadThreshold
   uniqueLocusMatchList[kirLocusList] <- 0
   
   ## Initialize the list for storing reference matches
-  uniqueAlleleMatchList <- as.list(kirAlleleList)
-  names(uniqueAlleleMatchList) <- kirAlleleList
-  uniqueAlleleMatchList[kirAlleleList] <- 0
+  #uniqueAlleleMatchList <- as.list(kirAlleleList)
+  #names(uniqueAlleleMatchList) <- kirAlleleList
+  #uniqueAlleleMatchList[kirAlleleList] <- 0
   
   ## Initialize variables to check on the progress of the next for loop
   i = 1
@@ -351,10 +433,10 @@ run.count_kir_read_matches <- function(currentSample, samTable, maxReadThreshold
     samSubsetTable <- samSubsetTable[alignment_score == maxAlignmentScore]
     
     ## Read in the matched references to a list for further processing
-    matchedAlleleList <- samSubsetTable$reference_name
+    #matchedAlleleList <- samSubsetTable$reference_name
     
     ## Pull out the res 3 allele names
-    matchedAlleleList <- unique(unlist(lapply(matchedAlleleList, kir.allele_resolution, 3)))
+    #matchedAlleleList <- unique(unlist(lapply(matchedAlleleList, kir.allele_resolution, 3)))
     
     ## Pull out the unique locus names from the matched allele list
     matchedLocusList <- unique(samSubsetTable$locus)
@@ -375,9 +457,9 @@ run.count_kir_read_matches <- function(currentSample, samTable, maxReadThreshold
       uniqueLocusMatchList[matchedLocusList] = uniqueLocusMatchList[matchedLocusList][[1]] + 1
         
       ## This will count all allele matches
-      for(matchedAllele in matchedAlleleList){
-        uniqueAlleleMatchList[matchedAllele] = uniqueAlleleMatchList[matchedAllele][[1]] + 1
-      }
+      #for(matchedAllele in matchedAlleleList){
+      #  uniqueAlleleMatchList[matchedAllele] = uniqueAlleleMatchList[matchedAllele][[1]] + 1
+      #}
       
       ## If there is only a single matching reference allele, then iterate the count of that allele
       #if(length(matchedAlleleList) == 1){
@@ -393,12 +475,10 @@ run.count_kir_read_matches <- function(currentSample, samTable, maxReadThreshold
       cat(paste0(j,'% ', collapse = ''))
     }
   }
-  cat('\n',i)
   cat("\n\nFinished counting!")
   
-  ## Cutting the function short for now to test what a good threshold would be
-  return(list(locusMatches = uniqueLocusMatchList, alleleMatches = uniqueAlleleMatchList))
-  #locusRatio <- sapply(uniqueLocusMatchList, function(x) x/uniqueLocusMatchList$KIR3DL3)
+  #return(list(locusMatches = uniqueLocusMatchList, alleleMatches = uniqueAlleleMatchList))
+  return(list(locusMatches=uniqueLocusMatchList))
 }
 
 ## This function shortens KIR allele names
@@ -422,8 +502,8 @@ kir.allele_resolution <- function(allele_name, res){
   return(paste0(alleleLocus,'*',shortAlleleNumber))
 }
 
-## This function generates copy number graphs
-run.generate_copy_number_graphs <- function(countRatioDF, kffDF, kirLocusList, resultsDirectory, countDF){
+## Generates copy number graphs with threshold lines
+run.generate_copy_number_graphs <- function(countRatioDF, kffDF, kirLocusList, plotDirectory, countDF, thresholdDF){
   
   ## Check to see what samples are in both data frames
   samplesInBoth <- intersect(row.names(countRatioDF), row.names(kffDF))
@@ -447,6 +527,12 @@ run.generate_copy_number_graphs <- function(countRatioDF, kffDF, kirLocusList, r
     if(currentLocus =='KIR3DL3'){
       next
     }
+    
+    ## Format threshold stuff
+    currentLocusThresholds <- thresholdDF[currentLocus,]
+    setThresholdCols <- colnames(thresholdDF)[!is.na(currentLocusThresholds)]
+    setThresholdValList <- as.list(currentLocusThresholds[setThresholdCols])
+    
 
     ## Determine the rank of the ratios (x-axis order from lowest to highest)
     countRatioDF$ratioRank <- rank(countRatioDF[,currentLocus], ties.method = 'first')
@@ -581,6 +667,9 @@ run.generate_copy_number_graphs <- function(countRatioDF, kffDF, kirLocusList, r
     pal2 <- c("#d3dcff", "gray", "pink", "red", "black")
     pal2 <- setNames(pal2, c(kir3DL3RatioToMax, altLocus, altNeg, currentNeg, currentLocus))
     
+    palThresholds <- c('#bb00ff','#2eee00','#007aff','#ffb200','#ff1aa7','#dbdd07')
+    palThresholds <- setNames(palThresholds, colnames(thresholdDF))
+    
     ## Set labels for the positive and negative points
     posPointText <- paste('Sample ID:',countRatioDF[currentLocusPresent,'id'],'$<br>Ratio:',countRatioDF[currentLocusPresent,currentLocus],'$<br>3DL3Ratio:',countRatioDF[currentLocusPresent,'overall3DL3Ratio'])
     negPointText <- paste('Sample ID:',countRatioDF[currentLocusAbsent,'id'],'$<br>Ratio:',countRatioDF[currentLocusAbsent,currentLocus],'$<br>3DL3Ratio:',countRatioDF[currentLocusAbsent,'overall3DL3Ratio'])
@@ -646,7 +735,9 @@ run.generate_copy_number_graphs <- function(countRatioDF, kffDF, kirLocusList, r
     
     maxY <- max(c(1,unlist(countRatioDF[samplesInBoth,c(currentLocus,altLocus)])))+0.2
     
-    ## Create the plot
+    ## Create plot
+    
+    ## Add histogram data
     p1 <- plot_ly(colors=pal1) %>%
       add_histogram(y=~countRatioDF[currentLocusPresent,currentLocusTitle],name=currentLocusTitle,
                     color=currentLocusTitle) %>%
@@ -656,6 +747,7 @@ run.generate_copy_number_graphs <- function(countRatioDF, kffDF, kirLocusList, r
              xaxis=list(title='density',showgrid=F),
              yaxis=list(title=paste(currentLocus,'/ KIR3DL3 Ratio'),range=c(0,maxY)))
     
+    ## Add ratio data
     p2 <- plot_ly(colors=pal2) %>%
       add_trace(x=countRatioDF[samplesInBoth,'ratioRank'],
                 y=countRatioDF[samplesInBoth,'overall3DL3Ratio'],
@@ -676,28 +768,47 @@ run.generate_copy_number_graphs <- function(countRatioDF, kffDF, kirLocusList, r
       add_trace(x=countRatioDF[currentLocusPresent,'ratioRank'],
                 y=countRatioDF[currentLocusPresent,currentLocusTitle],
                 mode='markers',type='scatter',name=currentLocusTitle,color=currentLocusTitle,
-                text=posPointText) %>%
-      layout(title=currentLocus,
-             xaxis = list(title='Sample rank',showgrid=F),
-             yaxis = list(title='',range=c(0,maxY),showgrid=T))
+                text=posPointText)
+      
+      ## Add theshold data
+      for(currentThreshold in names(setThresholdValList)){
+        ## Pull out the current threshold value
+        thresholdVal <- as.numeric(setThresholdValList[[currentThreshold]])
+        
+        ## Initialize overlay text
+        currentThreshText <- paste('Threshold:',currentThreshold,
+                                   '$<br>Value:',thresholdVal)
+        
+        ## Add trace for current threhsold
+        p2 <- p2 %>% add_trace(p2,
+                        x=1:length(samplesInBoth),
+                        y=thresholdVal,
+                        type='scatter',
+                        mode='line',
+                        line=list(color=palThresholds[currentThreshold]),
+                        name=currentThreshold)
+      }
+      
+      ## Format axis layout
+      p2 <- p2 %>% layout(title=currentLocus,
+                          xaxis = list(title='Sample rank',showgrid=F),
+                          yaxis = list(title='',range=c(0,maxY),showgrid=T))
     
     p <- subplot(p1, p2, shareY=T, widths = c(0.15,0.85),titleX=T)
     print(p)
     
-    ## Max copy number prompt
-    #copyNumberPrompt(currentLocus, 0, 5)
-    
     ## Save each plot
-    htmlwidgets::saveWidget(p, file=file.path(resultsDirectory,paste0(currentLocus, '_copy_number_plot.html')))
+    htmlwidgets::saveWidget(p, file=file.path(plotDirectory,paste0(currentLocus, '_copy_number_plot.html')))
     
   }
 }
 
-## This function sets copy number manually
+## Sets copy number manually
 run.set_copy <- function(kirLocusList, 
                          copyNumberDF, 
                          locusRatioDF,
-                         locusCountDF){
+                         locusCountDF,
+                         thresholdDF){
   
   ## Set aside the samples that we do not know the copy
   unsetCopySampleList <- row.names(locusRatioDF)
@@ -727,6 +838,9 @@ run.set_copy <- function(kirLocusList,
       for(topCopy in 1:maxCopyInt){
         copyThresholdDouble <- readThresholdFloat(topCopy)
         
+        ## save threshold, indexing could also be done using paste0(topCopy,'-',topCopy-1)
+        thresholdDF[kirLocus,colnames(thresholdDF)[topCopy]] <- copyThresholdDouble
+        
         ## Subset the sample list by the names of samples that fall in the lower copy group
         lowerSampleList <- unsetCopySampleList[locusRatioDF[unsetCopySampleList,kirLocus] < copyThresholdDouble]
         
@@ -750,7 +864,7 @@ run.set_copy <- function(kirLocusList,
     }
     
   }
-  return(copyNumberDF)
+  return(list('copyDF'=copyNumberDF,'threshDF'=thresholdDF))
 }
 
 ## Helper function for run.set_copy()
@@ -773,7 +887,7 @@ readThresholdFloat <- function(topCopy){
 }
 
 ## This function generates copy number graphs
-run.generate_predicted_copy_number_graphs <- function(countRatioDF, kirLocusList, resultsDirectory, countDF, copyDF){
+run.generate_predicted_copy_number_graphs <- function(countRatioDF, kirLocusList, plotDirectory, countDF, copyDF){
   
   ## Check to see what samples are in both data frames
   samplesInBoth <- intersect(row.names(countRatioDF), row.names(copyDF))
@@ -863,7 +977,7 @@ run.generate_predicted_copy_number_graphs <- function(countRatioDF, kirLocusList
     print(p1)
     
     ## Save each plot
-    htmlwidgets::saveWidget(p1, file=file.path(resultsDirectory,paste0(currentLocus, '_predicted_copy_number_plot.html')))
+    htmlwidgets::saveWidget(p1, file=file.path(plotDirectory,paste0(currentLocus, '_predicted_copy_number_plot.html')))
   }
 }
 
@@ -876,11 +990,7 @@ run.count_kff_probes <- function(currentSample, probelistDF, maxReadThreshold){
   kffProbeMatchList[probelistDF$Name] <- 0
   
   ## Read in the first paired-end fastq file
-  if(currentSample$gzip){
-    fileContents <- fread(paste("zcat", currentSample$fastq1path), sep='\n', header=F, nrows=maxReadThreshold*4)
-  }else{
-    fileContents <- fread(currentSample$fastq1path, sep='\n', header=F, nrows=maxReadThreshold*4)
-  }
+  fileContents <- fread(cmd=(paste("zcat", currentSample$kirfastq1path)), sep='\n', header=F, nrows=maxReadThreshold*4)
   
   ## Pull out the read rows from the file object
   fileContents <- fileContents[seq(2, length(fileContents[[1]]), 4)]
@@ -894,11 +1004,7 @@ run.count_kff_probes <- function(currentSample, probelistDF, maxReadThreshold){
   remove(fileContents)
   
   ## Read in the second paired-end fastq file
-  if(currentSample$gzip){
-    fileContents <- fread(paste("zcat", currentSample$fastq2path), sep='\n', header=F, nrows=maxReadThreshold*4)
-  }else{
-    fileContents <- fread(currentSample$fastq2path, sep='\n', header=F, nrows=maxReadThreshold*4)
-  }
+  fileContents <- fread(cmd=(paste("zcat", currentSample$kirfastq2path)), sep='\n', header=F, nrows=maxReadThreshold*4)
   
   ## Pull out the read rows from the file object
   fileContents <- fileContents[seq(2, length(fileContents[[1]]), 4)]

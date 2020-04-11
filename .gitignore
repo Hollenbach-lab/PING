@@ -31,7 +31,6 @@ copy_number*
 kff_threshold_graphs*
 Sequences/*.fastq
 .Rhistory
-*.csv
 Results*
 GC_results*
 Caller_results*
@@ -42,6 +41,7 @@ old_ping_kir_results*
 subset_kir_results*
 kff_threshold*
 validation_test*
+old_stuff*
 
 # =========================
 # Operating System Files
