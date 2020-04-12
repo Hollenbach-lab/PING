@@ -65,7 +65,7 @@ extractor.run <- function(sampleList, threads, extractedFastqDirectory, forceRun
       }
     }
     
-    extractor.bowtie2_align(bowtie2, threads, currentSample, extractedFastqDirectory)
+    currentSample <- extractor.bowtie2_align(bowtie2, threads, currentSample, extractedFastqDirectory)
   }
   
   cat("\n\n----- PING2_extractor is complete. Extracted reads are deposited in",extractedFastqDirectory,'-----\n')
