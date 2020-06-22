@@ -1,3 +1,40 @@
+## Returns boolean
+is_nuc <- function(chr){
+  nuc_list <- c('A', 'T', 'C', 'G', '.')
+  return(as.character(chr) %in% nuc_list)
+}
+
+## Counts how many unique nucleotides are in a vector
+num_unique_nuc <- function(vector_to_check){
+  return(sum(is_nuc(names(table(vector_to_check)))))
+}
+
+## Condenses allele fram into only positions that have multiple nucleotides
+make_unique_pos_frame <- function(pos_frame){
+  num_unique <- lapply(pos_frame, num_unique_nuc)
+  unique_pos_frame <- pos_frame[,names(num_unique[num_unique > 1]), drop=F]
+  return(unique_pos_frame)
+}
+
+kir.locus.vect <- c("KIR3DP1","KIR2DS5","KIR2DL3","KIR2DP1","KIR2DS3","KIR2DS2","KIR2DL4","KIR3DL3","KIR3DL1","KIR3DS1","KIR2DL2","KIR3DL2","KIR2DS4","KIR2DL1","KIR2DS1","KIR2DL5")
+
+kirLocusFeatureNameList <- list()
+kirLocusFeatureNameList[['KIR2DL1']] <- c("5UTR","E1","I1","E2","I2","PE3","I3","E4","I4","E5","I5","E6","I6","E7","I7","E8","I8","E9","3UTR")
+kirLocusFeatureNameList[['KIR2DL2']] <- c("5UTR","E1","I1","E2","I2","PE3","I3","E4","I4","E5","I5","E6","I6","E7","I7","E8","I8","E9","3UTR")
+kirLocusFeatureNameList[['KIR2DL3']] <- c("5UTR","E1","I1","E2","I2","PE3","I3","E4","I4","E5","I5","E6","I6","E7","I7","E8","I8","E9","3UTR")
+kirLocusFeatureNameList[['KIR2DL4']] <- c("5UTR","E1","I1","E2","I2","E3","I3/4","E5","I5","E6","I6","E7","I7","E8","I8","E9","3UTR")
+kirLocusFeatureNameList[['KIR2DL5']] <- c("5UTR","E1","I1","E2","I2","E3","I3/4","E5","I5","E6","I6","E7","I7","E8","I8","E9","3UTR")
+kirLocusFeatureNameList[['KIR2DP1']] <- c("5UTR","E1","I1","E2","I2","PE3","I3","E4","I4","E5","I5","E6","I6","E7","I7","E8","I8","E9","3UTR")
+kirLocusFeatureNameList[['KIR2DS1']] <- c("5UTR","E1","I1","E2","I2","PE3","I3","E4","I4","E5","I5","E6","I6","E7","I7","E8","I8","E9","3UTR")
+kirLocusFeatureNameList[['KIR2DS2']] <- c("5UTR","E1","I1","E2","I2","PE3","I3","E4","I4","E5","I5","E6","I6","E7","I7","E8","I8","E9","3UTR")
+kirLocusFeatureNameList[['KIR2DS3']] <- c("5UTR","E1","I1","E2","I2","PE3","I3","E4","I4","E5","I5","E6","I6","E7","I7","E8","I8","E9","3UTR")
+kirLocusFeatureNameList[['KIR2DS4']] <- c("5UTR","E1","I1","E2","I2","PE3","I3","E4","I4","E5","I5","E6","I6","E7","I7","E8","I8","E9","3UTR")
+kirLocusFeatureNameList[['KIR2DS5']] <- c("5UTR","E1","I1","E2","I2","PE3","I3","E4","I4","E5","I5","E6","I6","E7","I7","E8","I8","E9","3UTR")
+kirLocusFeatureNameList[['KIR3DL1']] <- c("5UTR","E1","I1","E2","I2","E3","I3","E4","I4","E5","I5","E6","I6","E7","I7","E8","I8","E9","3UTR")
+kirLocusFeatureNameList[['KIR3DL2']] <- c("5UTR","E1","I1","E2","I2","E3","I3","E4","I4","E5","I5","E6","I6","E7","I7","E8","I8","E9","3UTR")
+kirLocusFeatureNameList[['KIR3DL3']] <- c("5UTR","E1","I1","E2","I2","E3","I3","E4","I4","E5","I5/6","E7","I7","E8","I8","E9","3UTR")
+kirLocusFeatureNameList[['KIR3DP1']] <- c("5UTR","E1","I1","E2","I2","E3","I3","E4","I4","E5","3UTR")
+kirLocusFeatureNameList[['KIR3DS1']] <- c("5UTR","E1","I1","E2","I2","E3","I3","E4","I4","E5","I5","E6","I6","E7","I7","E8","I8","E9","3UTR")
 
 ## This function checks to make sure the output of system2 is valid
 check.system2_output <- function(system2_output, system2_error){
@@ -17,7 +54,17 @@ check.system2_output(samtools, 'samtools not found')
 bowtie2 <- system2('which', c('bowtie2'), stdout=T, stderr=T)
 check.system2_output(bowtie2, 'bowtie2 not found')
 
-## This function finds samples in sampleDirectory and turns them into objects for downstream use
+# Write allele to FASTA file
+general.write_fasta <- function(fastaCon, alleleName, alleleSeq){
+  writeLines(paste0('>',alleleName,'\n',alleleSeq), fastaCon)
+}
+
+# Write feature coordinates to BED file
+general.write_bed <- function(bedCon, alleleName, startPos, endPos, featureName){
+  writeLines(paste(alleleName,startPos,endPos,featureName,sep='\t'), bedCon)
+}
+
+## Finds samples in sampleDirectory and turns them into objects for downstream use
 general.paired_sample_objects <- function(rawFastqDirectory,fastqPattern,resultsDirectory,shortNameDelim){
   #####
   ## This function takes in a directory and a file name pattern and attempts to pair fastq files
@@ -136,3 +183,200 @@ general.paired_sample_objects <- function(rawFastqDirectory,fastqPattern,results
   cat("\nAll samples were successfully paired")
   return(output.sampleList)
 }
+
+## Initializes a locus reference object, which stores reference allele information
+general.initialize_locus_ref_object <- function(kirLocusVect = kir.locus.vect){
+  
+  ## Creating the sample object class
+  locusRef <- setRefClass("locusRef",
+                          fields=list(name='character',
+                                      rawPath='character',
+                                      formattedPath='character',
+                                      filledPath='character',
+                                      alleleBedList='list',
+                                      alleleStrList='list'))
+  
+  ## Initialize locus ref list
+  locusRefList <- list()
+  
+  ## Add locus names to ref list
+  for(kirLocus in kirLocusVect){
+    locusRefList[[kirLocus]] <- locusRef(name=kirLocus)
+  }
+  
+  return(locusRefList)
+}
+
+## Read MSF files from copied_msf directory into a list of locus reference objects
+initLocusRef.read_raw_msf <- function(locusRefList, copiedMsfDirectory, kirLocusVect = kir.locus.vect){
+  
+  ## Make sure the MSF directory is accessible
+  copiedMsfDirectory <- normalizePath(copiedMsfDirectory,mustWork = T)
+  
+  cat('Checking',copiedMsfDirectory,'for IPD-KIR MSF files\n')
+  
+  ## List all of the correctly named raw.msf files
+  rawMSFfileVect <- list.files(path=copiedMsfDirectory,pattern='raw.msf')
+  
+  ## Match the MSF files to the kir.locus.vect
+  locusMatchedRawFileList <- sapply(names(locusRefList), function(x) return(c(rawMSFfileVect[grepl(x,rawMSFfileVect,fixed=T)])))
+  
+  ## Storing ref info
+  for(locusName in names(locusRefList)){
+    locusRefList[[locusName]]$rawPath <- file.path(copiedMsfDirectory, locusMatchedRawFileList[[locusName]])
+  }
+  
+  cat('\nReference files found: ')
+  cat(kirLocusVect[kirLocusVect %in% names(locusRefList)])
+  
+  cat('\nReference files not found: ')
+  cat(kirLocusVect[!(kirLocusVect %in% names(locusRefList))])
+  
+  cat('\n\nPulling allele sequence from IPD-KIR reference files\n')
+  cat('Processing:')
+  
+  for(locusRef in locusRefList){
+    cat('',locusRef$name)
+    
+    ## Formatting locus name to match IPD-KIR
+    altLocusNameStr <- strsplit(locusRef$name,'KIR',fixed=T)[[1]][2]
+    
+    ## Initialzing list to store allele strings
+    locusAlleleStrList <- list()
+    
+    con = file(locusRef$rawPath, "r")
+    while(TRUE){
+      line = readLines(con, n = 1)
+      
+      ## Break out of the loop when end of file is reached
+      if (length(line) == 0){
+        break
+      }
+      
+      ## Split the line by spaces
+      lineVect <- unlist(strsplit(line,' ',fixed=T))
+      
+      ## Remove all empty elements
+      lineVect <- lineVect[lineVect != '']
+      
+      ## If this is a sequence line, then process
+      if(any(grepl(altLocusNameStr, lineVect)) & length(lineVect) > 1){
+        
+        ## Pull out the allele name, format for PING
+        alleleNameStr <- paste0('KIR',lineVect[grepl(altLocusNameStr, lineVect)])
+        
+        ## Pull out the allele sequence
+        alleleSeqStr <- paste0(lineVect[!grepl(altLocusNameStr, lineVect)],collapse='')
+        
+        ## Initialize a list element for this allele if it does not already exist
+        if( !(alleleNameStr %in% names(locusAlleleStrList)) ){
+          locusAlleleStrList[[alleleNameStr]] <- ''
+        }
+        
+        ## Add the allele sequence to the allele string list
+        locusAlleleStrList[[alleleNameStr]] <- paste0(locusAlleleStrList[[alleleNameStr]],alleleSeqStr)
+      }
+      
+    }
+    
+    close(con)
+    
+    locusRef$alleleStrList <- locusAlleleStrList
+  }
+  
+  return(locusRefList)
+}
+
+## Determine reference feature coordinates, write to BED file and store in locus reference objects
+initLocusRef.create_bed <- function(locusRefList, referenceResourceDirectory, kirLocusFeatureNameList, writeBed=T){
+  
+  cat('\n\nWriting allele sequence as PING reference files\n')
+  
+  if(writeBed){
+    kirBedPath <- file.path(referenceResourceDirectory, 'allKIR.bed')
+    con = file(kirBedPath, "w")
+  }
+  
+  cat('Processing:')
+  
+  for(locusRef in locusRefList){
+    cat('',locusRef$name)
+    
+    locusBedList <- list()
+    
+    for( alleleNameStr in names(locusRef$alleleStrList) ){
+      alleleStr <- locusRef$alleleStrList[[alleleNameStr]]
+      
+      ## Initialize list for storing BED information
+      locusBedList[[alleleNameStr]] <- list()
+      
+      ## Pull out intron/exon sequences
+      alleleFeatSeqVect <- strsplit(alleleStr,'|',fixed=T)[[1]]
+      
+      ## Save allele seq without boundary symbols back to alleleStrList
+      locusRef$alleleStrList[[alleleNameStr]] <- paste0(unlist(alleleFeatSeqVect), collapse='')
+      
+      ## Pull out the locus feature names
+      featureNameVect <- kirLocusFeatureNameList[[locusRef$name]]
+      
+      if( length(alleleFeatSeqVect) != length(featureNameVect) ){
+        stop('Mismatched features for',locusRef$name)
+      }
+      
+      ## Process each gene feature for this allele
+      preBoundaryInt <- 0
+      for( iterInt in 1:length(alleleFeatSeqVect) ){
+        
+        ## Pull out information for this iteration
+        featSeqStr <- alleleFeatSeqVect[iterInt]
+        boundaryInt <- nchar(featSeqStr)+preBoundaryInt
+        delCount <- str_count(featSeqStr,pattern = fixed('.'))
+        boundaryInt <- boundaryInt - delCount
+        featNameStr <- featureNameVect[iterInt]
+        
+        delIndex <- grep('.',unlist(strsplit(featSeqStr,'')),fixed=T)
+        
+        noDelFeatSeqStr <- gsub('.','',featSeqStr,fixed=T)
+        
+        snpVect <- strsplit(featSeqStr,'',fixed=T)[[1]]
+        names(snpVect) <- paste0(featNameStr,'_',1:length(snpVect))
+        
+        #### BED coordinates should be preBoundaryInt : boundaryInt
+        ## Save gene feature coordinates to list
+        locusBedList[[alleleNameStr]][[featNameStr]] <- list(alleleName=alleleNameStr,
+                                                             startPos=preBoundaryInt,
+                                                             endPos=boundaryInt,
+                                                             featName=featNameStr,
+                                                             featSeq=noDelFeatSeqStr,
+                                                             featDelIndex=delIndex,
+                                                             snpVect=snpVect)
+        
+        if(writeBed){
+          ## Write feature coordinates to BED file
+          general.write_bed(con, alleleNameStr, preBoundaryInt, boundaryInt, featNameStr)
+          #writeLines(paste(alleleNameStr,preBoundaryInt,boundaryInt,featNameStr,sep='\t'), con)
+        }
+        
+        ## Reset previous coordinate
+        preBoundaryInt <- boundaryInt
+      }
+    }
+    
+    locusRef$alleleBedList <- locusBedList
+  }
+  
+  if(writeBed){
+    close(con)
+  }
+  cat('\n\nProcessing complete.')
+  return(locusRefList)
+}
+
+
+
+
+
+
+
+
+

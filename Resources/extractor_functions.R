@@ -27,7 +27,7 @@ extractor.bowtie2_align <- function(bowtie2_command, threads, currentSample, ext
   
   currentSample$kirfastq1path <- normalizePath(file.path(extractedFastqDirectory,paste0(currentSample$name,'_KIR_1.fastq.gz')))
   currentSample$kirfastq2path <- normalizePath(file.path(extractedFastqDirectory,paste0(currentSample$name,'_KIR_2.fastq.gz')))
-  
+
   cat('\n\nSuccessfully extracted KIR reads for',currentSample$name)
   
   cat('\nCleaning up alignment files.')

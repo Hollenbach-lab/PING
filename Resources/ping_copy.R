@@ -32,7 +32,7 @@ ping_copy.graph <- function(sampleList=list(),
                     resultsDirectory,
                     KIR3DL3MinReadThreshold=100,
                     maxReadThreshold=50000,
-                    probelistFile='probelist_2020_03_12.csv',
+                    probelistFile='probelist_2020_05_07.csv',
                     onlyKFF=F,
                     forceRun=F){
   predictCopy=F
@@ -194,6 +194,8 @@ ping_copy.graph <- function(sampleList=list(),
       ## Transfer the KFF hit data
       currentSampleProbeList <- as.list(kffCountDF[sampleID,])
       
+      currentSampleGeneContent <- as.list(kffPresenceDF[sampleID,])
+      
       ## Consolidate probe ID's
       probeIDVect <- unique(tstrsplit(names(currentSampleProbeList),'_rc')[[1]])
       
@@ -205,12 +207,12 @@ ping_copy.graph <- function(sampleList=list(),
       }
     
       sampleList[[sampleID]]$kffHits <- currentSampleProbeIDList
+      sampleList[[sampleID]]$geneContent <- currentSampleGeneContent
     }
   }
   
   ## Run all samples through bowtie2 gc alignment
   for(currentSample in sampleList[!(names(sampleList) %in% previousIDVect)]){
-  #for(currentSample in sampleList){
     cat('\n\nProcessing', currentSample$name)
     cat('\n------------------------------------')
     
@@ -251,6 +253,14 @@ ping_copy.graph <- function(sampleList=list(),
     
     ## Determine locus presence/absence
     kffPresenceList <- run.kff_determine_presence_from_norm_values(kffNormList, kffThreshold=0.2)
+    
+    ## Mutate kff presence results to the same format as the copy results
+    if(any(sapply(kffPresenceList, is.na))){
+      kffPresenceList[names(kffPresenceList)] <- 'failed'
+    }else{
+      kffPresenceList[names(kffPresenceList)] <- as.character(kffPresenceList)
+    }
+    
     kffPresenceDF[currentSample$name,names(kffPresenceList)] <- kffPresenceList
     currentSample$geneContent <- kffPresenceList
     
@@ -373,6 +383,8 @@ ping_copy.manual_threshold <- function(sampleList=list(),resultsDirectory=''){
   
   cat('Current working directory: ', getwd(),'\n')
   
+  plotDirectory <- file.path(resultsDirectory,'copyPlots')
+  
   ### Set up directory paths, make sure they exist
   resultsDirectory <- normalizePath(resultsDirectory, mustWork=T)
   cat('Running manual thresholding on:',resultsDirectory)
@@ -410,7 +422,7 @@ ping_copy.manual_threshold <- function(sampleList=list(),resultsDirectory=''){
   
   ## Generate ratio graphs and color according to kff presence/absence
   cat('\nGenerating copy number graphs... ')
-  run.generate_copy_number_graphs(locusRatioDF, kffPresenceDF, kirLocusList, resultsDirectory, locusCountDF, thresholdDF)
+  run.generate_copy_number_graphs(locusRatioDF, kffPresenceDF, kirLocusList, plotDirectory, locusCountDF, thresholdDF)
   
   ## Initialize a copy number frame
   copyNumberDF <- data.frame(locusCountDF)
@@ -432,7 +444,7 @@ ping_copy.manual_threshold <- function(sampleList=list(),resultsDirectory=''){
   
   ## Generate ratio graphs and color according to kff presence/absence
   cat('\nAdding thresholds to copy number graphs... ')
-  run.generate_copy_number_graphs(locusRatioDF, kffPresenceDF, kirLocusList, resultsDirectory, locusCountDF, thresholdDF)
+  run.generate_copy_number_graphs(locusRatioDF, kffPresenceDF, kirLocusList, plotDirectory, locusCountDF, thresholdDF)
   
   ## Write the copy number results to a csv file
   manualCopyPath <- file.path(resultsDirectory, 'manualCopyNumberFrame.csv')

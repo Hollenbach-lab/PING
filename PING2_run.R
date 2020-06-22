@@ -18,6 +18,7 @@ shortNameDelim <- '_' # can set a delimiter to shorten sample ID's (ID will be c
 sampleList <- general.paired_sample_objects(rawFastqDirectory, fastqPattern, resultsDirectory, shortNameDelim) # no need to change
 
 
+
 # PING2 extractor ---------------------------------------------------------
 cat('\n\n----- Moving to PING2 KIR extraction -----')
 # Define the extracted fastq directory
@@ -28,7 +29,7 @@ sampleList <- extractor.run(sampleList,threads,extractedFastqDirectory,forceRun=
 
 # PING2 gene content and copy number --------------------------------------
 cat('\n\n----- Moving to PING2 gene content and copy determination -----')
-sampleList <- ping_copy.graph(sampleList=sampleList,threads=threads,resultsDirectory=resultsDirectory,forceRun=F) # set forceRun=T if you want to force alignments
+sampleList <- ping_copy.graph(sampleList=sampleList,threads=threads,resultsDirectory=resultsDirectory,forceRun=F, onlyKFF=T) # set forceRun=T if you want to force alignments
 sampleList <- ping_copy.manual_threshold(sampleList=sampleList,resultsDirectory=resultsDirectory) # this function sets copy thresholds
 
 ## Seeing the following message when generating copy plots is normal
@@ -43,7 +44,7 @@ KIR3DP1 [example]
 
 
 
-# PING2 haplotype alignments ----------------------------------------------
+# PING2 gene content alignments ----------------------------------------------
 
 
 
