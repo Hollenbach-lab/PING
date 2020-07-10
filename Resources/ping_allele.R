@@ -9,7 +9,7 @@ fastqPattern
 threads
 resultsDirectory
 shortNameDelim
-minDP <- 2
+minDP <- 10
 
 alignmentFileDirectory
 
@@ -22,8 +22,7 @@ currentSample$refIterVect
 # ---------- ALLELE CALLING -----------
 
 ' TO DO
-Deletion position processing
-Intron SNP consolidation
+filter SNP processing
 '
 
 referenceAlleleDF <- read.csv('Resources/genotype_resources/master_haplo_iteration_testing_v4.csv',row.names=1,stringsAsFactors = F)
@@ -32,6 +31,11 @@ referenceAlleleDF <- read.csv('Resources/genotype_resources/master_haplo_iterati
 alleleFileDirectory <- file.path(resultsDirectory,'alleleFiles')
 if(!file.exists(alleleFileDirectory)){
   dir.create(alleleFileDirectory)
+}
+
+filterAlleleFileDirectory <- file.path(alleleFileDirectory,'filterFiles')
+if(!file.exists(filterAlleleFileDirectory)){
+  dir.create(filterAlleleFileDirectory)
 }
 
 # ---- Function base -----
@@ -397,6 +401,33 @@ allele.iter_alignments_to_snp_dfs <- function(currentSample, locusRefList, refer
   return(currentSample)
 }
 
+allele.filter.process_del_index <- function(snpDF, bedDelIndex, snp1Row, snp2Row){
+  
+  for(curPos in bedDelIndex){
+    
+    if( !curPos %in% colnames(snpDF) ){
+      next
+    }
+    
+    spltVect <- strsplit(curPos, '_', fixed=T)[[1]]
+    featName <- spltVect[1]
+    curDelPos <- as.numeric(spltVect[2])
+    
+    prevPos <- paste0(featName,'_',curDelPos-1)
+    
+    # If the previous position passed QC checks and the current position is undefined, then replace NA's with '.'
+    if( !any(is.na(snpDF[c(snp1Row, snp2Row),prevPos])) ){
+      
+      if( all(is.na(snpDF[c(snp1Row, snp2Row), curPos])) ){
+        
+        snpDF[c(snp1Row, snp2Row), curPos] <- '.'
+      }
+    }
+  }
+  
+  return(snpDF)
+}
+
 allele.process_del_index <- function(snpDF, bedDelIndex, alleleName, snp1Row, snp2Row){
   
   for( featName in names(bedDelIndex[[alleleName]]) ){
@@ -432,7 +463,6 @@ allele.process_del_index <- function(snpDF, bedDelIndex, alleleName, snp1Row, sn
 }
 
 allele.formatIndelSnps <- function(REF, SNP1, SNP2, featLab, featCoord){
-
   output.indelList <- list('SNP1'=list(),'SNP2'=list())
   
   featCoord <- as.numeric(featCoord)
@@ -456,6 +486,13 @@ allele.formatIndelSnps <- function(REF, SNP1, SNP2, featLab, featCoord){
     indelVect <- strsplit(SNP1,'')[[1]]
     names(indelVect) <- paste0(featLab,'_',featCoord:(featCoord+snp1Len-1))
     indelList <- as.list(indelVect)
+  }else{
+    # snp1 = ref scenario
+    # Same logic as ins scenario, should not add extra positions
+    
+    indelVect <- strsplit(SNP1,'')[[1]]
+    names(indelVect) <- paste0(featLab,'_',featCoord:(featCoord+snp1Len-1))
+    indelList <- as.list(indelVect)
   }
   
   output.indelList$SNP1 <- indelList
@@ -472,6 +509,12 @@ allele.formatIndelSnps <- function(REF, SNP1, SNP2, featLab, featCoord){
     # ins scenario
     # SNP1 replaces REF+(snp2Len-refLen)
     
+    indelVect <- strsplit(SNP2,'')[[1]]
+    names(indelVect) <- paste0(featLab,'_',featCoord:(featCoord+snp2Len-1))
+    indelList <- as.list(indelVect)
+  }else{
+    # snp1 = ref scenario
+    # Same logic as ins scenario, should not add extra positions
     indelVect <- strsplit(SNP2,'')[[1]]
     names(indelVect) <- paste0(featLab,'_',featCoord:(featCoord+snp2Len-1))
     indelList <- as.list(indelVect)
@@ -806,18 +849,20 @@ allele.setup_allele_call_df <- function(currentSample){
   return(currentSample)
 }
 
-allele.call_allele <- function(currentSample, currentLocus, alleleFileDirectory, knownSnpDFList, newAlleleDFPath ){
+allele.call_allele <- function(currentSample, currentLocus, alleleFileDirectory, knownSnpDFList, newAlleleDFPath, workflow){
   
   if(currentSample$iterRefDirectory == 'failed'){
     currentSample[['iterAlleleCallDF']] <- 'failed'
     return(currentSample)
   }
   
+  
   if( currentSample$iterSnpDFList[[currentLocus]]$failure == TRUE ){
     cat('\n----- skipping locus -----\n')
     currentSample[['iterAlleleCallDF']][,currentLocus] <- 'failed'
     return(currentSample)
   }
+  
   
   cat('\n\nMatching alleles for',currentLocus)
   
@@ -934,12 +979,19 @@ allele.call_allele <- function(currentSample, currentLocus, alleleFileDirectory,
     allele.save_new_allele( currentSample, currentLocus, knownSnpDF, sampleSnpDF, allMatchingAlleleStr, newAlleleDFPath )
   }
   
+  # Print out the best score and cooresponding allele matches
   cat('\nBest score:',bestScoreInt)
   cat('\nAllele match(es):',allMatchingAlleleStr)
   
-  currentSample[['iterAlleleCallDF']]['allele_call',currentLocus] <- allMatchingAlleleStr
-  currentSample[['iterAlleleCallDF']]['mismatch_score',currentLocus] <- bestScoreInt
-  currentSample[['iterAlleleCallDF']]['new_snps',currentLocus] <- newSnpInt
+  if( workflow == 'iter' ){
+    currentSample[['iterAlleleCallDF']]['allele_call',currentLocus] <- allMatchingAlleleStr
+    currentSample[['iterAlleleCallDF']]['mismatch_score',currentLocus] <- bestScoreInt
+    currentSample[['iterAlleleCallDF']]['new_snps',currentLocus] <- newSnpInt
+  }else if( workflow == 'filter' ){
+    currentSample[['filterAlleleCallDF']]['allele_call',currentLocus] <- allMatchingAlleleStr
+    currentSample[['filterAlleleCallDF']]['mismatch_score',currentLocus] <- bestScoreInt
+    currentSample[['filterAlleleCallDF']]['new_snps',currentLocus] <- newSnpInt
+  }
   
   return(currentSample)
 }
@@ -1069,7 +1121,9 @@ knownSnpDFList <- allele.create_allele_resources(locusRefList, alleleFileDirecto
 
 alleleDFPathList <- allele.setup_results_df( locusRefList, resultsDirectory, sampleList, 'iter')
 
-# Iter SNP consolidation workflow
+filterAlleleDFPathList <- allele.setup_results_df( locusRefList, resultsDirectory, sampleList, 'filter' )
+
+# Iter SNP consolidation workflow + allele calling
 sampleList[1:10] <- sapply(sampleList[1:10], function(x){
   x <- allele.iter_alignments_to_snp_dfs(x, locusRefList, referenceAlleleDF, minDP, kirLocusFeatureNameList)
   x <- allele.combine_iter_snps(x, snpDFList)
@@ -1077,9 +1131,555 @@ sampleList[1:10] <- sapply(sampleList[1:10], function(x){
   
   cat('\n\nFinding allele matches for',x$name)
   for(currentLocus in rownames(x$refAlleleDF)){
-    x <- allele.call_allele(x, currentLocus, alleleFileDirectory, knownSnpDFList, alleleDFPathList$newAllelePath )
+    x <- allele.call_allele(x, currentLocus, alleleFileDirectory, knownSnpDFList, alleleDFPathList$newAllelePath, 'iter')
   }
   cat('\nWriting allele matches to', alleleDFPathList$alleleCallPath )
   x <- allele.save_call( x, alleleDFPathList$alleleCallPath )
 })
 
+
+filterSnpDFList <- allele.initialize_filter_SNP_tables(filterAlleleFileDirectory, locusRefList, names(filterLocusConv), filterLocusConv)
+
+# Filter SNP processing workflow + allele calling
+sampleList[4] <- sapply(sampleList[4], function(x){
+  cat('\n\nProcessing filtration alignments for',x$name)
+  x <- allele.filter_alignments_to_snp_dfs(x, locusRefList, minDP, kirLocusFeatureNameList, filterRefFastaList, filterLocusConv, filterSnpDFList, knownSnpDFList)
+})
+
+# Processes VCF data and outputs SNP dataframes to pass to allele calling
+allele.filter_alignments_to_snp_dfs <- function(currentSample, locusRefList, minDP, kirLocusFeatureNameList, filterRefFastaList, filterLocusConv, filterSnpDFList, knownSnpDFList){
+  
+  if('failed' %in% c(currentSample$geneContent, currentSample$copyNumber)){
+    return(currentSample)
+  }
+  
+  cat('\nConverting VCF files to SNP dataframes...')
+  
+  for( currentLocus in names(currentSample$filterVCFList) ){
+    
+    cat('\n',currentLocus)
+    
+    vcfPath <- currentSample$filterVCFList[[currentLocus]]
+    bedPath <- currentSample$filterBEDList[[currentLocus]]
+    
+    cat('\n\tReading BED')
+    bedList <- allele.convert_filter_bed(bedPath, currentLocus, filterRefFastaList, locusRefList, filterLocusConv)
+    
+    realLocus <- filterLocusConv[[currentLocus]]
+    
+    # Pull out the deletion index for the reference locus
+    bedDelIndex <- names( which( apply(knownSnpDFList[[realLocus]]$snpDF, 2, function(x){ '.' %in% x }) ) )
+    
+    exonFeatNameVect <- grep('E',kirLocusFeatureNameList[[realLocus]],fixed=T,value=T)
+    exonFeatNameVect <- grep('PE', exonFeatNameVect, fixed=T, invert=T, value=T)
+    
+    otherFeatNameVect <- setdiff(kirLocusFeatureNameList[[realLocus]], exonFeatNameVect)
+    
+    cat('\n\tReading VCF')
+    vcfDT <- general.read_VCF(vcfPath)
+    
+    vcfDT <- allele.filter_VCF_process(vcfDT, currentSample, minDP, bedList, realLocus)
+    
+    # ----- EXON processing -----
+    cat('\n\tProcessing exons')
+    exonDT <- vcfDT[ Locus == realLocus ][ featLab %in% exonFeatNameVect ]
+    
+    # Split up SNPs from INDELs
+    exonDTList <- general.VCF_sep_INDEL(exonDT)
+    exonDT <- exonDTList$nodelDT
+    exonIndelDT <- exonDTList$indelDT
+    
+    exonIndelBoolVect <- !sapply(exonIndelDT$genoVect, function(x) all(x == 1))
+    
+    # Write exon INDEL table
+    if( any(exonIndelBoolVect) ){
+      exonIndelDT <- exonIndelDT[exonIndelBoolVect,]
+      
+      exonIndelList <- lapply(1:nrow(exonIndelDT), function(i){
+        x <- exonIndelDT[i,]
+        allele.formatIndelSnps(x$REF, x$SNP1, x$SNP2, x$featLab, x$featCoord)
+      })
+      
+      indelPath <- file.path(currentSample$filterRefDirectory, paste0(currentLocus,'_exonINDELs.tsv'))
+      
+      appendBool <- FALSE
+      
+      write.table(exonIndelDT[,c('CHROM','POS','ID',
+                                   'REF','ALT','QUAL',
+                                   'FILTER','INFO','FORMAT',
+                                   'GENO','DP','SNP1',
+                                   'SNP2','feat','featLab',
+                                   'featCoord','Locus')], 
+                  file=indelPath, sep='\t', quote = F, 
+                  row.names = F, append=appendBool, col.names = !appendBool)
+    }
+    
+    
+    exonSnpDF <- read.csv(filterSnpDFList[[currentLocus]]$exonSNPs$csvPath, 
+                          stringsAsFactors = F, 
+                          check.names = F, 
+                          row.names = 1)
+    
+    snp1Row <- paste0(currentSample$name,'_SNP1')
+    snp2Row <- paste0(currentSample$name,'_SNP2')
+    
+    if(!snp1Row %in% rownames(exonSnpDF)){
+      exonSnpDF[nrow(exonSnpDF)+1,] <- NA
+      rownames(exonSnpDF)[nrow(exonSnpDF)] <- snp1Row
+      exonSnpDF[nrow(exonSnpDF)+1,] <- NA
+      rownames(exonSnpDF)[nrow(exonSnpDF)] <- snp2Row
+    }
+    
+    if( any(exonIndelBoolVect) ){
+      lapply(exonIndelList, function(x){
+        snp1List <- x$SNP1
+        snp2List <- x$SNP2
+        
+        combNames <- unique(names(snp1List), names(snp2List))
+        
+        # Remove INDEL positions from exon datatable
+        exonDT <<- exonDT[ !feat %in% combNames ]
+        
+        # Write INDEL positions to SNP DF
+        exonSnpDF[snp1Row,names(snp1List)] <<- unlist(snp1List)
+        exonSnpDF[snp2Row,names(snp2List)] <<- unlist(snp2List)
+        
+        return(NULL)
+      })
+    }
+    
+    # Write the exon SNPs to the dataframe
+    exonSnpDF[snp1Row, unlist(exonDT$feat)] <- unlist(exonDT$SNP1)
+    exonSnpDF[snp2Row, unlist(exonDT$feat)] <- unlist(exonDT$SNP2)
+    
+    exonSnpDF <- allele.filter.process_del_index(exonSnpDF, bedDelIndex, snp1Row, snp2Row)
+    
+    write.csv(exonSnpDF, filterSnpDFList[[currentLocus]]$exonSNPs$csvPath)
+    
+    # ----- INTRON processing -----
+    cat('\n\tProcessing introns')
+    intronDT <- vcfDT[ Locus == realLocus ][ featLab %in% otherFeatNameVect ]
+    
+    if(nrow(intronDT) == 0){
+      next
+    }
+    
+    # Split up SNPs from INDELs
+    intronDTList <- general.VCF_sep_INDEL(intronDT)
+    intronDT <- intronDTList$nodelDT
+    intronIndelDT <- intronDTList$indelDT
+    
+    intronIndelBoolVect <- !sapply(intronIndelDT$genoVect, function(x) all(x == 1))
+    
+    # Write intron INDEL table
+    if( any(intronIndelBoolVect) ){
+      intronIndelDT <- intronIndelDT[intronIndelBoolVect,]
+      
+      intronIndelList <- lapply(1:nrow(intronIndelDT), function(i){
+        x <- intronIndelDT[i,]
+        allele.formatIndelSnps(x$REF, x$SNP1, x$SNP2, x$featLab, x$featCoord)
+      })
+      
+      indelPath <- file.path(currentSample$filterRefDirectory, paste0(currentLocus,'_intronINDELs.tsv'))
+      
+      appendBool <- FALSE
+      
+      write.table(intronIndelDT[,c('CHROM','POS','ID',
+                                   'REF','ALT','QUAL',
+                                   'FILTER','INFO','FORMAT',
+                                   'GENO','DP','SNP1',
+                                   'SNP2','feat','featLab',
+                                   'featCoord','Locus')], 
+                  file=indelPath, sep='\t', quote = F, 
+                  row.names = F, append=appendBool, col.names = !appendBool)
+    }
+    
+    intronSnpDF <- read.csv(filterSnpDFList[[currentLocus]]$intronSNPs$csvPath, 
+                          stringsAsFactors = F, 
+                          check.names = F, 
+                          row.names = 1)
+    
+    snp1Row <- paste0(currentSample$name,'_SNP1')
+    snp2Row <- paste0(currentSample$name,'_SNP2')
+    
+    if(!snp1Row %in% rownames(intronSnpDF)){
+      intronSnpDF[nrow(intronSnpDF)+1,] <- NA
+      rownames(intronSnpDF)[nrow(intronSnpDF)] <- snp1Row
+      intronSnpDF[nrow(intronSnpDF)+1,] <- NA
+      rownames(intronSnpDF)[nrow(intronSnpDF)] <- snp2Row
+    }
+    
+    if( any(intronIndelBoolVect) ){
+      lapply(intronIndelList, function(x){
+        snp1List <- x$SNP1
+        snp2List <- x$SNP2
+        
+        combNames <- unique(names(snp1List), names(snp2List))
+        
+        # Remove INDEL positions from intron datatable
+        intronDT <<- intronDT[ !feat %in% combNames ]
+        
+        # Write INDEL positions to SNP DF
+        intronSnpDF[snp1Row,names(snp1List)] <<- unlist(snp1List)
+        intronSnpDF[snp2Row,names(snp2List)] <<- unlist(snp2List)
+        
+        return(NULL)
+      })
+    }
+    
+    # Write the intron SNPs to the dataframe
+    intronSnpDF[snp1Row, unlist(intronDT$feat)] <- unlist(intronDT$SNP1)
+    intronSnpDF[snp2Row, unlist(intronDT$feat)] <- unlist(intronDT$SNP2)
+    
+    intronSnpDF <- allele.filter.process_del_index(intronSnpDF, bedDelIndex, snp1Row, snp2Row)
+    
+    write.csv(intronSnpDF, filterSnpDFList[[currentLocus]]$intronSNPs$csvPath)
+  }
+  
+  return(currentSample)
+}
+
+allele.convert_filter_bed <- function(bedPath, currentLocus, filterRefFastaList, locusRefList, filterLocusConv){
+  
+  ## Process reference fasta file
+  fastaPath <- filterRefFastaList[[currentLocus]]
+  
+  output.bedList <- list()
+  
+  ## Read the reference fasta file
+  fastaList <- general.read_fasta(fastaPath)
+    
+  con  <- file(bedPath, open = "r")
+    
+  # Process each line of the bed file
+  while (length(oneLine <- readLines(con, n = 1)) > 0) {
+      
+    if(grepl('\t',oneLine)){
+      lineVect <- strsplit(oneLine, '\t')[[1]]
+    }else{
+      lineVect <- strsplit(oneLine, ' ')[[1]]
+    }
+      
+    # Name the attributes
+    lineVect <- lineVect[ nchar(lineVect) > 0 ]
+    names(lineVect) <- c('alleleName','startPos','endPos','featName')[1:length(lineVect)]
+    
+    realLocus <- filterLocusConv[[currentLocus]]
+    
+    # pull out the reference sequence for the current bed line
+    featSeq <- substr( fastaList[[ lineVect[['alleleName']] ]], 
+                       ( as.numeric( lineVect[['startPos']] ) + 1 ) , 
+                       as.numeric( lineVect[['endPos']] ) )
+      
+    # Match the reference sequence against known allele sequence, report all allele matches
+    matchedAlleleList <- sapply(locusRefList[[realLocus]]$alleleBedList, function(x){
+      x[[ lineVect[[ 'featName' ]] ]]$featSeq == featSeq
+    })
+      
+    matchedAlleleVect <- names( which( matchedAlleleList ) )
+      
+    # If there are matches alleles, then move on to further processiong
+    if( length(matchedAlleleVect) > 0 ){
+      
+      # pull out the first matched allele (they should all be the same for the current feature so the exact allele doesnt matter)
+      matchedAllele <- matchedAlleleVect[1]
+        
+      featObject <- locusRefList[[realLocus]]$alleleBedList[[matchedAllele]][[ lineVect[[ 'featName' ]] ]]
+      
+      snpVect <- featObject$snpVect
+        
+      if(length(featObject$featDelIndex) > 0){
+        snpVect <- snpVect[ -featObject$featDelIndex ]
+      }
+        
+      posVect <- as.character( (as.numeric(lineVect[[ 'startPos' ]])+1): as.numeric(lineVect[[ 'endPos' ]]) )
+      
+      output.bedList[[ lineVect[[ 'alleleName' ]] ]][ posVect ] <- names(snpVect)
+        
+    }
+      
+  }
+    
+  close(con)
+  
+  return(output.bedList)
+}
+
+# Filters VCF data table by minimum depth, adds SNP columns and feature/position labels
+allele.filter_VCF_process <- function(vcfDT, currentSample, minDP, bedList, realLocus){
+  # Remove low quality positions
+  vcfDT <- vcfDT[GENO != './.']
+  
+  # Pull out Depth values
+  dpScore <- unlist(lapply(strsplit(vcfDT$INFO,fixed(';')), function(x){
+    grep('DP=',x,value=T)
+  }))
+  
+  # Check that only depth values were pulled
+  dpCheckBool <- all(grepl('DP=',dpScore))
+  
+  # Stop program if a non depth value was pulled
+  if(!dpCheckBool){
+    message('\nNon DP element found.\t',currentSample$name,'\t','filter')
+    stop()
+  }
+  
+  # Set a depth column
+  vcfDT$DP <- as.numeric(tstrsplit(dpScore, fixed('DP='))[[2]])
+  
+  # Split up the geno call into a vector
+  vcfDT$genoVect <- lapply(strsplit(tstrsplit(vcfDT$GENO, fixed(':'))[[1]], fixed('/')), function(x){
+    return(as.numeric(x)+1)
+  })
+  
+  # Filter out low depth positions
+  vcfDT <- vcfDT[DP >= minDP]
+  
+  # Set important features as new data table columns
+  vcfDT[, c('SNP1','SNP2') := general.vcfDT_set_SNPs( REF, ALT, genoVect ), by = 1:nrow(vcfDT) ]
+  
+  vcfDT <- vcfDT[ vcfDT$POS %in% names(bedList[[1]]), ]
+  
+  vcfDT[, feat:= bedList[[CHROM]][[as.character(POS)]] , by = 1:nrow(vcfDT) ]
+  
+  vcfDT$featLab <- tstrsplit(vcfDT$feat, '_', fixed=T)[[1]]
+  vcfDT$featCoord <- tstrsplit(vcfDT$feat, '_', fixed=T)[[2]]
+  vcfDT$Locus <- realLocus
+  
+  return(vcfDT)
+}
+
+# Initialize SNP dataframes for storing aligned SNPs
+allele.initialize_filter_SNP_tables <- function(alleleFileDirectory, locusRefList, tableNameVect, filterLocusConv){
+  
+  output.snpDFList <- list()
+  
+  cat('\nInitializing SNP tables...')
+  
+  # Create a SNP df for each locus
+  for( currentLocus in tableNameVect ){
+    cat('',currentLocus)
+    
+    realLocus <- filterLocusConv[[currentLocus]]
+    
+    # Use the iter_1 reference allele to pull out all feature lengths
+    featLenList <- sapply(locusRefList[[realLocus]]$alleleBedList[[1]], function(x){
+      featSeq <- x$featSeq
+      delIndex <- x$featDelIndex
+      seqLength <- nchar(general.del_insert(featSeq, delIndex))
+      return(list( seqLength ))
+    })
+    
+    # Pull out exon names
+    exonFeatNameVect <- grep('E',names(featLenList),fixed=T,value=T)
+    exonFeatNameVect <- grep('PE', exonFeatNameVect, fixed=T, invert=T, value=T)
+    
+    # Pull out other feature names
+    otherFeatNameVect <- setdiff(names(featLenList), exonFeatNameVect)
+    
+    # Separate exon features from other features
+    exonLenList <- featLenList[exonFeatNameVect]
+    otherLenList <- featLenList[otherFeatNameVect]
+    
+    # Append the feature label to each position within the feature
+    exonLabList <- sapply(names(exonLenList), function(x){
+      featEnd <- exonLenList[[x]]
+      return(paste0(x,'_',1:as.numeric(featEnd)))
+    })
+    
+    otherLabList <- sapply(names(otherLenList), function(x){
+      featEnd <- otherLenList[[x]]
+      return(paste0(x,'_',1:as.numeric(featEnd)))
+    })
+    
+    # Unlist the appended labels
+    exonLabVect <- unlist(exonLabList, use.names = F)
+    otherLabVect <- unlist(otherLabList, use.names = F)
+    
+    # Initialize CSV paths for saving the dataframe
+    exonDFPath <- file.path(alleleFileDirectory,paste0(currentLocus,'_exonSNPs.csv'))
+    intronDFPath <- file.path(alleleFileDirectory,paste0(currentLocus,'_intronSNPs.csv'))
+    
+    # Create the exon dataframe and save it
+    exonSnpDF <- data.frame(matrix(NA,nrow=1,ncol=length(exonLabVect)), check.names = F, stringsAsFactors = F)
+    rownames(exonSnpDF) <- 'coord'
+    exonSnpDF['coord',] <- exonLabVect
+    colnames(exonSnpDF) <- exonLabVect
+    write.csv(exonSnpDF, exonDFPath)
+    
+    # Create the intron (+UTR & PE) dataframe and save it
+    otherSnpDF <- data.frame(matrix(NA,nrow=1,ncol=length(otherLabVect)), check.names = F, stringsAsFactors = F)
+    rownames(otherSnpDF) <- 'coord'
+    otherSnpDF['coord',] <- otherLabVect
+    colnames(otherSnpDF) <- otherLabVect
+    write.csv(otherSnpDF, intronDFPath)
+    
+    # Save the CSV paths and dataframes to a return list
+    output.snpDFList[[currentLocus]] <- list()
+    output.snpDFList[[currentLocus]][['exonSNPs']] <- list('csvPath'=exonDFPath)
+    output.snpDFList[[currentLocus]][['intronSNPs']] <- list('csvPath'=intronDFPath)
+    output.snpDFList[[currentLocus]][['failure']] <- FALSE
+  }
+  
+  cat('\nFinished. Exon and intron SNP tables located in',alleleFileDirectory)
+  return(output.snpDFList)
+}
+
+
+filterLocusConv <- list(
+  'KIR3DL3'='KIR3DL3',
+  'KIR3DL2'='KIR3DL2',
+  'KIR3DS1'='KIR3DS1',
+  'KIR3DS1het'='KIR3DS1',
+  'KIR3DL1het'='KIR3DL1',
+  'KIR3DL1'='KIR3DL1',
+  'KIR2DS35'='KIR2DS5',
+  'KIR2DS4'='KIR2DS4',
+  'KIR2DS3'='KIR2DS3',
+  'KIR2DP1'='KIR2DP1',
+  'KIR2DL5'='KIR2DL5',
+  'KIR2DL4'='KIR2DL4',
+  'KIR2DL2'='KIR2DL2',
+  'KIR2DL23'='KIR2DL3',
+  'KIR2DL3'='KIR2DL3',
+  'KIR2DL1'='KIR2DL1'
+)
+
+filterRefFastaList <- list(
+  'KIR3DL3'='Resources/genotype_resources/filters/KIR3DL3/3DL3long.fas',
+  'KIR3DL2'='Resources/genotype_resources/filters/KIR3DL2/3DL2long.fas',
+  'KIR3DS1'='Resources/genotype_resources/filters/KIR3DL1/3DS1longCAT.fas',
+  'KIR3DS1het'='Resources/genotype_resources/filters/KIR3DL1/3DS1longCAT.fas',
+  'KIR3DL1het'='Resources/genotype_resources/filters/KIR3DL1/3DL1longCAT.fas',
+  'KIR3DL1'='Resources/genotype_resources/filters/KIR3DL1/3DL1longii.fas',
+  'KIR2DS35'='Resources/genotype_resources/filters/KIR2DS35/2DS5long.fas',
+  'KIR2DS4'='Resources/genotype_resources/filters/KIR2DS4/2DS4long.fas',
+  'KIR2DS3'='Resources/genotype_resources/filters/KIR2DS35/2DS3.fas',
+  'KIR2DP1'='Resources/genotype_resources/filters/KIR2DP1/2DP1.fas',
+  'KIR2DL5'='Resources/genotype_resources/filters/KIR2DL5/2DL5B.fas',
+  'KIR2DL4'='Resources/genotype_resources/filters/KIR2DL4/2DL4FH5.fas',
+  'KIR2DL2'='Resources/genotype_resources/filters/KIR2DL23/2DL2long.fas',
+  'KIR2DL23'='Resources/genotype_resources/filters/KIR2DL23/2DL3long.fas',
+  'KIR2DL3'='Resources/genotype_resources/filters/KIR2DL23/2DL3long.fas',
+  'KIR2DL1'='Resources/genotype_resources/filters/KIR2DL1/2DL1AClong.fas'
+)
+
+'
+no current logic for overlapping indels
+
+finished with filter SNP processing, next move to sample looping
+  - KIR2DL4 filter SNP df writing failed
+  - KIR2DL1 allele calling not optimal ( IND00001 allele mismatch by 1 SNP )
+
+  - KIR3DL3 filter allele calling appears working
+  - KIR3DL2 filter allele calling appears working
+  - KIR3DL1hom filter allele calling appears working
+  - KIR2DP1 allele calling appears working
+  - KIR2DS4 allele calling appears working
+  - KIR2DL2hom allele calling appears working
+  - KIR2DL3hom allele calling appears working
+  - KIR2DL5 allele calling appears working (not exact match tho)
+  - KIR2DS35 allele calling appears working
+  - KIR2DS3 working but added new SNP that did not appear in original PING results
+  - KIR2DL23 allele calling appears working (need to modify allele call workflow for compatibility with combined genes)
+
+  - Sill left to test
+    - KIR3DL1S1het
+
+'
+
+allele.generate_L23_SNP_df <- function( kirLocusFeatureNameList, knownSnpDFList ){
+  
+  ## Pull out L2 exon position names
+  currentLocus <- 'KIR2DL2'
+  exonFeatNameVect <- grep('E',kirLocusFeatureNameList[[ currentLocus ]],fixed=T,value=T)
+  exonFeatNameVect <- grep('PE', exonFeatNameVect, fixed=T, invert=T, value=T)
+  
+  otherFeatNameVect <- setdiff(kirLocusFeatureNameList[[ currentLocus ]], exonFeatNameVect)
+  
+  colLabels <- tstrsplit(colnames(knownSnpDFList[[ currentLocus ]]$snpDF), '_', fixed=T )[[1]]
+  exonLabelIndex <- which( colLabels %in% exonFeatNameVect )
+  
+  exonLabelVect2DL2 <- colnames( knownSnpDFList[[ currentLocus ]]$snpDF )[exonLabelIndex]
+  
+  ## Pull out L3 exon position names
+  currentLocus <- 'KIR2DL3'
+  exonFeatNameVect <- grep('E',kirLocusFeatureNameList[[ currentLocus ]],fixed=T,value=T)
+  exonFeatNameVect <- grep('PE', exonFeatNameVect, fixed=T, invert=T, value=T)
+  
+  otherFeatNameVect <- setdiff(kirLocusFeatureNameList[[ currentLocus ]], exonFeatNameVect)
+  
+  colLabels <- tstrsplit(colnames(knownSnpDFList[[ currentLocus ]]$snpDF), '_', fixed=T )[[1]]
+  exonLabelIndex <- which( colLabels %in% exonFeatNameVect )
+  
+  exonLabelVect2DL3 <- colnames( knownSnpDFList[[ currentLocus ]]$snpDF )[exonLabelIndex]
+  
+  # Isolate L2 and L3 exonic SNPs
+  L2DF <- knownSnpDFList[[ 'KIR2DL2' ]]$snpDF[,exonLabelVect2DL2]
+  L3DF <- knownSnpDFList[[ 'KIR2DL3' ]]$snpDF[,exonLabelVect2DL3]
+  
+  # KIR2DL2 positions to add (post positions get shifted by 3)
+  L2RemCols <- c('E7_58','E7_59','E7_60')
+  L2AddCols <- c('E7_103','E7_104','E7_105')
+  
+  # KIR2DL3 positions to add
+  L3AddCols <- c('E9_154', 'E9_155', 'E9_156', 'E9_157', 'E9_158', 'E9_159', 'E9_160',
+    'E9_161', 'E9_162', 'E9_163', 'E9_164', 'E9_165', 'E9_166', 'E9_167',
+    'E9_168', 'E9_169', 'E9_170', 'E9_171', 'E9_172', 'E9_173', 'E9_174',
+    'E9_175', 'E9_176', 'E9_177')
+  
+  # Add in L3 alleles to L23 dataframe
+  L23DF <- cbind(L3DF,L2DF[1,L3AddCols])
+  
+  # Process L2 cols to add
+  L2DF[,L2AddCols] <- NA
+  oldL2Cols <- paste0('E7_',58:102)
+  newL2Cols <- paste0('E7_',61:105)
+  
+  L2DF[,newL2Cols] <- L2DF[,oldL2Cols]
+  L2DF[,L2RemCols] <- L3DF[1,L2RemCols]
+  
+  # Add L2 alleles to L23 dataframe
+  L23DF <- rbind(L23DF, L2DF)
+  
+  knownSnpDFList[['KIR2DL23']] <- list(snpDF=L23DF, csvPath='')
+  return( knownSnpDFList )
+}
+
+allele.generate_S35_SNP_df <- function( kirLocusFeatureNameList, knownSnpDFList ){
+  ## Pull out S3 exon position names
+  currentLocus <- 'KIR2DS3'
+  exonFeatNameVect <- grep('E',kirLocusFeatureNameList[[ currentLocus ]],fixed=T,value=T)
+  exonFeatNameVect <- grep('PE', exonFeatNameVect, fixed=T, invert=T, value=T)
+  
+  otherFeatNameVect <- setdiff(kirLocusFeatureNameList[[ currentLocus ]], exonFeatNameVect)
+  
+  colLabels <- tstrsplit(colnames(knownSnpDFList[[ currentLocus ]]$snpDF), '_', fixed=T )[[1]]
+  exonLabelIndex <- which( colLabels %in% exonFeatNameVect )
+  
+  exonLabelVect2DS3 <- colnames( knownSnpDFList[[ currentLocus ]]$snpDF )[exonLabelIndex]
+  
+  ## Pull out S5 exon position names
+  currentLocus <- 'KIR2DS5'
+  exonFeatNameVect <- grep('E',kirLocusFeatureNameList[[ currentLocus ]],fixed=T,value=T)
+  exonFeatNameVect <- grep('PE', exonFeatNameVect, fixed=T, invert=T, value=T)
+  
+  otherFeatNameVect <- setdiff(kirLocusFeatureNameList[[ currentLocus ]], exonFeatNameVect)
+  
+  colLabels <- tstrsplit(colnames(knownSnpDFList[[ currentLocus ]]$snpDF), '_', fixed=T )[[1]]
+  exonLabelIndex <- which( colLabels %in% exonFeatNameVect )
+  
+  exonLabelVect2DS5 <- colnames( knownSnpDFList[[ currentLocus ]]$snpDF )[exonLabelIndex]
+  
+  # Add L2 alleles to L23 dataframe
+  S35DF <- rbind( knownSnpDFList[[ 'KIR2DS3' ]]$snpDF[,exonLabelVect2DS3],
+                  knownSnpDFList[[ 'KIR2DS5' ]]$snpDF[,exonLabelVect2DS5] )
+  
+  knownSnpDFList[['KIR2DS35']] <- list(snpDF=S35DF, csvPath='')
+  return( knownSnpDFList )
+}
+
+# Add KIR2DL23 combined SNP df to the knownSnpDFList
+knownSnpDFList <- allele.generate_L23_SNP_df( kirLocusFeatureNameList, knownSnpDFList )
+
+knownSnpDFList <- allele.generate_S35_SNP_df( kirLocusFeatureNameList, knownSnpDFList )

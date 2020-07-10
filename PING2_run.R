@@ -42,10 +42,27 @@ KIR3DP1 [example]
   IND00001 [example]
 '
 
+# PING2 iter alignments ----------------------------------------------
+# Iter align workflow
 
+for(currentSample in sampleList){
+  currentSample <- ping_iter.run_alignments(currentSample)
+}
 
-# PING2 gene content alignments ----------------------------------------------
+# Example wrapper function to run iter alignments for each sample ( should be moved to genotype_alignment_functions.R )
+ping_iter.run_alignments <- function( currentSample ){
+  
+  cat('\nLoading ref DF')
+  currentSample <- sampleObj.loadRefDF(currentSample, referenceAlleleDF) # Subset reference allele dataframe by present loci, save to sample object
+  cat('\nWriting reference files')
+  currentSample <- sampleObj.writeRefFastaBed(currentSample, locusRefList, alignmentFileDirectory) # Write fasta reference file for sample object based on refDF
+  currentSample <- sampleObj.iterBowtie2Index(currentSample, bowtie2Build, threads) # Converts fasta file from previous line into a bowtie2 index
+  currentSample <- sampleObj.iterBowtie2Align(currentSample, bowtie2, threads, deleteSam=F) # Align sample to bowtie2 index
+  currentSample <- sampleObj.iterVCFGen(currentSample, samtools, bcftools, threads) # Convert SAM file into VCF
+  
+  return( currentSample )
+}
 
-
+# PING2 filter alignments ----------------------------------------------
 
 
