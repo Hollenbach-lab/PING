@@ -1027,8 +1027,8 @@ sampleObj.filterAlign.KIR3DL1S1 <- function(currentSample, bowtie2, samtools, bc
   
   check.system2_output(output.sampleAlign, 'samtools mpileup | bcftools call failed')
   
-  currentSample[['filterVCFList']][['KIR3DL1']] <- vcfPath
-  currentSample[['filterBEDList']][['KIR3DL1']] <- bedPath
+  currentSample[['filterVCFList']][['KIR3DL1het']] <- vcfPath
+  currentSample[['filterBEDList']][['KIR3DL1het']] <- bedPath
   
   # ------ 3DS1 VCF generation
   # SAM to BAM conversion
@@ -2282,7 +2282,7 @@ sampleObj.filterAlign.KIR2DL1 <- function(currentSample, bowtie2, samtools, bcft
     dir.create(tempDir)
   }
   
-  if( as.numeric(currentSample$copyNumber$KIR2DS1) > 0 | as.numeric(currentSample$geneContent$KIR2DS1) > 0 ){
+  if( as.numeric(currentSample$copyNumber$KIR2DS1) == 0 & as.numeric(currentSample$geneContent$KIR2DS1) == 0 ){
     
     # step 1: Positive filter
     bt2_threads <- paste0('-p ',threads)
@@ -2568,7 +2568,7 @@ sampleObj.filterAlign.KIR2DL1 <- function(currentSample, bowtie2, samtools, bcft
 }
 
 # Filter align workflow
-sampleList[1:10] <- sapply(sampleList[4], function(x){
+sampleList[8] <- sapply(sampleList[8], function(x){
   x <- sampleObj.filterAlign.setup(x, alignmentFileDirectory)
   
   if(x[['filterRefDirectory']] == 'failed'){
@@ -2579,47 +2579,67 @@ sampleList[1:10] <- sapply(sampleList[4], function(x){
     as.numeric(x$copyNumber[[locusName]]) > 0 | as.numeric(x$geneContent[[locusName]]) > 0
   })
   
+  x[[ 'samplePresentLocusVect' ]] <- c()
+  
   x <- sampleObj.filterAlign.KIR3DL3(x, bowtie2, samtools, bcftools, threads)
+  x[[ 'samplePresentLocusVect' ]] <- c( x[[ 'samplePresentLocusVect' ]], 'KIR3DL3' )
+  
   x <- sampleObj.filterAlign.KIR3DL2(x, bowtie2, samtools, bcftools, threads)
+  x[[ 'samplePresentLocusVect' ]] <- c( x[[ 'samplePresentLocusVect' ]], 'KIR3DL2' )
   
   if( locusPresenceList[['KIR3DL1']] & locusPresenceList[['KIR3DS1']] ){
     x <- sampleObj.filterAlign.KIR3DL1S1(x, bowtie2, samtools, bcftools, threads)
+    x[[ 'samplePresentLocusVect' ]] <- c( x[[ 'samplePresentLocusVect' ]], 'KIR3DL1het', 'KIR3DS1het' )
   }
   
   if( locusPresenceList[['KIR3DL1']] & !locusPresenceList[['KIR3DS1']] ){
     x <- sampleObj.filterAlign.KIR3DL1(x, bowtie2, samtools, bcftools, threads)
+    x[[ 'samplePresentLocusVect' ]] <- c( x[[ 'samplePresentLocusVect' ]], 'KIR3DL1' )
   }
   
   if( locusPresenceList[['KIR3DS1']] & !locusPresenceList[['KIR3DL1']] ){
     x <- sampleObj.filterAlign.KIR3DS1(x, bowtie2, samtools, bcftools, threads)
+    x[[ 'samplePresentLocusVect' ]] <- c( x[[ 'samplePresentLocusVect' ]], 'KIR3DS1' )
   }
   
   # If 2DS5 present regardless of 2DS3
   if( locusPresenceList[['KIR2DS5']] ){
     x <- sampleObj.filterAlign.KIR2DS35(x, bowtie2, samtools, bcftools, threads)
+    x[[ 'samplePresentLocusVect' ]] <- c( x[[ 'samplePresentLocusVect' ]], 'KIR2DS35' )
   }
   
   # If 2DS3 present and not 2DS5
   if( locusPresenceList[['KIR2DS3']] & !locusPresenceList[['KIR2DS5']] ){
     x <- sampleObj.filterAlign.KIR2DS3(x, bowtie2, samtools, bcftools, threads)
+    x[[ 'samplePresentLocusVect' ]] <- c( x[[ 'samplePresentLocusVect' ]], 'KIR2DS3' )
   }
   
   if( locusPresenceList[['KIR2DS4']] ){
     x <- sampleObj.filterAlign.KIR2DS4(x, bowtie2, samtools, bcftools, threads)
+    x[[ 'samplePresentLocusVect' ]] <- c( x[[ 'samplePresentLocusVect' ]], 'KIR2DS4' )
   }
   
   if( locusPresenceList[['KIR2DP1']] ){
     x <- sampleObj.filterAlign.KIR2DP1(x, bowtie2, samtools, bcftools, threads)
+    x[[ 'samplePresentLocusVect' ]] <- c( x[[ 'samplePresentLocusVect' ]], 'KIR2DP1' )
   }
   
   x <- sampleObj.filterAlign.KIR2DL23(x, bowtie2, samtools, bcftools, threads)
+  x[[ 'samplePresentLocusVect' ]] <- c( x[[ 'samplePresentLocusVect' ]], 'KIR2DL23', 'KIR2DL2', 'KIR2DL3' )
   
   if( locusPresenceList[['KIR2DL1']] ){
     x <- sampleObj.filterAlign.KIR2DL1(x, bowtie2, samtools, bcftools, threads)
+    x[[ 'samplePresentLocusVect' ]] <- c( x[[ 'samplePresentLocusVect' ]], 'KIR2DL1' )
   }
   
   if( locusPresenceList[['KIR2DL5']] ){
     x <- sampleObj.filterAlign.KIR2DL5(x, bowtie2, samtools, bcftools, threads)
+    x[[ 'samplePresentLocusVect' ]] <- c( x[[ 'samplePresentLocusVect' ]], 'KIR2DL5' )
+  }
+  
+  if( locusPresenceList[['KIR2DL4']] ){
+    x <- sampleObj.filterAlign.KIR2DL4(x, bowtie2, samtools, bcftools, threads)
+    x[[ 'samplePresentLocusVect' ]] <- c( x[[ 'samplePresentLocusVect' ]], 'KIR2DL4' )
   }
   
   return(x)

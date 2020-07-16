@@ -4,6 +4,11 @@ is_nuc <- function(chr){
   return(as.character(chr) %in% nuc_list)
 }
 
+is_nodel_nuc <- function(chr){
+  nuc_list <- c('A','T','C','G')
+  return( as.character(chr) %in% nuc_list )
+}
+
 ## Counts how many unique nucleotides are in a vector
 num_unique_nuc <- function(vector_to_check){
   return(sum(is_nuc(names(table(vector_to_check)))))
