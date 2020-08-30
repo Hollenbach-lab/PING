@@ -4,7 +4,7 @@ library(stringr)
 library(methods)
 library(pryr)
 library(plotly)
-library(randomForest)
+#library(randomForest)
 
 #### 3/11/20 gc to-do notes
 # 1. Create results subdirectory for bam files [x]

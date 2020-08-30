@@ -3,11 +3,11 @@ library(stringr)
 library(methods)
 
 
-rawFastqDirectory
-fastqPattern
-threads <- 10
-resultsDirectory
-shortNameDelim
+# rawFastqDirectory
+# fastqPattern
+# threads <- 60
+# resultsDirectory
+# shortNameDelim
 
 # Alignment directory structure
 # alignmentFiles
@@ -20,33 +20,36 @@ shortNameDelim
 #   - filterAlign
 #     - [gene].vcf
 
-alignmentFileDirectory <- file.path(resultsDirectory,'alignmentFiles')
-if(!file.exists(alignmentFileDirectory)){
-  dir.create(alignmentFileDirectory)
-}
+# alignmentFileDirectory <- file.path(resultsDirectory,'alignmentFiles')
+# if(!file.exists(alignmentFileDirectory)){
+#   dir.create(alignmentFileDirectory)
+# }
 
-referenceAlleleDF <- read.csv('Resources/genotype_resources/master_haplo_iteration_testing_v4.csv',row.names=1,stringsAsFactors = F)
+#referenceAlleleDF <- read.csv('Resources/genotype_resources/master_haplo_iteration_testing_v10.csv',row.names=1,stringsAsFactors = F)
 
-
-### Check to make sure bowtie2-build is accessible <- only needed when building a new reference index
-bowtie2Build <- system2('which', c('bowtie2-build'), stdout=T, stderr=T)
-check.system2_output(bowtie2Build, 'bowtie2-build not found')
 
 ### Check to make sure bowtie2-build is accessible <- only needed when building a new reference index
-samtools <- system2('which', c('samtools'), stdout=T, stderr=T)
-check.system2_output(samtools, 'samtools')
+#bowtie2Build <- system2('which', c('bowtie2-build'), stdout=T, stderr=T)
+#check.system2_output(bowtie2Build, 'bowtie2-build not found')
 
 ### Check to make sure bowtie2-build is accessible <- only needed when building a new reference index
-bcftools <- system2('which', c('bcftools'), stdout=T, stderr=T)
-check.system2_output(bcftools, 'bcftools')
+#samtools <- system2('which', c('samtools'), stdout=T, stderr=T)
+#check.system2_output(samtools, 'samtools')
+
+### Check to make sure bowtie2-build is accessible <- only needed when building a new reference index
+#bcftools <- system2('which', c('~/tools/samtools_update/bcftools/bcftools'), stdout=T, stderr=T)
+#check.system2_output(bcftools, 'bcftools')
 
 # load reference alleles for present loci into a sample object 'currentSample$refAlleleDF'
 sampleObj.loadRefDF <- function(currentSample, referenceAlleleDF){
   
   # Skip this sample if either gene content or copy number detemrination failed
   if('failed' %in% c(currentSample$geneContent, currentSample$copyNumber)){
+    
     currentSample[['refAlleleDF']] <- 'failed'
+    
   }else{
+    
     # pull out copy number and gene content info for current sample
     currentSampleCopy <- as.list(sapply(currentSample$copyNumber, as.numeric))
     currentSampleGC <- as.list(sapply(currentSample$geneContent, as.numeric))
@@ -65,10 +68,13 @@ sampleObj.loadRefDF <- function(currentSample, referenceAlleleDF){
     
     # Load reference allele vect into the sample object
     currentSample[['refAlleleDF']] <- referenceAlleleDF[presentLociVect,]
+    
   }
   
   return(currentSample)
 }
+
+#UTRextList <- general.read_fasta('/home/LAB_PROJECTS/PING2_PAPER/PING2/Resources/genotype_resources/KIR_UTR_ext.fasta')
 
 # Write fasta and bed files for dynamic reference building
 sampleObj.writeRefFastaBed <- function(currentSample, locusRefList, alignmentFileDirectory){
@@ -121,11 +127,36 @@ sampleObj.writeRefFastaBed <- function(currentSample, locusRefList, alignmentFil
       # Remove deletion positions from the allele string
       noDelAlleleStr <- gsub('.','',locusRefList[[currentLocus]]$alleleStrList[[currentRefAllele]],fixed = T)
       
+      # Add in 5UTR extension (by replacing current 5UTR with 1000bp 5UTR)
+      UTRextName <- paste0(currentLocus,'_5UTR')
+      UTRextStr5 <- UTRextList[[UTRextName]]
+      noDelAlleleStr <- gsub(paste0(locusRefList[[currentLocus]]$alleleBedList[[currentRefAllele]]$`5UTR`$featSeq,
+                                    locusRefList[[currentLocus]]$alleleBedList[[currentRefAllele]]$`E1`$featSeq),
+                             paste0(UTRextStr5,
+                                    locusRefList[[currentLocus]]$alleleBedList[[currentRefAllele]]$`E1`$featSeq),
+                             noDelAlleleStr,
+                             fixed=T)
+      
+      # Add in 3UTR extension (by replacing current 5UTR with 1000bp 5UTR)
+      lastExonLab <- names(locusRefList[[currentLocus]]$alleleBedList[[currentRefAllele]])[ (length(locusRefList[[currentLocus]]$alleleBedList[[currentRefAllele]])-1) ]
+      UTRextName <- paste0(currentLocus,'_3UTR')
+      UTRextStr3 <- UTRextList[[UTRextName]]
+      noDelAlleleStr <- gsub(paste0(locusRefList[[currentLocus]]$alleleBedList[[currentRefAllele]][[lastExonLab]]$featSeq,
+                                    locusRefList[[currentLocus]]$alleleBedList[[currentRefAllele]]$`3UTR`$featSeq),
+                             paste0(locusRefList[[currentLocus]]$alleleBedList[[currentRefAllele]][[lastExonLab]]$featSeq,
+                                    UTRextStr3),
+                             noDelAlleleStr,
+                             fixed=T)
+      
       # Replace all '*' with 'N'
       noDelAlleleStr <- gsub('*','N',noDelAlleleStr,fixed=T)
       
       # Pull out bed coordinate list
       alleleBed <- locusRefList[[currentLocus]]$alleleBedList[[currentRefAllele]]
+      
+      # Modify allele bed to account for 5' and 3' UTR extensions
+      utr5ExtraLen <- nchar(UTRextStr5) - nchar(alleleBed$`5UTR`$featSeq)
+      utr3ExtraLen <- nchar(UTRextStr3) - nchar(alleleBed$`3UTR`$featSeq)
       
       # Count the number of ambiguous characters in this reference allele
       ambChrCount <- str_count(noDelAlleleStr, pattern=fixed('N'))
@@ -135,7 +166,7 @@ sampleObj.writeRefFastaBed <- function(currentSample, locusRefList, alignmentFil
       }
       
       # Catch if the last bed coord and the no del reference allele length do not match
-      if(as.numeric(alleleBed$`3UTR`$endPos) != nchar(noDelAlleleStr)){
+      if( (as.numeric(alleleBed$`3UTR`$endPos) + utr5ExtraLen + utr3ExtraLen) != nchar(noDelAlleleStr) ){
         message('\nMismatch between BED coordinates to reference allele length\nAllele ID:\t',currentRefAllele,
                 '\nlast BED coord:\t',alleleBed$`3UTR`$endPos,
                 '\nallele length:\t',nchar(noDelAlleleStr),
@@ -150,7 +181,7 @@ sampleObj.writeRefFastaBed <- function(currentSample, locusRefList, alignmentFil
       
       # Write feature coordinates to bed file
       sapply(alleleBed, function(x){
-        general.write_bed(bedCon, x$alleleName, x$startPos, x$endPos, x$featName)
+        general.write_bed(bedCon, x$alleleName, x$startPos, x$endPos, x$featName, utr5ExtraLen, utr3ExtraLen)
       })
       
     }
@@ -206,6 +237,7 @@ sampleObj.iterVCFGen <- function(currentSample, samtools, bcftools, threads, del
   mp_F <- "-F 0.0002"
   mp_u <- "-u "
   mp_O <- "-O v"
+  mp_threads <- paste0('--threads ',threads)
   
   currentSample[['iterVCFPathList']] <- list()
   
@@ -226,7 +258,7 @@ sampleObj.iterVCFGen <- function(currentSample, samtools, bcftools, threads, del
     ## Run the samtools BAM sort command
     cat('\n\n',samtools,optionsCommand)
     output.sampleAlign <- system2(samtools, optionsCommand, stdout=T, stderr=T)
-    
+  
     check.system2_output(output.sampleAlign, 'samtools bam sort failed')
     
     fastaPath <- normalizePath(file.path(iterDir,'alleleReference.fasta'), mustWork=T)
@@ -236,16 +268,20 @@ sampleObj.iterVCFGen <- function(currentSample, samtools, bcftools, threads, del
     currentSample[['iterVCFPathList']][[currentIter]] <- vcfPath
     
     mp_f <- paste0('-f ', fastaPath)
-    mp_l <- paste0('-l ', bedPath)
+    mp_l <- paste0('-T ', bedPath)
     mp_o <- paste0('-o ', vcfPath)
-    optionsCommand <- c('mpileup', mp_m, mp_u, mp_F, mp_f, currentSample[['iterSortedBamPathList']][[currentIter]], mp_l,
-                        '|', bcftools ,'call','--multiallelic-caller',mp_O, mp_o)
+    #mp_A <- '-A'
+    #mp_B <- '-B'
+    #mp_m,
+    #mp_F,
+    optionsCommand <- c('mpileup',mp_m,mp_F,mp_threads,'-d 2000', mp_f, currentSample[['iterSortedBamPathList']][[currentIter]], mp_l,
+                        '|', bcftools ,'call','-m','-M',mp_O, mp_o)
     
     ## Run the samtools | bcftools command
-    cat('\n\n',samtools,optionsCommand)
-    output.sampleAlign <- system2(samtools, optionsCommand, stdout=T, stderr=T)
+    cat('\n\n',bcftools,optionsCommand)
+    output.sampleAlign <- system2(bcftools, optionsCommand, stdout=T, stderr=T)
     
-    check.system2_output(output.sampleAlign, 'samtools bam sort failed')
+    check.system2_output(output.sampleAlign, 'bcftools mpileup | call failed')
     
     if(deleteBam){
       file.remove(currentSample[['iterSortedBamPathList']][[currentIter]])
@@ -265,7 +301,8 @@ sampleObj.iterVCFGen <- function(currentSample, samtools, bcftools, threads, del
 iterAlign.sam_to_bam <- function(samtools, samPath, bamPath, threads){
 
   sam_b <- '-b'
-  sam_q <- '-q 10'
+  #sam_q <- '-q 10'
+  sam_q <- '-q 0'
   
   ## Building up the run command
   optionsCommand <- c('view',paste0('-@', threads), sam_b, sam_q,
@@ -284,7 +321,7 @@ iterAlign.sam_to_bam <- function(samtools, samPath, bamPath, threads){
 }
 
 # bowtie2-align
-sampleObj.iterBowtie2Align <- function(currentSample, bowtie2, threads, deleteSam=T){
+sampleObj.iterBowtie2Align <- function(currentSample, bowtie2, threads, deleteSam=T, forceRun=F){
   
   if(currentSample$iterRefDirectory == 'failed'){
     return(currentSample)
@@ -299,6 +336,11 @@ sampleObj.iterBowtie2Align <- function(currentSample, bowtie2, threads, deleteSa
     
     iterDir <- normalizePath(file.path(currentSample$iterRefDirectory,currentIter), mustWork=T)
     
+    #-- catch for skipping alingment if VCF file exists
+    #vcfPath <- file.path(iterDir,paste0(currentSample$name, '.vcf'))
+    
+    #vcfExists.bool <- ile.exists(vcfPath)
+    
     ## Intitialize an output path for the SAM file
     currentSample[['iterSamPathList']][[currentIter]] <- file.path(iterDir,paste0(currentSample$name,'.sam'))
     currentSample[['iterBamPathList']][[currentIter]] <- file.path(iterDir,paste0(currentSample$name,'.bam'))
@@ -308,7 +350,7 @@ sampleObj.iterBowtie2Align <- function(currentSample, bowtie2, threads, deleteSa
     bt2_5 <- "-5 3"
     bt2_3 <- "-3 7"
     bt2_i <- "-i S,1,0.5"
-    bt2_min_score <- "--score-min L,0,-0.1"
+    bt2_min_score <- "--score-min L,0,-0.187"
     bt2_I <- "-I 75"
     bt2_X <- "-X 1500"
     bt2_noUnal <- '--no-unal'
@@ -346,28 +388,40 @@ sampleObj.iterBowtie2Align <- function(currentSample, bowtie2, threads, deleteSa
   return(currentSample)
 }
 
+#skipSampleVect <- c('IND00003','IND00007','IND00026','IND00074','IND00075')
 
-# Iter align workflow
-sampleList[20:30] <- sapply(sampleList[20:30], function(x){
-  cat('\nLoading ref DF')
-  x <- sampleObj.loadRefDF(x, referenceAlleleDF) # Subset reference allele dataframe by present loci, save to sample object
-  cat('\nWriting reference files')
-  x <- sampleObj.writeRefFastaBed(x, locusRefList, alignmentFileDirectory) # Write fasta reference file for sample object based on refDF
-  x <- sampleObj.iterBowtie2Index(x, bowtie2Build, threads) # Converts fasta file from previous line into a bowtie2 index
-  x <- sampleObj.iterBowtie2Align(x, bowtie2, threads, deleteSam=F) # Align sample to bowtie2 index
-  x <- sampleObj.iterVCFGen(x, samtools, bcftools, threads) # Convert SAM file into VCF
-  
-  #x <- allele.iter_alignments_to_snp_dfs(x, locusRefList, referenceAlleleDF, minDP, kirLocusFeatureNameList) # Write VCF SNP data into SNP dataframe
-  #x <- allele.combine_iter_snps(x, snpDFList) # Collapse down the 5 alignment rounds into a single set of SNPs, appends SNPs to multi-sample SNP dataframe
-  #x <- allele.setup_allele_call_df(x) # Adds an allele call dataframe to each sample object to store allele call, mismatch score, and number of new SNPs
-  
-  #cat('\n\nFinding allele matches for',x$name)
-  #for(currentLocus in rownames(x$refAlleleDF)){
-  #  x <- allele.call_allele(x, currentLocus, alleleFileDirectory, knownSnpDFList, alleleDFPathList$newAllelePath ) # Allele calling, also records new SNPs and new alleles
-  #}
-  #cat('\nWriting allele matches to', alleleDFPathList$alleleCallPath )
-  #x <- allele.save_call( x, alleleDFPathList$alleleCallPath ) # Saves allele calls to file
-})
+# # Iter align workflow
+# sampleList[16:length(sampleList)] <- sapply(sampleList[16:length(sampleList)], function(x){
+#   
+#   if(x$name %in% skipSampleVect){
+#     return(x)
+#   }
+#   
+#   cat('\nLoading ref DF')
+#   x <- sampleObj.loadRefDF(x, referenceAlleleDF) # Subset reference allele dataframe by present loci, save to sample object
+#   cat('\nWriting reference files')
+#   x <- sampleObj.writeRefFastaBed(x, locusRefList, alignmentFileDirectory) # Write fasta reference file for sample object based on refDF
+#   x <- sampleObj.iterBowtie2Index(x, bowtie2Build, threads) # Converts fasta file from previous line into a bowtie2 index
+#   x <- sampleObj.iterBowtie2Align(x, bowtie2, threads, deleteSam=F) # Align sample to bowtie2 index
+#   x <- sampleObj.iterVCFGen(x, samtools, bcftools, threads) # Convert SAM file into VCF
+#   
+#   x <- allele.iter_alignments_to_snp_dfs(x, locusRefList, referenceAlleleDF, minDP, kirLocusFeatureNameList)
+#   x <- allele.combine_iter_snps(x, snpDFList)
+#   
+#   if( 'KIR2DL2' %in% rownames(x$refAlleleDF) & 'KIR2DL3' %in% rownames(x$refAlleleDF) ){
+#     x <- allele.iter_combine_KIR2DL23( x, knownSnpDFList, alleleFileDirectory )
+#   }
+#   
+#   x <- allele.setup_iter_allele_call_df(x)
+#   
+#   cat('\n\nFinding allele matches for',x$name)
+#   for(currentLocus in colnames(x[['iterAlleleCallDF']])){
+#     x <- allele.call_allele(x, currentLocus, alleleFileDirectory, knownSnpDFList, alleleDFPathList$iter$newAllelePath, filterLocusConv, 'iter')
+#   }
+#   
+#   cat('\nWriting allele matches to', alleleDFPathList$iter$alleleCallPath )
+#   x <- allele.save_call( x, alleleDFPathList$iter$alleleCallPath, 'iter' )
+# })
 
 
 # Filter align workflow
@@ -470,7 +524,7 @@ filterAlign.refConversion <- function(locusRefList){
   
 }
 
-general.read_fasta <- function(fastaFile){
+general.read_fasta.2 <- function(fastaFile){
   output.fastaList <- list()
   
   con  <- file(fastaFile, open = "r")
@@ -2567,91 +2621,80 @@ sampleObj.filterAlign.KIR2DL1 <- function(currentSample, bowtie2, samtools, bcft
   return(currentSample)
 }
 
-# Filter align workflow
-sampleList[8] <- sapply(sampleList[8], function(x){
-  x <- sampleObj.filterAlign.setup(x, alignmentFileDirectory)
-  
-  if(x[['filterRefDirectory']] == 'failed'){
-    return(x)
-  }
-  
-  locusPresenceList <- sapply(intersect(names(x$geneContent), names(x$copyNumber)), function(locusName){
-    as.numeric(x$copyNumber[[locusName]]) > 0 | as.numeric(x$geneContent[[locusName]]) > 0
-  })
-  
-  x[[ 'samplePresentLocusVect' ]] <- c()
-  
-  x <- sampleObj.filterAlign.KIR3DL3(x, bowtie2, samtools, bcftools, threads)
-  x[[ 'samplePresentLocusVect' ]] <- c( x[[ 'samplePresentLocusVect' ]], 'KIR3DL3' )
-  
-  x <- sampleObj.filterAlign.KIR3DL2(x, bowtie2, samtools, bcftools, threads)
-  x[[ 'samplePresentLocusVect' ]] <- c( x[[ 'samplePresentLocusVect' ]], 'KIR3DL2' )
-  
-  if( locusPresenceList[['KIR3DL1']] & locusPresenceList[['KIR3DS1']] ){
-    x <- sampleObj.filterAlign.KIR3DL1S1(x, bowtie2, samtools, bcftools, threads)
-    x[[ 'samplePresentLocusVect' ]] <- c( x[[ 'samplePresentLocusVect' ]], 'KIR3DL1het', 'KIR3DS1het' )
-  }
-  
-  if( locusPresenceList[['KIR3DL1']] & !locusPresenceList[['KIR3DS1']] ){
-    x <- sampleObj.filterAlign.KIR3DL1(x, bowtie2, samtools, bcftools, threads)
-    x[[ 'samplePresentLocusVect' ]] <- c( x[[ 'samplePresentLocusVect' ]], 'KIR3DL1' )
-  }
-  
-  if( locusPresenceList[['KIR3DS1']] & !locusPresenceList[['KIR3DL1']] ){
-    x <- sampleObj.filterAlign.KIR3DS1(x, bowtie2, samtools, bcftools, threads)
-    x[[ 'samplePresentLocusVect' ]] <- c( x[[ 'samplePresentLocusVect' ]], 'KIR3DS1' )
-  }
-  
-  # If 2DS5 present regardless of 2DS3
-  if( locusPresenceList[['KIR2DS5']] ){
-    x <- sampleObj.filterAlign.KIR2DS35(x, bowtie2, samtools, bcftools, threads)
-    x[[ 'samplePresentLocusVect' ]] <- c( x[[ 'samplePresentLocusVect' ]], 'KIR2DS35' )
-  }
-  
-  # If 2DS3 present and not 2DS5
-  if( locusPresenceList[['KIR2DS3']] & !locusPresenceList[['KIR2DS5']] ){
-    x <- sampleObj.filterAlign.KIR2DS3(x, bowtie2, samtools, bcftools, threads)
-    x[[ 'samplePresentLocusVect' ]] <- c( x[[ 'samplePresentLocusVect' ]], 'KIR2DS3' )
-  }
-  
-  if( locusPresenceList[['KIR2DS4']] ){
-    x <- sampleObj.filterAlign.KIR2DS4(x, bowtie2, samtools, bcftools, threads)
-    x[[ 'samplePresentLocusVect' ]] <- c( x[[ 'samplePresentLocusVect' ]], 'KIR2DS4' )
-  }
-  
-  if( locusPresenceList[['KIR2DP1']] ){
-    x <- sampleObj.filterAlign.KIR2DP1(x, bowtie2, samtools, bcftools, threads)
-    x[[ 'samplePresentLocusVect' ]] <- c( x[[ 'samplePresentLocusVect' ]], 'KIR2DP1' )
-  }
-  
-  x <- sampleObj.filterAlign.KIR2DL23(x, bowtie2, samtools, bcftools, threads)
-  x[[ 'samplePresentLocusVect' ]] <- c( x[[ 'samplePresentLocusVect' ]], 'KIR2DL23', 'KIR2DL2', 'KIR2DL3' )
-  
-  if( locusPresenceList[['KIR2DL1']] ){
-    x <- sampleObj.filterAlign.KIR2DL1(x, bowtie2, samtools, bcftools, threads)
-    x[[ 'samplePresentLocusVect' ]] <- c( x[[ 'samplePresentLocusVect' ]], 'KIR2DL1' )
-  }
-  
-  if( locusPresenceList[['KIR2DL5']] ){
-    x <- sampleObj.filterAlign.KIR2DL5(x, bowtie2, samtools, bcftools, threads)
-    x[[ 'samplePresentLocusVect' ]] <- c( x[[ 'samplePresentLocusVect' ]], 'KIR2DL5' )
-  }
-  
-  if( locusPresenceList[['KIR2DL4']] ){
-    x <- sampleObj.filterAlign.KIR2DL4(x, bowtie2, samtools, bcftools, threads)
-    x[[ 'samplePresentLocusVect' ]] <- c( x[[ 'samplePresentLocusVect' ]], 'KIR2DL4' )
-  }
-  
-  return(x)
-})
-
-
-
-
-
-
-
-
-
-
-
+# # Filter align workflow
+# sampleList <- sapply(sampleList, function(x){
+#   x <- sampleObj.filterAlign.setup(x, alignmentFileDirectory)
+#   
+#   if(x[['filterRefDirectory']] == 'failed'){
+#     return(x)
+#   }
+#   
+#   locusPresenceList <- sapply(intersect(names(x$geneContent), names(x$copyNumber)), function(locusName){
+#     as.numeric(x$copyNumber[[locusName]]) > 0 | as.numeric(x$geneContent[[locusName]]) > 0
+#   })
+#   
+#   x[[ 'samplePresentLocusVect' ]] <- c()
+#   
+#   x <- sampleObj.filterAlign.KIR3DL3(x, bowtie2, samtools, bcftools, threads)
+#   x[[ 'samplePresentLocusVect' ]] <- c( x[[ 'samplePresentLocusVect' ]], 'KIR3DL3' )
+#   
+#   x <- sampleObj.filterAlign.KIR3DL2(x, bowtie2, samtools, bcftools, threads)
+#   x[[ 'samplePresentLocusVect' ]] <- c( x[[ 'samplePresentLocusVect' ]], 'KIR3DL2' )
+#   
+#   if( locusPresenceList[['KIR3DL1']] & locusPresenceList[['KIR3DS1']] ){
+#     x <- sampleObj.filterAlign.KIR3DL1S1(x, bowtie2, samtools, bcftools, threads)
+#     x[[ 'samplePresentLocusVect' ]] <- c( x[[ 'samplePresentLocusVect' ]], 'KIR3DL1het', 'KIR3DS1het' )
+#   }
+#   
+#   if( locusPresenceList[['KIR3DL1']] & !locusPresenceList[['KIR3DS1']] ){
+#     x <- sampleObj.filterAlign.KIR3DL1(x, bowtie2, samtools, bcftools, threads)
+#     x[[ 'samplePresentLocusVect' ]] <- c( x[[ 'samplePresentLocusVect' ]], 'KIR3DL1' )
+#   }
+#   
+#   if( locusPresenceList[['KIR3DS1']] & !locusPresenceList[['KIR3DL1']] ){
+#     x <- sampleObj.filterAlign.KIR3DS1(x, bowtie2, samtools, bcftools, threads)
+#     x[[ 'samplePresentLocusVect' ]] <- c( x[[ 'samplePresentLocusVect' ]], 'KIR3DS1' )
+#   }
+#   
+#   # If 2DS5 present regardless of 2DS3
+#   if( locusPresenceList[['KIR2DS5']] ){
+#     x <- sampleObj.filterAlign.KIR2DS35(x, bowtie2, samtools, bcftools, threads)
+#     x[[ 'samplePresentLocusVect' ]] <- c( x[[ 'samplePresentLocusVect' ]], 'KIR2DS35' )
+#   }
+#   
+#   # If 2DS3 present and not 2DS5
+#   if( locusPresenceList[['KIR2DS3']] & !locusPresenceList[['KIR2DS5']] ){
+#     x <- sampleObj.filterAlign.KIR2DS3(x, bowtie2, samtools, bcftools, threads)
+#     x[[ 'samplePresentLocusVect' ]] <- c( x[[ 'samplePresentLocusVect' ]], 'KIR2DS3' )
+#   }
+#   
+#   if( locusPresenceList[['KIR2DS4']] ){
+#     x <- sampleObj.filterAlign.KIR2DS4(x, bowtie2, samtools, bcftools, threads)
+#     x[[ 'samplePresentLocusVect' ]] <- c( x[[ 'samplePresentLocusVect' ]], 'KIR2DS4' )
+#   }
+#   
+#   if( locusPresenceList[['KIR2DP1']] ){
+#     x <- sampleObj.filterAlign.KIR2DP1(x, bowtie2, samtools, bcftools, threads)
+#     x[[ 'samplePresentLocusVect' ]] <- c( x[[ 'samplePresentLocusVect' ]], 'KIR2DP1' )
+#   }
+#   
+#   x <- sampleObj.filterAlign.KIR2DL23(x, bowtie2, samtools, bcftools, threads)
+#   x[[ 'samplePresentLocusVect' ]] <- c( x[[ 'samplePresentLocusVect' ]], 'KIR2DL23', 'KIR2DL2', 'KIR2DL3' )
+#   
+#   if( locusPresenceList[['KIR2DL1']] ){
+#     x <- sampleObj.filterAlign.KIR2DL1(x, bowtie2, samtools, bcftools, threads)
+#     x[[ 'samplePresentLocusVect' ]] <- c( x[[ 'samplePresentLocusVect' ]], 'KIR2DL1' )
+#   }
+#   
+#   if( locusPresenceList[['KIR2DL5']] ){
+#     x <- sampleObj.filterAlign.KIR2DL5(x, bowtie2, samtools, bcftools, threads)
+#     x[[ 'samplePresentLocusVect' ]] <- c( x[[ 'samplePresentLocusVect' ]], 'KIR2DL5' )
+#   }
+#   
+#   if( locusPresenceList[['KIR2DL4']] ){
+#     x <- sampleObj.filterAlign.KIR2DL4(x, bowtie2, samtools, bcftools, threads)
+#     x[[ 'samplePresentLocusVect' ]] <- c( x[[ 'samplePresentLocusVect' ]], 'KIR2DL4' )
+#   }
+#   
+#   return(x)
+# })

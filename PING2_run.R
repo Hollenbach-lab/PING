@@ -6,10 +6,10 @@ source('Resources/extractor_functions.R') # do not change
 source('Resources/ping_copy.R') # do not change
 
 # Initialization variables ------------------------------------------------
-rawFastqDirectory <- '/home/LAB_PROJECTS/PING2_PAPER/3_script_results/extractedFastq/' # can be set to raw sequence or extractedFastq directory
+rawFastqDirectory <- '/home/LAB_PROJECTS/PING2_PAPER/testSequence//' # can be set to raw sequence or extractedFastq directory
 fastqPattern <- '_KIR_' # use '_KIR_' to find already extracted files, otherwise use 'fastq' or whatever fits your data
-threads <- 12
-resultsDirectory <- '/home/LAB_PROJECTS/PING2_PAPER/3_script_results/' # Set the master results directory (all pipeline output will be recorded here)
+threads <- 30
+resultsDirectory <- '/home/LAB_PROJECTS/PING2_PAPER/3_testSequence_results/' # Set the master results directory (all pipeline output will be recorded here)
 shortNameDelim <- '_' # can set a delimiter to shorten sample ID's (ID will be characters before delim)
 
 
@@ -29,7 +29,7 @@ sampleList <- extractor.run(sampleList,threads,extractedFastqDirectory,forceRun=
 
 # PING2 gene content and copy number --------------------------------------
 cat('\n\n----- Moving to PING2 gene content and copy determination -----')
-sampleList <- ping_copy.graph(sampleList=sampleList,threads=threads,resultsDirectory=resultsDirectory,forceRun=F, onlyKFF=T) # set forceRun=T if you want to force alignments
+sampleList <- ping_copy.graph(sampleList=sampleList,threads=threads,resultsDirectory=resultsDirectory,forceRun=F,onlyKFF=F) # set forceRun=T if you want to force alignments
 sampleList <- ping_copy.manual_threshold(sampleList=sampleList,resultsDirectory=resultsDirectory) # this function sets copy thresholds
 
 ## Seeing the following message when generating copy plots is normal
@@ -42,27 +42,19 @@ KIR3DP1 [example]
   IND00001 [example]
 '
 
-# PING2 iter alignments ----------------------------------------------
+# PING2 alignments and allele calling ----------------------------------------------
 # Iter align workflow
+source('Resources/ping_allele.R')
+source('Resources/genotype_alignment_functions.R')
+source('Resources/ping_gc_align.R')
 
+# Alignment and allele calling workflow
 for(currentSample in sampleList){
-  currentSample <- ping_iter.run_alignments(currentSample)
-}
-
-# Example wrapper function to run iter alignments for each sample ( should be moved to genotype_alignment_functions.R )
-ping_iter.run_alignments <- function( currentSample ){
+  currentSample <- ping_iter.run_alignments(currentSample, threads)
+  currentSample <- ping_iter.allele(currentSample)
   
-  cat('\nLoading ref DF')
-  currentSample <- sampleObj.loadRefDF(currentSample, referenceAlleleDF) # Subset reference allele dataframe by present loci, save to sample object
-  cat('\nWriting reference files')
-  currentSample <- sampleObj.writeRefFastaBed(currentSample, locusRefList, alignmentFileDirectory) # Write fasta reference file for sample object based on refDF
-  currentSample <- sampleObj.iterBowtie2Index(currentSample, bowtie2Build, threads) # Converts fasta file from previous line into a bowtie2 index
-  currentSample <- sampleObj.iterBowtie2Align(currentSample, bowtie2, threads, deleteSam=F) # Align sample to bowtie2 index
-  currentSample <- sampleObj.iterVCFGen(currentSample, samtools, bcftools, threads) # Convert SAM file into VCF
-  
-  return( currentSample )
+  currentSample <- ping_filter.run_alignments(currentSample, threads)
+  currentSample <- ping_filter.allele(currentSample)
+  currentSample <- post.combineGenos(currentSample, resultsDirectory)
 }
-
-# PING2 filter alignments ----------------------------------------------
-
 

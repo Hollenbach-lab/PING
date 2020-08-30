@@ -1,8 +1,29 @@
-## Returns boolean
-is_nuc <- function(chr){
-  nuc_list <- c('A', 'T', 'C', 'G', '.')
-  return(as.character(chr) %in% nuc_list)
+## This function shortens KIR allele names
+kir.allele_resolution <- function(allele_name, res){
+  
+  ## Split the locus name from the allele number
+  alleleLocusNumber <- str_split(allele_name, fixed('*'))[[1]]
+  
+  alleleLocus <- alleleLocusNumber[1]
+  alleleNumber <- alleleLocusNumber[2]
+  
+  ## Only return the alleleLocus if the resolution is 0
+  if(res == 0){
+    return(alleleLocus)
+  }
+  
+  ## Subset the allele_number based on res
+  shortAlleleNumber <- substr(alleleNumber, 1, res)
+  
+  ## Return the shortened allele name
+  return(paste0(alleleLocus,'*',shortAlleleNumber))
 }
+
+## Returns boolean [copied from gc_functions.R]
+#is_nuc <- function(chr){
+#  nuc_list <- c('A', 'T', 'C', 'G', '.')
+#  return(as.character(chr) %in% nuc_list)
+#}
 
 is_nodel_nuc <- function(chr){
   nuc_list <- c('A','T','C','G')
@@ -51,22 +72,44 @@ check.system2_output <- function(system2_output, system2_error){
   }
 }
 
-## Check to make sure samtools is accessible
-samtools <- system2('which', c('samtools'), stdout=T, stderr=T)
-check.system2_output(samtools, 'samtools not found')
-
-## Check to make sure samtools is accessible
-bowtie2 <- system2('which', c('bowtie2'), stdout=T, stderr=T)
-check.system2_output(bowtie2, 'bowtie2 not found')
-
 # Write allele to FASTA file
 general.write_fasta <- function(fastaCon, alleleName, alleleSeq){
   writeLines(paste0('>',alleleName,'\n',alleleSeq), fastaCon)
 }
 
+
+## This function returns the list of alleles found in the reference fasta
+general.read_fasta <- function(fasta_path){
+  fasta_path <- normalizePath(fasta_path, mustWork=T)
+  
+  output.alleleList <- list()
+  
+  for(currentLine in readLines(fasta_path)){
+    alleleNameBool <- grepl('>',currentLine,fixed=T)
+    
+    if(alleleNameBool){
+      currentAllele <- strsplit(currentLine, '>',fixed=TRUE)[[1]][2]
+      output.alleleList[[ currentAllele ]] <- ''
+    }else{
+      output.alleleList[[ currentAllele ]] <- paste0( output.alleleList[[currentAllele]], currentLine )
+    }
+  }
+  
+  return(output.alleleList)
+}
+
+
+
 # Write feature coordinates to BED file
-general.write_bed <- function(bedCon, alleleName, startPos, endPos, featureName){
-  writeLines(paste(alleleName,startPos,endPos,featureName,sep='\t'), bedCon)
+general.write_bed <- function(bedCon, alleleName, startPos, endPos, featureName,utr5ExtraLen=0,utr3ExtraLen=0){
+  
+  if(featureName == '5UTR'){
+    writeLines(paste(alleleName,startPos,(endPos+utr5ExtraLen),featureName,sep='\t'), bedCon)
+  }else if(featureName == '3UTR'){
+    writeLines(paste(alleleName,(startPos+utr5ExtraLen),(endPos+utr5ExtraLen+utr3ExtraLen),featureName,sep='\t'),bedCon)
+  }else{
+    writeLines(paste(alleleName,(startPos+utr5ExtraLen),(endPos+utr5ExtraLen),featureName,sep='\t'),bedCon)
+  }
 }
 
 ## Finds samples in sampleDirectory and turns them into objects for downstream use

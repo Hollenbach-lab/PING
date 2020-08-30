@@ -2,14 +2,87 @@ copiedMsfDirectory <- 'Resources/ipdkir_resources/copied_msf/'
 referenceResourceDirectory <- 'Resources/ipdkir_resources/reference_resources/'
 kirLocusVect <- kir.locus.vect
 
+
+# ----- Generate aligned SNP directories -----
+# Create directory for storing files relating to allele calling
+alleleFileDirectory <- file.path(resultsDirectory,'alleleFiles')
+if(!file.exists(alleleFileDirectory)){
+  dir.create(alleleFileDirectory)
+}
+
+filterAlleleFileDirectory <- file.path(alleleFileDirectory,'filterFiles')
+if(!file.exists(filterAlleleFileDirectory)){
+  dir.create(filterAlleleFileDirectory)
+}
+
+alignmentFileDirectory <- file.path(resultsDirectory,'alignmentFiles')
+if(!file.exists(alignmentFileDirectory)){
+  dir.create(alignmentFileDirectory)
+}
+
+
+# ----- Getting alignment tools ready -----
+### Check to make sure bowtie2-build is accessible <- only needed when building a new reference index
+bowtie2Build <- system2('which', c('bowtie2-build'), stdout=T, stderr=T)
+check.system2_output(bowtie2Build, 'bowtie2-build not found')
+
+### Check to make sure bowtie2-build is accessible <- only needed when building a new reference index
+samtools <- system2('which', c('samtools'), stdout=T, stderr=T)
+check.system2_output(samtools, 'samtools')
+
+### Check to make sure bowtie2-build is accessible <- only needed when building a new reference index
+bcftools <- system2('which', c('~/tools/samtools_update/bcftools/bcftools'), stdout=T, stderr=T)
+check.system2_output(bcftools, 'bcftools')
+
+## Check to make sure samtools is accessible
+bowtie2 <- system2('which', c('bowtie2'), stdout=T, stderr=T)
+check.system2_output(bowtie2, 'bowtie2 not found')
+
+
+# ----- Generating reference object list for each locus -----
 locusRefList <- general.initialize_locus_ref_object()
 locusRefList <- initLocusRef.read_raw_msf(locusRefList, copiedMsfDirectory)
 locusRefList <- initLocusRef.create_bed(locusRefList, referenceResourceDirectory, kirLocusFeatureNameList, writeBed=F)
 
-initialize_genotype_workflow <- function(){
-  
-}
+# Read in reference allele dataframe
+referenceAlleleDF <- read.csv('Resources/genotype_resources/master_haplo_iteration_testing_v10.csv',row.names=1,stringsAsFactors = F)
 
+# Read in reference allele 5'UTR and 3'UTR extensions
+UTRextList <- general.read_fasta('/home/LAB_PROJECTS/PING2_PAPER/PING2/Resources/genotype_resources/KIR_UTR_ext.fasta')
+
+
+# ----- Extra support stuff for allele calling -----
+filterLocusConv <- list(
+  'KIR3DL3'='KIR3DL3',
+  'KIR3DL2'='KIR3DL2',
+  'KIR3DS1'='KIR3DS1',
+  'KIR3DS1het'='KIR3DS1',
+  'KIR3DL1het'='KIR3DL1',
+  'KIR3DL1'='KIR3DL1',
+  'KIR2DS35'='KIR2DS5',
+  'KIR2DS4'='KIR2DS4',
+  'KIR2DS3'='KIR2DS3',
+  'KIR2DP1'='KIR2DP1',
+  'KIR2DL5'='KIR2DL5',
+  'KIR2DL4'='KIR2DL4',
+  'KIR2DL2'='KIR2DL2',
+  'KIR2DL23'='KIR2DL3',
+  'KIR2DL3'='KIR2DL3',
+  'KIR2DL1'='KIR2DL1'
+)
+
+# Generate known SNP df's for allele calling
+knownSnpDFList <- allele.create_allele_resources(locusRefList, alleleFileDirectory)
+
+# Add KIR2DL23 combined SNP df to the knownSnpDFList [filter specific]
+knownSnpDFList <- allele.generate_L23_SNP_df( kirLocusFeatureNameList, knownSnpDFList )
+
+# Add KIR2DS35 combined SNP df to the knownSnpDFList [filter specific]
+knownSnpDFList <- allele.generate_S35_SNP_df( kirLocusFeatureNameList, knownSnpDFList )
+
+maskedPosList <- list('KIR2DS4'=paste0('E5_',84:105),'KIR2DL4'='E7_105')
+
+# ----- Support functions for cleaning up allele call results -----
 KIR2DL1.filter_contam_reads_from_sam_file <- function(sam_file, sampleName){
   # Custom probes to identify contaminating read pairs responsible for incorrect base at CDS position 13
   probe1 <- "CACCGGCAGCACCATGTCGCTCACGGT"
@@ -62,6 +135,20 @@ KIR2DL1.filter_contam_reads_from_sam_file <- function(sam_file, sampleName){
   return(NULL)
 }
 
+## New function for removing masked SNP positions
+filter_masked_snps <- function(current.locus, KIR_sample_snps, snpMaskDF){
+  ## If the current locus is in the snp mask DF
+  if(current.locus %in% row.names(snpMaskDF)){
+    ## Pull out the positions that should be masked
+    maskPosVect <- tstrsplit(snpMaskDF[current.locus,'hPos.pPos'],'.',fixed=T)[[2]]
+    
+    ## Remove those positions from allele calling
+    KIR_sample_snps <- KIR_sample_snps[!KIR_sample_snps$position %in% maskPosVect,]
+  }
+  
+  return(KIR_sample_snps)
+}
+
 # Remove Problematic SNP positions that are a product of contamination from a different locus
 #  - Verified through sanger sequencing experiments
 filter_contam_snps <- function(currentSample, current.locus, sampleSnpDF,PctFilter2DL1=0.20, PctFilter2DL5=0.20){
@@ -74,9 +161,21 @@ filter_contam_snps <- function(currentSample, current.locus, sampleSnpDF,PctFilt
     cat('\n\tReading VCF')
     vcfDT <- general.read_VCF(vcfPath)
     
-    # WESLEY CONDITION FOR REMOVING pos 15179 (E9_127) 2DL2 contamination
+    # 07/16/2020 CONDITION FOR REMOVING pos 14933, 15179 (E8_32, E9_127) 2DL2 contamination
     if( as.numeric(currentSample$geneContent$KIR2DL2) > 0 ){
-      sampleSnpDF[,'E9_127'] <- NA
+      
+      # If heterozygous, nullify this position
+      if( length(unique(sampleSnpDF[,'E9_127'])) > 1 ){
+        cat('\n\t\tRemoving E9_127')
+        sampleSnpDF[,'E9_127'] <- NA
+      }
+      
+      # if heterozygous, nullify this position
+      if( length(unique(sampleSnpDF[,'E8_32'])) > 1 ){
+        cat('\n\t\tRemoving E8_32')
+        sampleSnpDF[,'E8_32'] <- NA
+      }
+      
     }
     
     # 14933 & 15179 is 2DL2 contamination that arises because of 2DL2 reads aligning to 2DL1*005 (allele that is not real), Pauls bowtie reference has 005
@@ -88,6 +187,7 @@ filter_contam_snps <- function(currentSample, current.locus, sampleSnpDF,PctFilt
     # Set up data frame to assess the presence of a block of 2DS1 contamination 
     #block_contam_snp_pos <- x[x$V2 %in% c("6614","6733","6759","6760","6786","6818","10072","14418"),]
     block_pos_vect      <- c("6733","6759","6760","6786","6818","10072","14418")
+    block_feat_vect <- c("E5_153","E5_179","E5_180","E5_206","E5_238","E6_45","E7_81")
     blockContamSnpDT <- vcfDT[ POS %in% block_pos_vect ]
     
     refR1_vec <- c()
@@ -124,13 +224,17 @@ filter_contam_snps <- function(currentSample, current.locus, sampleSnpDF,PctFilt
     
     if( nrow(contamSnpDT) > 0 && any(is_nuc(sampleSnpDF[,'E4_261'])) ){ # 5009 == E4_261, 4950 == E4_202
       if( presence_2DS1 ){
-        if( any(is_nuc(sampleSnpDF[,'E4_202'])) ) { sampleSnpDF[,'E4_202'] <- NA }
+        if( any(is_nuc(sampleSnpDF[,'E4_202'])) ) { 
+          cat('\n\t\tRemoving E4_202')
+          sampleSnpDF[,'E4_202'] <- NA 
+          }
         
         if( any(is_nuc(sampleSnpDF[,'E4_261'])) ) {
           # If 4991=C (Ref = A) or 5011=T (Ref = G), keep 5009
           if( alt_call_4991 == "C" | alt_call_5011 == "T" ){
             sampleSnpDF <- sampleSnpDF
           }else{
+            cat('\n\t\tRemoving E4_261')
             sampleSnpDF[,'E4_261'] <- NA
           }
         }
@@ -216,6 +320,7 @@ filter_contam_snps <- function(currentSample, current.locus, sampleSnpDF,PctFilt
           repNuc <- vcfDT[ POS == '4788' ]$ALT
         }
         
+        cat('\n\t\tForcing ALT E4_40')
         sampleSnpDF[,'E4_40'] <- repNuc
       }
     }
@@ -232,6 +337,7 @@ filter_contam_snps <- function(currentSample, current.locus, sampleSnpDF,PctFilt
       
       # Force reference call for 4822 if the difference between the DP4 of 4950 and 4822 small
       if( diff_4950_vs_4822 < dp4_thresh_4822 ){
+        cat('\n\t\tForcing REF E4_74')
         sampleSnpDF[,'E4_74'] <- vcfDT[ POS == '4822' ]$REF
       }
       
@@ -240,6 +346,7 @@ filter_contam_snps <- function(currentSample, current.locus, sampleSnpDF,PctFilt
     ## Remove contaminating alternate call for position 6614 if based on subtraction from intronic position 6497 indicative of 2DS1 contamination
     #### New condition: if position 2DS1 is present and 6614 is heterozygous, remove this position from consideration in calling (not reliable)
     if( presence_2DS1 && alt_call_6614 == "C" ){
+      cat('\n\t\tRemoving E5_34')
       sampleSnpDF[,'E5_34'] <- NA
     }
     
@@ -262,12 +369,14 @@ filter_contam_snps <- function(currentSample, current.locus, sampleSnpDF,PctFilt
       # If at least one SNP is missing in the block, it is 2DS1 contamination, 
       # so the reference calls can be force, otherwise remove all block positions from calling
       if( make_block_ref ){
+        cat('\n\t\tForcing REF for snp block')
         # If block is present, force reference calls, since 4950 is A/G, 2DS1 is present
-        sampleSnpDF[1,vcfDT[ POS %in% block_pos_vect ]$feat] <- vcfDT[ POS %in% block_pos_vect ]$REF
-        sampleSnpDF[2,vcfDT[ POS %in% block_pos_vect ]$feat] <- vcfDT[ POS %in% block_pos_vect ]$REF
+        sampleSnpDF[1,block_feat_vect] <- vcfDT[ POS %in% block_pos_vect ]$REF
+        sampleSnpDF[2,block_feat_vect] <- vcfDT[ POS %in% block_pos_vect ]$REF
       }else if( block_presence && remove_block ){
-        sampleSnpDF[1,vcfDT[ POS %in% block_pos_vect ]$feat] <- NA
-        sampleSnpDF[2,vcfDT[ POS %in% block_pos_vect ]$feat] <- NA
+        cat('\n\t\tRemoving snp block')
+        sampleSnpDF[1,block_feat_vect] <- NA
+        sampleSnpDF[2,block_feat_vect] <- NA
       }
     }
   }
@@ -281,13 +390,14 @@ filter_contam_snps <- function(currentSample, current.locus, sampleSnpDF,PctFilt
     
     vcfPath <- currentSample$filterVCFList[[ 'KIR2DL5' ]]
     
-    cat('\n\tReading VCF')
+    cat('\n\tReading VCF from:',vcfPath)
     vcfDT <- general.read_VCF(vcfPath)
     
     # Contaminated positions (PING Vcf):
     # - 283 -> contamination from most KIR loci, this why it is being omitted from calling
     # - 1081 -> contamination from multiple loci, in paritcular we can tag the 2DS2 and 2DP1 contamination
     contam_snps_to_omit <- c("283")
+    cat('\n\t\tRemoving E1_16')
     sampleSnpDF[,'E1_16'] <- NA
     
     # Handle contamination at position 1081
@@ -325,6 +435,7 @@ filter_contam_snps <- function(currentSample, current.locus, sampleSnpDF,PctFilt
       }
       
       if (force_ref){
+        cat('\n\t\tForcing REF for E2_27')
         sampleSnpDF[,'E2_27'] <- vcfDT[ POS == '1081' ]$REF
       }
     }
@@ -347,7 +458,7 @@ get_DP4_select_snp <- function(pos, vcfDT){
   return(dp4_vec)
 }
 
-filter_2DL5_allele_str <- function(allele_str, currentSample ,vcf.location.gen, DPthresh,PctFilter2DL5=0.20){
+filter_2DL5_allele_str <- function(allele_str, currentSample, DPthresh,PctFilter2DL5=0.20){
   
   vcfPath <- currentSample$filterVCFList[[ 'KIR2DL5' ]]
   
@@ -487,9 +598,11 @@ filter_3DL2_genos <- function(genos.df, sample,vcf.location.gen, DPthresh,PctFil
   return(genos.df.fin)
 } 
 
-# Halfway implemented, not sure if this will make any difference for the 380 samples
+# Implemented KIR2DL1*010 and *01201 filter (check for 2DS1 contaminatin and alters allele calls)
 allele.custom_2DL1_allele_filter <- function(currentSample,
-                                             possAlleleDT){
+                                             formattedAlleleVect){
+  
+  old.formattedAlleleVect <- formattedAlleleVect
   
   vcfPath <- currentSample$filterVCFList[[ 'KIR2DL1' ]]
   
@@ -551,32 +664,170 @@ allele.custom_2DL1_allele_filter <- function(currentSample,
   
   ## 3. Based on status keep or remove 2DL1 alleles from genotype dataframe
   
-  
-  
-  for(r in 1:nrow(poss_genos_annot)){
-    for (c in 1:ncol(poss_genos_annot)){
-      allele_str <- poss_genos_annot[r,c]
-      allele_str_formatted <- c()
-      if (grepl('/',allele_str)){
-        allele_vec <- unlist(strsplit(allele_str,'/'))
-        if(!status_010)  {allele_vec <- gsub("KIR2DL1_010", "", allele_vec)}
-        if(!status_01201){allele_vec <- gsub("KIR2DL1_01201", "", allele_vec)}
-        
-        for(a in allele_vec){
-          if (a == ""){next}
-          allele_str_formatted <- c(allele_str_formatted,a)
-        }
-        allele_str <- paste(allele_str_formatted,collapse = '/')
-        if(nchar(allele_str) == 0){allele_str <- null_allele}
-        poss_genos_annot[r,c] <- allele_str
-      }else{
-        if(!status_010)  {allele_str <- gsub("KIR2DL1_010", "", allele_str)}
-        if(!status_01201){allele_str <- gsub("KIR2DL1_01201", "", allele_str)}
-        if(nchar(allele_str) == 0){allele_str <- null_allele}
-        poss_genos_annot[r,c] <- allele_str
-      }
-    }
+  if(!status_010){ 
+    formattedAlleleVect <- grep('KIR2DL1*010', formattedAlleleVect, fixed=T, value=T, invert=T)
   }
   
-  return(poss_genos_annot)
+  if(!status_01201){
+    formattedAlleleVect <- grep('KIR2DL1*01201', formattedAlleleVect, fixed=T, value=T, invert=T)
+  }
+  
+  if( length(formattedAlleleVect) == 0 ){
+    formattedAlleleVect <- old.formattedAlleleVect
+  }
+  
+  return(formattedAlleleVect)
 }
+
+
+# ----- Container functions to coordinate FILTER and ITER alignments
+
+# function to run the ITER alignments
+ping_iter.run_alignments <- function( currentSample, threads ){
+  
+  cat('\nLoading ref DF')
+  currentSample <- sampleObj.loadRefDF(currentSample, referenceAlleleDF) # Subset reference allele dataframe by present loci, save to sample object
+  
+  cat('\nWriting reference files')
+  currentSample <- sampleObj.writeRefFastaBed(currentSample, locusRefList, alignmentFileDirectory) # Write fasta reference file for sample object based on refDF
+  
+  currentSample <- sampleObj.iterBowtie2Index(currentSample, bowtie2Build, threads) # Converts fasta file from previous line into a bowtie2 index
+  
+  currentSample <- sampleObj.iterBowtie2Align(currentSample, bowtie2, threads, deleteSam=T) # Align sample to bowtie2 index
+  
+  currentSample <- sampleObj.iterVCFGen(currentSample, samtools, bcftools, threads) # Convert SAM file into VCF
+  
+  return( currentSample )
+  
+}
+
+# Iter SNP consolidation workflow + allele calling
+ping_iter.allele <- function( currentSample ){
+  
+  # Initialze data frames for consolidating SNPs across all samples for each gene
+  snpDFList <- allele.initialize_SNP_tables(alleleFileDirectory, locusRefList, referenceAlleleDF, workflow='iter')
+  
+  currentSample <- allele.iter_alignments_to_snp_dfs(currentSample, locusRefList, referenceAlleleDF, minDP, kirLocusFeatureNameList)
+  
+  currentSample <- allele.combine_iter_snps(currentSample, snpDFList)
+  
+  if( 'KIR2DL2' %in% rownames(currentSample$refAlleleDF) & 'KIR2DL3' %in% rownames(currentSample$refAlleleDF) ){
+    currentSample <- allele.iter_combine_KIR2DL23( currentSample, knownSnpDFList, alleleFileDirectory, snpDFList )
+  }
+  
+  currentSample <- allele.setup_iter_allele_call_df(currentSample)
+  
+  cat('\n\nFinding allele matches for',currentSample$name)
+  for( currentLocus in colnames(currentSample[['iterAlleleCallDF']]) ){
+    currentSample <- allele.call_allele(currentSample, currentLocus, alleleFileDirectory, knownSnpDFList, alleleDFPathList$iter$newAllelePath, filterLocusConv, workflow = 'iter')
+  }
+  
+  cat('\nWriting allele matches to', alleleDFPathList$iter$alleleCallPath )
+  currentSample <- allele.save_call( currentSample, alleleDFPathList$iter$alleleCallPath, 'iter' )
+  
+  return( currentSample )
+}
+
+# Filter align workflow
+ping_filter.run_alignments <- function( currentSample, threads ){
+  
+  currentSample <- sampleObj.filterAlign.setup(currentSample, alignmentFileDirectory)
+  
+  if(currentSample[['filterRefDirectory']] == 'failed'){
+    return(currentSample)
+  }
+  
+  locusPresenceList <- sapply(intersect(names(currentSample$geneContent), names(currentSample$copyNumber)), function(locusName){
+    as.numeric(currentSample$copyNumber[[locusName]]) > 0 | as.numeric(currentSample$geneContent[[locusName]]) > 0
+  })
+  
+  currentSample[[ 'samplePresentLocusVect' ]] <- c()
+  
+  currentSample <- sampleObj.filterAlign.KIR3DL3(currentSample, bowtie2, samtools, bcftools, threads)
+  currentSample[[ 'samplePresentLocusVect' ]] <- c( currentSample[[ 'samplePresentLocusVect' ]], 'KIR3DL3' )
+  
+  currentSample <- sampleObj.filterAlign.KIR3DL2(currentSample, bowtie2, samtools, bcftools, threads)
+  currentSample[[ 'samplePresentLocusVect' ]] <- c( currentSample[[ 'samplePresentLocusVect' ]], 'KIR3DL2' )
+  
+  if( locusPresenceList[['KIR3DL1']] & locusPresenceList[['KIR3DS1']] ){
+    currentSample <- sampleObj.filterAlign.KIR3DL1S1(currentSample, bowtie2, samtools, bcftools, threads)
+    currentSample[[ 'samplePresentLocusVect' ]] <- c( currentSample[[ 'samplePresentLocusVect' ]], 'KIR3DL1het', 'KIR3DS1het' )
+  }
+  
+  if( locusPresenceList[['KIR3DL1']] & !locusPresenceList[['KIR3DS1']] ){
+    currentSample <- sampleObj.filterAlign.KIR3DL1(currentSample, bowtie2, samtools, bcftools, threads)
+    currentSample[[ 'samplePresentLocusVect' ]] <- c( currentSample[[ 'samplePresentLocusVect' ]], 'KIR3DL1' )
+  }
+  
+  if( locusPresenceList[['KIR3DS1']] & !locusPresenceList[['KIR3DL1']] ){
+    currentSample <- sampleObj.filterAlign.KIR3DS1(currentSample, bowtie2, samtools, bcftools, threads)
+    currentSample[[ 'samplePresentLocusVect' ]] <- c( currentSample[[ 'samplePresentLocusVect' ]], 'KIR3DS1' )
+  }
+  
+  # If 2DS5 present regardless of 2DS3
+  if( locusPresenceList[['KIR2DS5']] ){
+    currentSample <- sampleObj.filterAlign.KIR2DS35(currentSample, bowtie2, samtools, bcftools, threads)
+    currentSample[[ 'samplePresentLocusVect' ]] <- c( currentSample[[ 'samplePresentLocusVect' ]], 'KIR2DS35' )
+  }
+  
+  # If 2DS3 present and not 2DS5
+  if( locusPresenceList[['KIR2DS3']] & !locusPresenceList[['KIR2DS5']] ){
+    currentSample <- sampleObj.filterAlign.KIR2DS3(currentSample, bowtie2, samtools, bcftools, threads)
+    currentSample[[ 'samplePresentLocusVect' ]] <- c( currentSample[[ 'samplePresentLocusVect' ]], 'KIR2DS3' )
+  }
+  
+  if( locusPresenceList[['KIR2DS4']] ){
+    currentSample <- sampleObj.filterAlign.KIR2DS4(currentSample, bowtie2, samtools, bcftools, threads)
+    currentSample[[ 'samplePresentLocusVect' ]] <- c( currentSample[[ 'samplePresentLocusVect' ]], 'KIR2DS4' )
+  }
+  
+  if( locusPresenceList[['KIR2DP1']] ){
+    currentSample <- sampleObj.filterAlign.KIR2DP1(currentSample, bowtie2, samtools, bcftools, threads)
+    currentSample[[ 'samplePresentLocusVect' ]] <- c( currentSample[[ 'samplePresentLocusVect' ]], 'KIR2DP1' )
+  }
+  
+  currentSample <- sampleObj.filterAlign.KIR2DL23(currentSample, bowtie2, samtools, bcftools, threads)
+  currentSample[[ 'samplePresentLocusVect' ]] <- c( currentSample[[ 'samplePresentLocusVect' ]], 'KIR2DL23', 'KIR2DL2', 'KIR2DL3' )
+  
+  if( locusPresenceList[['KIR2DL1']] ){
+    currentSample <- sampleObj.filterAlign.KIR2DL1(currentSample, bowtie2, samtools, bcftools, threads)
+    currentSample[[ 'samplePresentLocusVect' ]] <- c( currentSample[[ 'samplePresentLocusVect' ]], 'KIR2DL1' )
+  }
+  
+  if( locusPresenceList[['KIR2DL5']] ){
+    currentSample <- sampleObj.filterAlign.KIR2DL5(currentSample, bowtie2, samtools, bcftools, threads)
+    currentSample[[ 'samplePresentLocusVect' ]] <- c( currentSample[[ 'samplePresentLocusVect' ]], 'KIR2DL5' )
+  }
+  
+  if( locusPresenceList[['KIR2DL4']] ){
+    currentSample <- sampleObj.filterAlign.KIR2DL4(currentSample, bowtie2, samtools, bcftools, threads)
+    currentSample[[ 'samplePresentLocusVect' ]] <- c( currentSample[[ 'samplePresentLocusVect' ]], 'KIR2DL4' )
+  }
+  
+  return(currentSample)
+  
+}
+
+# Filter allele calling
+ping_filter.allele <- function( currentSample ){
+  filterSnpDFList <- allele.initialize_filter_SNP_tables(filterAlleleFileDirectory, locusRefList, names(filterLocusConv), filterLocusConv)
+  
+  # Filter SNP processing workflow + allele calling
+  cat('\n\nProcessing filtration alignments for',currentSample$name)
+  currentSample <- allele.filter_alignments_to_snp_dfs( currentSample, locusRefList, minDP, kirLocusFeatureNameList, filterRefFastaList, filterLocusConv, filterSnpDFList, knownSnpDFList )
+  
+  currentSample <- allele.setup_filter_allele_call_df( currentSample )
+  
+  if( currentSample[['filterRefDirectory']] == 'failed' ){
+    return( currentSample )
+  }
+  
+  for( currentLocus in currentSample$samplePresentLocusVect ){
+    currentSample <- allele.call_allele( currentSample, currentLocus, filterAlleleFileDirectory, knownSnpDFList, alleleDFPathList$filter$newAllelePath, filterLocusConv, 'filter' )
+  }
+  
+  currentSample <- allele.save_call( currentSample, alleleDFPathList$filter$alleleCallPath, 'filter' )
+  
+  return(currentSample)
+}
+
