@@ -2,7 +2,6 @@ copiedMsfDirectory <- 'Resources/ipdkir_resources/copied_msf/'
 referenceResourceDirectory <- 'Resources/ipdkir_resources/reference_resources/'
 kirLocusVect <- kir.locus.vect
 
-
 # ----- Generate aligned SNP directories -----
 # Create directory for storing files relating to allele calling
 alleleFileDirectory <- file.path(resultsDirectory,'alleleFiles')
@@ -20,25 +19,6 @@ if(!file.exists(alignmentFileDirectory)){
   dir.create(alignmentFileDirectory)
 }
 
-
-# ----- Getting alignment tools ready -----
-### Check to make sure bowtie2-build is accessible <- only needed when building a new reference index
-bowtie2Build <- system2('which', c('bowtie2-build'), stdout=T, stderr=T)
-check.system2_output(bowtie2Build, 'bowtie2-build not found')
-
-### Check to make sure bowtie2-build is accessible <- only needed when building a new reference index
-samtools <- system2('which', c('samtools'), stdout=T, stderr=T)
-check.system2_output(samtools, 'samtools')
-
-### Check to make sure bowtie2-build is accessible <- only needed when building a new reference index
-bcftools <- system2('which', c('~/tools/samtools_update/bcftools/bcftools'), stdout=T, stderr=T)
-check.system2_output(bcftools, 'bcftools')
-
-## Check to make sure samtools is accessible
-bowtie2 <- system2('which', c('bowtie2'), stdout=T, stderr=T)
-check.system2_output(bowtie2, 'bowtie2 not found')
-
-
 # ----- Generating reference object list for each locus -----
 locusRefList <- general.initialize_locus_ref_object()
 locusRefList <- initLocusRef.read_raw_msf(locusRefList, copiedMsfDirectory)
@@ -48,28 +28,14 @@ locusRefList <- initLocusRef.create_bed(locusRefList, referenceResourceDirectory
 referenceAlleleDF <- read.csv('Resources/genotype_resources/master_haplo_iteration_testing_v10.csv',row.names=1,stringsAsFactors = F)
 
 # Read in reference allele 5'UTR and 3'UTR extensions
-UTRextList <- general.read_fasta('/home/LAB_PROJECTS/PING2_PAPER/PING2/Resources/genotype_resources/KIR_UTR_ext.fasta')
+UTRextList <- general.read_fasta('Resources/genotype_resources/KIR_UTR_ext.fasta')
+
+# Generate df's to store allele calls for both workflows covering all samples and loci
+alleleDFPathList <- allele.setup_results_df( locusRefList, filterLocusConv, resultsDirectory, sampleList )
+
 
 
 # ----- Extra support stuff for allele calling -----
-filterLocusConv <- list(
-  'KIR3DL3'='KIR3DL3',
-  'KIR3DL2'='KIR3DL2',
-  'KIR3DS1'='KIR3DS1',
-  'KIR3DS1het'='KIR3DS1',
-  'KIR3DL1het'='KIR3DL1',
-  'KIR3DL1'='KIR3DL1',
-  'KIR2DS35'='KIR2DS5',
-  'KIR2DS4'='KIR2DS4',
-  'KIR2DS3'='KIR2DS3',
-  'KIR2DP1'='KIR2DP1',
-  'KIR2DL5'='KIR2DL5',
-  'KIR2DL4'='KIR2DL4',
-  'KIR2DL2'='KIR2DL2',
-  'KIR2DL23'='KIR2DL3',
-  'KIR2DL3'='KIR2DL3',
-  'KIR2DL1'='KIR2DL1'
-)
 
 # Generate known SNP df's for allele calling
 knownSnpDFList <- allele.create_allele_resources(locusRefList, alleleFileDirectory)

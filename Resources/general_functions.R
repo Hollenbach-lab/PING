@@ -1,3 +1,37 @@
+# ----- Generate results directory -----
+## Create the results directory if it does not exist
+if(!file.exists(resultsDirectory)){
+  dir.create(resultsDirectory, recursive = T)
+}
+
+## This function checks to make sure the output of system2 is valid
+check.system2_output <- function(system2_output, system2_error){
+  
+  ## Checking if the attributes of system2_command are NULL, if not the command was not found
+  if(!is.null(attributes(system2_output))){
+    cat('\n',system2_output)
+    stop(system2_error, '. Stopping program.')
+  }
+}
+
+# ----- Getting alignment tools ready -----
+### Check to make sure bowtie2-build is accessible <- only needed when building a new reference index
+bowtie2Build <- system2('which', c('bowtie2-build'), stdout=T, stderr=T)
+check.system2_output(bowtie2Build, 'bowtie2-build not found')
+
+### Check to make sure bowtie2-build is accessible <- only needed when building a new reference index
+samtools <- system2('which', c('samtools'), stdout=T, stderr=T)
+check.system2_output(samtools, 'samtools')
+
+### Check to make sure bowtie2-build is accessible <- only needed when building a new reference index
+bcftools <- system2('which', c('bcftools'), stdout=T, stderr=T)
+check.system2_output(bcftools, 'bcftools')
+
+## Check to make sure samtools is accessible
+bowtie2 <- system2('which', c('bowtie2'), stdout=T, stderr=T)
+check.system2_output(bowtie2, 'bowtie2 not found')
+
+
 ## This function shortens KIR allele names
 kir.allele_resolution <- function(allele_name, res){
   

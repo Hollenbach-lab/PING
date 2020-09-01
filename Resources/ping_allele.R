@@ -36,6 +36,25 @@ library(gtools)
 # }
 
 # ---- Function base -----
+filterLocusConv <- list(
+  'KIR3DL3'='KIR3DL3',
+  'KIR3DL2'='KIR3DL2',
+  'KIR3DS1'='KIR3DS1',
+  'KIR3DS1het'='KIR3DS1',
+  'KIR3DL1het'='KIR3DL1',
+  'KIR3DL1'='KIR3DL1',
+  'KIR2DS35'='KIR2DS5',
+  'KIR2DS4'='KIR2DS4',
+  'KIR2DS3'='KIR2DS3',
+  'KIR2DP1'='KIR2DP1',
+  'KIR2DL5'='KIR2DL5',
+  'KIR2DL4'='KIR2DL4',
+  'KIR2DL2'='KIR2DL2',
+  'KIR2DL23'='KIR2DL3',
+  'KIR2DL3'='KIR2DL3',
+  'KIR2DL1'='KIR2DL1'
+)
+
 # Initialize SNP dataframes for storing aligned SNPs
 allele.initialize_SNP_tables <- function(alleleFileDirectory, locusRefList, referenceAlleleDF, workflow){
   
@@ -1542,9 +1561,6 @@ allele.format_call <- function( bestMatchAlleleVect, knownSnpDF, hetBool, exclud
 # 
 # # Add KIR2DS35 combined SNP df to the knownSnpDFList [filter specific]
 # knownSnpDFList <- allele.generate_S35_SNP_df( kirLocusFeatureNameList, knownSnpDFList )
-
-# Generate df's to store allele calls for both workflows covering all samples and loci
-alleleDFPathList <- allele.setup_results_df( locusRefList, filterLocusConv, resultsDirectory, sampleList )
 
 # # Iter SNP consolidation workflow + allele calling
 # sampleList <- sapply(sampleList, function(x){
