@@ -1,9 +1,26 @@
 
 setwd('/home/LAB_PROJECTS/PING2_PAPER/PING2') #Set this to your own PING2 working directory
 
+# ---- DEPENDENCIES ----
+' if any dependencies are missing, install with
+install.packages("plotly",dependencies = T)
+'
+library(data.table)
+library(stringr)
+library(methods)
+library(pryr)
+library(plotly)
+library(R.utils)
+library(gtools)
+
 source('Resources/general_functions.R') # do not change
 source('Resources/extractor_functions.R') # do not change
 source('Resources/ping_copy.R') # do not change
+source('Resources/ping_allele.R') # do not change
+source('Resources/ping_gc_align.R') # do not change
+source('Resources/genotype_alignment_functions.R') # do not change
+source('Resources/alleleCombine_functions.R') # do not change
+
 
 # Initialization variables ------------------------------------------------
 rawFastqDirectory <- '/home/LAB_PROJECTS/PING2_PAPER/testSequence//' # can be set to raw sequence or extractedFastq directory
@@ -11,6 +28,7 @@ fastqPattern <- '_KIR_' # use '_KIR_' to find already extracted files, otherwise
 threads <- 30
 resultsDirectory <- '/home/LAB_PROJECTS/PING2_PAPER/3_testSequence_results/' # Set the master results directory (all pipeline output will be recorded here)
 shortNameDelim <- '_' # can set a delimiter to shorten sample ID's (ID will be characters before delim)
+minDP <- 10
 
 
 # Preparation -------------------------------------------------------------
@@ -44,9 +62,7 @@ KIR3DP1 [example]
 
 # PING2 alignments and allele calling ----------------------------------------------
 # Iter align workflow
-source('Resources/ping_allele.R')
-source('Resources/genotype_alignment_functions.R')
-source('Resources/ping_gc_align.R')
+
 
 # Alignment and allele calling workflow
 for(currentSample in sampleList){
