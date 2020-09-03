@@ -42,32 +42,47 @@ library(methods)
 
 # load reference alleles for present loci into a sample object 'currentSample$refAlleleDF'
 sampleObj.loadRefDF <- function(currentSample, referenceAlleleDF){
-  
+  '
+  UPDATED FOR (ONLY GC / ONLY COPY) RUNNING
+  '
   # Skip this sample if either gene content or copy number detemrination failed
-  if('failed' %in% c(currentSample$geneContent, currentSample$copyNumber)){
+  if( 'failed' %in% c(currentSample$geneContent, currentSample$copyNumber) ){
     
     currentSample[['refAlleleDF']] <- 'failed'
     
   }else{
+    
+    presentLociVect <- c()
     
     # pull out copy number and gene content info for current sample
     currentSampleCopy <- as.list(sapply(currentSample$copyNumber, as.numeric))
     currentSampleGC <- as.list(sapply(currentSample$geneContent, as.numeric))
     
     # Intersect all loci found across both copy and gene content
-    allCopyLoci <- intersect(names(currentSampleCopy),names(currentSampleGC))
+    #allCopyLoci <- intersect(names(currentSampleCopy),names(currentSampleGC)) # 2020/09/02 only GC fix
+    allCopyLoci <- unique( c(names(currentSampleCopy), names(currentSampleGC)) )
     
-    # pull out all present loci determined by the copy module
-    presentCopyLoci <- allCopyLoci[currentSampleCopy[allCopyLoci] > 0]
+    if( length(currentSampleCopy) > 0 ){
+      # pull out all present loci determined by the copy module
+      #presentCopyLoci <- allCopyLoci[currentSampleCopy[allCopyLoci] > 0]
+      presentLociVect <- c(presentLociVect, allCopyLoci[currentSampleCopy[allCopyLoci] > 0])
+    }
     
-    # pull out all present loci determined by the gc module
-    presentGCLoci <- allCopyLoci[currentSampleGC[allCopyLoci] > 0]
-    
+    if( length(currentSampleGC) > 0 ){
+      # pull out all present loci determined by the gc module
+      #presentGCLoci <- allCopyLoci[currentSampleGC[allCopyLoci] > 0]
+      presentLociVect <- c(presentLociVect, allCopyLoci[currentSampleGC[allCopyLoci] > 0])
+    }
     # combine the two to cover all possible present loci
-    presentLociVect <- unique(c(presentCopyLoci,presentGCLoci))
+    #presentLociVect <- unique(c(presentCopyLoci,presentGCLoci))
+    presentLociVect <- intersect( rownames(referenceAlleleDF), unique(presentLociVect) )
     
-    # Load reference allele vect into the sample object
-    currentSample[['refAlleleDF']] <- referenceAlleleDF[presentLociVect,]
+    if(length(presentLociVect) == 0){
+      currentSample[['refAlleleDF']] <- 'failed'
+    }else{
+      # Load reference allele vect into the sample object
+      currentSample[['refAlleleDF']] <- referenceAlleleDF[presentLociVect,]
+    }
     
   }
   
@@ -2336,7 +2351,15 @@ sampleObj.filterAlign.KIR2DL1 <- function(currentSample, bowtie2, samtools, bcft
     dir.create(tempDir)
   }
   
-  if( as.numeric(currentSample$copyNumber$KIR2DS1) == 0 & as.numeric(currentSample$geneContent$KIR2DS1) == 0 ){
+  KIR2DS1Bool <- F
+  if( length(currentSample$copyNumber) > 0 ){
+    KIR2DS1Bool <- as.numeric(currentSample$copyNumber$KIR2DS1) == 0
+  }
+  if( length(currentSample$geneContent) > 0){
+    KIR2DS1Bool <- as.numeric(currentSample$geneContent$KIR2DS1) == 0
+  }
+  
+  if( KIR2DS1Bool ){
     
     # step 1: Positive filter
     bt2_threads <- paste0('-p ',threads)

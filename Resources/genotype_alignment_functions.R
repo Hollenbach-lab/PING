@@ -703,8 +703,23 @@ ping_filter.run_alignments <- function( currentSample, threads ){
     return(currentSample)
   }
   
-  locusPresenceList <- sapply(intersect(names(currentSample$geneContent), names(currentSample$copyNumber)), function(locusName){
-    as.numeric(currentSample$copyNumber[[locusName]]) > 0 | as.numeric(currentSample$geneContent[[locusName]]) > 0
+  #locusPresenceList <- sapply(intersect(names(currentSample$geneContent), names(currentSample$copyNumber)), function(locusName){
+  #  as.numeric(currentSample$copyNumber[[locusName]]) > 0 | as.numeric(currentSample$geneContent[[locusName]]) > 0
+  #})
+  
+  locusPresenceList <- sapply(kirLocusVect, function(locusName){ # GC / CN flexible solution
+    
+    cnBool <- F
+    if( length(currentSample$copyNumber) > 0 ){
+      cnBool <- as.numeric(currentSample$copyNumber[[locusName]]) > 0
+    }
+    
+    gcBool <- F
+    if( length(currentSample$geneContent) > 0 ){
+      gcBool <- as.numeric(currentSample$geneContent[[locusName]]) > 0
+    }
+    
+    return( cnBool | gcBool )
   })
   
   currentSample[[ 'samplePresentLocusVect' ]] <- c()
