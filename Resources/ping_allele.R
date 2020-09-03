@@ -72,6 +72,31 @@ allele.initialize_SNP_tables <- function(alleleFileDirectory, locusRefList, refe
   # Create a SNP df for each locus
   for( currentLocus in names(alleleList) ){
     cat('',currentLocus)
+    
+    # Initialize CSV paths for saving the dataframe
+    exonDFPath <- file.path(alleleFileDirectory,paste0(currentLocus,'_exonSNPs.csv'))
+    intronDFPath <- file.path(alleleFileDirectory,paste0(currentLocus,'_intronSNPs.csv'))
+    
+    ## 7/26/2020 addition - depth dataframes (meant for iter alignments)
+    # Initialize CSV paths for saving the dataframe
+    exon.DP4.DFPath <- file.path(alleleFileDirectory,paste0(currentLocus,'_exonDP4.csv'))
+    intron.DP4.DFPath <- file.path(alleleFileDirectory,paste0(currentLocus,'_intronDP4.csv'))
+    
+    # Save the CSV paths and dataframes to a return list
+    output.snpDFList[[currentLocus]] <- list()
+    output.snpDFList[[currentLocus]][['exonSNPs']] <- list('csvPath'=exonDFPath)
+    output.snpDFList[[currentLocus]][['exonDP4']] <- list('csvPath'=exon.DP4.DFPath)
+    output.snpDFList[[currentLocus]][['intronSNPs']] <- list('csvPath'=intronDFPath)
+    output.snpDFList[[currentLocus]][['intronDP4']] <- list('csvPath'=intron.DP4.DFPath)
+    output.snpDFList[[currentLocus]][['failure']] <- FALSE
+    
+    resultExists.bool <- file.exists(exonDFPath) & file.exists(intronDFPath) & file.exists(exon.DP4.DFPath) & file.exists(intron.DP4.DFPath)
+    
+    if( resultExists.bool ){
+      cat('\nFound SNP dataframes in',alleleFileDirectory,'~ skipping dataframe generation.\n')
+      next
+    }
+    
     currentAllele <- alleleList[[currentLocus]]
     
     # Use the iter_1 reference allele to pull out all feature lengths
@@ -115,15 +140,6 @@ allele.initialize_SNP_tables <- function(alleleFileDirectory, locusRefList, refe
     exonLabVect <- unlist(exonLabList, use.names = F)
     otherLabVect <- unlist(otherLabList, use.names = F)
     
-    # Initialize CSV paths for saving the dataframe
-    exonDFPath <- file.path(alleleFileDirectory,paste0(currentLocus,'_exonSNPs.csv'))
-    intronDFPath <- file.path(alleleFileDirectory,paste0(currentLocus,'_intronSNPs.csv'))
-    
-    ## 7/26/2020 addition - depth dataframes (meant for iter alignments)
-    # Initialize CSV paths for saving the dataframe
-    exon.DP4.DFPath <- file.path(alleleFileDirectory,paste0(currentLocus,'_exonDP4.csv'))
-    intron.DP4.DFPath <- file.path(alleleFileDirectory,paste0(currentLocus,'_intronDP4.csv'))
-    
     # Create the exon dataframe and save it
     exonSnpDF <- data.frame(matrix(NA,nrow=1,ncol=length(exonLabVect)), check.names = F, stringsAsFactors = F)
     rownames(exonSnpDF) <- 'coord'
@@ -141,14 +157,6 @@ allele.initialize_SNP_tables <- function(alleleFileDirectory, locusRefList, refe
     write.csv(otherSnpDF, intronDFPath)
     
     write.csv(otherSnpDF, intron.DP4.DFPath)
-    
-    # Save the CSV paths and dataframes to a return list
-    output.snpDFList[[currentLocus]] <- list()
-    output.snpDFList[[currentLocus]][['exonSNPs']] <- list('csvPath'=exonDFPath)
-    output.snpDFList[[currentLocus]][['exonDP4']] <- list('csvPath'=exon.DP4.DFPath)
-    output.snpDFList[[currentLocus]][['intronSNPs']] <- list('csvPath'=intronDFPath)
-    output.snpDFList[[currentLocus]][['intronDP4']] <- list('csvPath'=intron.DP4.DFPath)
-    output.snpDFList[[currentLocus]][['failure']] <- FALSE
   }
   
   cat('\nFinished. Exon and intron SNP tables located in',alleleFileDirectory)
