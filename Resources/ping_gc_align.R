@@ -232,6 +232,12 @@ sampleObj.iterBowtie2Index <- function(currentSample, bowtie2Build, threads){
     
     currentSample[['iterIndexPathList']][[currentIter]] <- indexPath
     
+    vcfPath <- file.path(iterDir,paste0(currentSample$name, '.vcf'))
+    if( file.exists(vcfPath) ){
+      cat('\nFound VCF, skipping bowtie2-build')
+      next
+    }
+    
     ## Creqte a bowtie2 index for the kir_reference.fasta file <- only needed when building a new reference index
     createIndex <- system2(bowtie2Build, c(fastaPath, indexPath,'--quiet',paste('--threads', threads)))
     check.system2_output(createIndex, 'bowtie2 index building failed')
@@ -260,8 +266,16 @@ sampleObj.iterVCFGen <- function(currentSample, samtools, bcftools, threads, del
     
     iterDir <- normalizePath(file.path(currentSample$iterRefDirectory,currentIter), mustWork=T)
     
-    # Intitialize an output path for the sorted BAM file
+    vcfPath <- file.path(iterDir,paste0(currentSample$name, '.vcf'))
+    
+    # Intitialize an output path for the sorted BAM file and VCF file
     currentSample[['iterSortedBamPathList']][[currentIter]] <- file.path(iterDir,paste0(currentSample$name,'.sorted.bam'))
+    currentSample[['iterVCFPathList']][[currentIter]] <- vcfPath
+    
+    if( file.exists(vcfPath) ){
+      cat("\nFound VCF, skipping mpileup")
+      next
+    }
     
     # set samtools output
     sam_sort_output <- paste0('-o ', currentSample[['iterSortedBamPathList']][[currentIter]])
@@ -278,9 +292,6 @@ sampleObj.iterVCFGen <- function(currentSample, samtools, bcftools, threads, del
     
     fastaPath <- normalizePath(file.path(iterDir,'alleleReference.fasta'), mustWork=T)
     bedPath <- normalizePath(file.path(iterDir,'alleleReference.bed'), mustWork=T)
-    vcfPath <- file.path(iterDir,paste0(currentSample$name, '.vcf'))
-    
-    currentSample[['iterVCFPathList']][[currentIter]] <- vcfPath
     
     mp_f <- paste0('-f ', fastaPath)
     mp_l <- paste0('-T ', bedPath)
@@ -352,9 +363,17 @@ sampleObj.iterBowtie2Align <- function(currentSample, bowtie2, threads, deleteSa
     iterDir <- normalizePath(file.path(currentSample$iterRefDirectory,currentIter), mustWork=T)
     
     #-- catch for skipping alingment if VCF file exists
-    #vcfPath <- file.path(iterDir,paste0(currentSample$name, '.vcf'))
+    vcfPath <- file.path(iterDir,paste0(currentSample$name, '.vcf'))
     
-    #vcfExists.bool <- ile.exists(vcfPath)
+    vcfExists.bool <- file.exists(vcfPath)
+    
+    if( vcfExists.bool ){
+      cat('\nFound VCF, skipping bowtie2 alignment')
+      ## Intitialize an output path for the SAM file
+      currentSample[['iterSamPathList']][[currentIter]] <- file.path(iterDir,paste0(currentSample$name,'.sam'))
+      currentSample[['iterBamPathList']][[currentIter]] <- file.path(iterDir,paste0(currentSample$name,'.bam'))
+      next
+    }
     
     ## Intitialize an output path for the SAM file
     currentSample[['iterSamPathList']][[currentIter]] <- file.path(iterDir,paste0(currentSample$name,'.sam'))
