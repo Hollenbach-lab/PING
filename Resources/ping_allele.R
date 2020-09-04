@@ -300,7 +300,7 @@ allele.iter_alignments_to_snp_dfs <- function(currentSample, locusRefList, refer
       
       # Write exon INDEL table
       if( any(exonIndelBoolVect) ){
-        cat('\tEXON INDELs')
+        cat('\tINDELs')
         exonIndelDT <- exonIndelDT[exonIndelBoolVect,]
         exonIndelDT$refIter <- refIter
         
@@ -396,7 +396,7 @@ allele.iter_alignments_to_snp_dfs <- function(currentSample, locusRefList, refer
       
       # Write intron INDEL table
       if( any(intronIndelBoolVect) ){
-        cat('\tINTRON INDELs')
+        cat('\tINDELs')
         intronIndelDT <- intronIndelDT[intronIndelBoolVect,]
         intronIndelDT$refIter <- refIter
         
@@ -451,6 +451,17 @@ allele.iter_alignments_to_snp_dfs <- function(currentSample, locusRefList, refer
         lapply(intronIndelRepList, function(x){
         snp1List <- x$SNP1
         snp2List <- x$SNP2
+        
+        x.feat <- unique( tstrsplit(names(snp2List),'_',fixed=T)[[1]] )
+        if(x.feat == '3UTR'){
+          x.1.pos <- tstrsplit(names(snp1List),'_',fixed=T)[[2]]
+          x.2.pos <- tstrsplit(names(snp2List),'_',fixed=T)[[2]]
+          
+          # Skip INDEL processing that happens at the end of 3'UTR
+          if( any( as.numeric( unique(c(x.1.pos, x.2.pos)) ) > 950 ) ) {
+            return(NULL)
+          }
+        }
         
         combNames <- unique(names(snp1List), names(snp2List))
         
