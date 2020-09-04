@@ -1690,7 +1690,7 @@ allele.filter_alignments_to_snp_dfs <- function(currentSample, locusRefList, min
     }
     
     # ----- EXON processing -----
-    cat('\n\tProcessing exons')
+    cat('\n\tProcessing EXONs')
     exonDT <- vcfDT[ Locus == realLocus ][ featLab %in% exonFeatNameVect ]
     
     # VCF failure condition ( most likely due to insufficient depth )
@@ -1716,6 +1716,7 @@ allele.filter_alignments_to_snp_dfs <- function(currentSample, locusRefList, min
     
     # Write exon INDEL table
     if( any(exonIndelBoolVect) ){
+      cat('\tINDELSs')
       exonIndelDT <- exonIndelDT[exonIndelBoolVect,]
       
       exonIndelList <- lapply(1:nrow(exonIndelDT), function(i){
@@ -1780,7 +1781,7 @@ allele.filter_alignments_to_snp_dfs <- function(currentSample, locusRefList, min
     write.csv(exonSnpDF, filterSnpDFList[[currentLocus]]$exonSNPs$csvPath)
     
     # ----- INTRON processing -----
-    cat('\n\tProcessing introns')
+    cat('\n\tProcessing INTRONs')
     intronDT <- vcfDT[ Locus == realLocus ][ featLab %in% otherFeatNameVect ]
     
     if(nrow(intronDT) == 0){
@@ -1796,6 +1797,7 @@ allele.filter_alignments_to_snp_dfs <- function(currentSample, locusRefList, min
     
     # Write intron INDEL table
     if( any(intronIndelBoolVect) ){
+      cat('\tINDELs')
       intronIndelDT <- intronIndelDT[intronIndelBoolVect,]
       
       intronIndelList <- lapply(1:nrow(intronIndelDT), function(i){
@@ -1838,6 +1840,17 @@ allele.filter_alignments_to_snp_dfs <- function(currentSample, locusRefList, min
         snp2List <- x$SNP2
         
         combNames <- unique(names(snp1List), names(snp2List))
+        
+        x.feat <- unique( tstrsplit(names(snp2List),'_',fixed=T)[[1]] )
+        if(x.feat == '3UTR'){
+          x.1.pos <- tstrsplit(names(snp1List),'_',fixed=T)[[2]]
+          x.2.pos <- tstrsplit(names(snp2List),'_',fixed=T)[[2]]
+          
+          # Skip INDEL processing that happens at the end of 3'UTR
+          if( any( as.numeric( unique(c(x.1.pos, x.2.pos)) ) > 950 ) ) {
+            return(NULL)
+          }
+        }
         
         # Remove INDEL positions from intron datatable
         intronDT <<- intronDT[ !feat %in% combNames ]
