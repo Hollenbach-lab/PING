@@ -196,7 +196,8 @@ allele.read_bed_w_del_index <- function(bedFile, locusRefList){
     
     if(featName == '5UTR' | featName == '3UTR'){ # hack for UTR extensions
       posVect <- as.character( featStart:featEnd )
-      featPosVect <- as.character( featStart:featEnd )
+      featLength <- length(posVect)
+      featPosVect <- as.character( 1:featLength )
     }else{
       delFeatSeq <- general.del_insert(featObject$featSeq, featObject$featDelIndex)
       
@@ -383,7 +384,7 @@ allele.iter_alignments_to_snp_dfs <- function(currentSample, locusRefList, refer
       write.csv(exonSnpDF, sampleSnpDFList[[currentLocus]]$exonSNPs$csvPath)
       write.csv(exon.DP4.DF, sampleSnpDFList[[currentLocus]]$exonDP4$csvPath)
       
-      cat('\tINTRONS')
+      cat('\tINTRONs')
       intronDT <- vcfDT[ Locus == currentLocus ][ featLab %in% otherFeatNameVect ]
       
       # Split up SNPs from INDELs
@@ -395,7 +396,7 @@ allele.iter_alignments_to_snp_dfs <- function(currentSample, locusRefList, refer
       
       # Write intron INDEL table
       if( any(intronIndelBoolVect) ){
-        cat('\tINTRON INDELS')
+        cat('\tINTRON INDELs')
         intronIndelDT <- intronIndelDT[intronIndelBoolVect,]
         intronIndelDT$refIter <- refIter
         
