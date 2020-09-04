@@ -272,7 +272,9 @@ allele.iter_alignments_to_snp_dfs <- function(currentSample, locusRefList, refer
     cat('\n\t\tWriting SNP table(s)')
     
     for(currentLocus in locusVect){
-      cat('',currentLocus)
+      cat('\n',currentLocus)
+      
+      cat('\tProcessing EXONs')
       
       exonFeatNameVect <- grep('E',kirLocusFeatureNameList[[currentLocus]],fixed=T,value=T)
       exonFeatNameVect <- grep('PE', exonFeatNameVect, fixed=T, invert=T, value=T)
@@ -297,6 +299,7 @@ allele.iter_alignments_to_snp_dfs <- function(currentSample, locusRefList, refer
       
       # Write exon INDEL table
       if( any(exonIndelBoolVect) ){
+        cat('\tEXON INDELs')
         exonIndelDT <- exonIndelDT[exonIndelBoolVect,]
         exonIndelDT$refIter <- refIter
         
@@ -380,6 +383,7 @@ allele.iter_alignments_to_snp_dfs <- function(currentSample, locusRefList, refer
       write.csv(exonSnpDF, sampleSnpDFList[[currentLocus]]$exonSNPs$csvPath)
       write.csv(exon.DP4.DF, sampleSnpDFList[[currentLocus]]$exonDP4$csvPath)
       
+      cat('\tINTRONS')
       intronDT <- vcfDT[ Locus == currentLocus ][ featLab %in% otherFeatNameVect ]
       
       # Split up SNPs from INDELs
@@ -391,6 +395,7 @@ allele.iter_alignments_to_snp_dfs <- function(currentSample, locusRefList, refer
       
       # Write intron INDEL table
       if( any(intronIndelBoolVect) ){
+        cat('\tINTRON INDELS')
         intronIndelDT <- intronIndelDT[intronIndelBoolVect,]
         intronIndelDT$refIter <- refIter
         
