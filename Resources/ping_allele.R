@@ -1508,7 +1508,7 @@ allele.setup_results_df <- function( locusRefList, filterLocusConv, resultsDirec
     if( workflow == 'filter' ){
       locusVect <- c(unique( unlist(filterLocusConv, use.names=F) ), 'KIR2DL23', 'KIR2DS35')
     }else if ( workflow == 'iter' ){
-      locusVect <- names(locusRefList)
+      locusVect <- c(names(locusRefList), 'KIR2DL23')
     }
     
     # Set up dataframe for storing allele calls across all samples and loci
