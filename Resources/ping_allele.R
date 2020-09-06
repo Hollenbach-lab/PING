@@ -1846,8 +1846,10 @@ allele.filter_alignments_to_snp_dfs <- function(currentSample, locusRefList, min
           x.1.pos <- tstrsplit(names(snp1List),'_',fixed=T)[[2]]
           x.2.pos <- tstrsplit(names(snp2List),'_',fixed=T)[[2]]
           
+          x.featLen <- length( locusRefList[[currentLocus]]$alleleBedList[[1]]$`3UTR`$snpVect ) - 50
+          
           # Skip INDEL processing that happens at the end of 3'UTR
-          if( any( as.numeric( unique(c(x.1.pos, x.2.pos)) ) > 950 ) ) {
+          if( any( as.numeric( unique(c(x.1.pos, x.2.pos)) ) > x.featLen ) ) {
             return(NULL)
           }
         }
