@@ -128,6 +128,17 @@ post.combineGenos <- function( currentSample, resultsDirectory ){
       post.filterTypeDF <- post.expandTypeStringToDF( filterTypeStr )
     }
     
+    # Condition to catch if one result is NA and the other is defined
+    if( iterNA.bool != filterNA.bool ){
+      if(iterNA.bool){
+        iterNewBool <- T
+        filterNewBool <- F
+      }else if(filterNA.bool){
+        filterNewBool <- T
+        iterNewBool <- F
+      }
+    }
+    
     if( iterNewBool & filterNewBool ){
       
       post.iterTypeDF[,'allele1'] <- paste0( post.iterTypeDF[,'allele1'], '_ITER' )
@@ -329,6 +340,7 @@ post.combineGenos <- function( currentSample, resultsDirectory ){
     }
   }
   
+  write.csv(post.finalGenoDF, finalGenoPath)
   return( currentSample )
 }
 
