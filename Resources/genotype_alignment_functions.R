@@ -186,7 +186,14 @@ filter_contam_snps <- function(currentSample, current.locus, sampleSnpDF,PctFilt
     alt_call_5011 <- contamSnpDT[POS == "5011"]$ALT
     alt_call_6614 <- contamSnpDT[POS == "6614"]$ALT
     presence_2DS1 <- FALSE
-    if( alt_call_4950 == "A" | alt_call_4950 == "G" ){presence_2DS1 <- TRUE}
+    
+    # Catch for position not in VCF
+    if( length(alt_call_4950) != 0 ){
+      bool.4950 = T
+      if( alt_call_4950 == "A" | alt_call_4950 == "G" ){presence_2DS1 <- TRUE}
+    }else{
+      bool.4950 = F
+    }
     
     if( nrow(contamSnpDT) > 0 && any(is_nuc(sampleSnpDF[,'E4_261'])) ){ # 5009 == E4_261, 4950 == E4_202
       if( presence_2DS1 ){
@@ -196,10 +203,20 @@ filter_contam_snps <- function(currentSample, current.locus, sampleSnpDF,PctFilt
           }
         
         if( any(is_nuc(sampleSnpDF[,'E4_261'])) ) {
-          # If 4991=C (Ref = A) or 5011=T (Ref = G), keep 5009
-          if( alt_call_4991 == "C" | alt_call_5011 == "T" ){
+          
+          if( length(alt_call_4991) == 0 | length(alt_call_5011) == 0 ){
+            bool.4991 = F
+            bool.5011 = F
+            cat('\n\t\tRemoving E4_261')
+            sampleSnpDF[,'E4_261'] <- NA
+          }else if( alt_call_4991 == "C" | alt_call_5011 == "T" ){
+            bool.4991 = T
+            bool.5011 = T
+            # If 4991=C (Ref = A) or 5011=T (Ref = G), keep 5009
             sampleSnpDF <- sampleSnpDF
           }else{
+            bool.4991 = T
+            bool.5011 = T
             cat('\n\t\tRemoving E4_261')
             sampleSnpDF[,'E4_261'] <- NA
           }
@@ -211,109 +228,143 @@ filter_contam_snps <- function(currentSample, current.locus, sampleSnpDF,PctFilt
     # - Remove contamination from position 4788 (G) and 4822 (A)
     
     dp4_4950 <- as.character(contamSnpDT[ POS == '4950' ]$INFO)
-    dp4_4950 <- unlist(strsplit(dp4_4950, "DP4="))[2]
-    dp4_4950 <- unlist(strsplit(dp4_4950, ";"))[1]
-    dp4_4950 <- as.integer(unlist(strsplit(dp4_4950,",")))
-    dp4_4950_ref <- dp4_4950[1] + dp4_4950[2]
-    dp4_4950_alt <- dp4_4950[3] + dp4_4950[4]
+    if( length(dp4_4950) != 0 ){
+      dp4_4950 <- unlist(strsplit(dp4_4950, "DP4="))[2]
+      dp4_4950 <- unlist(strsplit(dp4_4950, ";"))[1]
+      dp4_4950 <- as.integer(unlist(strsplit(dp4_4950,",")))
+      dp4_4950_ref <- dp4_4950[1] + dp4_4950[2]
+      dp4_4950_alt <- dp4_4950[3] + dp4_4950[4]
+    }
     
     # 4788
     ref_call_4788 <- contamSnpDT[ POS == '4788' ]$REF
     alt_call_4788 <- contamSnpDT[ POS == '4788' ]$ALT
-    if( alt_call_4788 == "." ){ alt_call_4788 <- ref_call_4788 }
-    dp4_4788 <- as.character(contamSnpDT[ POS == '4788' ]$INFO)
-    dp4_4788 <- unlist(strsplit(dp4_4788, "DP4="))[2]
-    dp4_4788 <- unlist(strsplit(dp4_4788, ";"))[1]
-    dp4_4788 <- as.integer(unlist(strsplit(dp4_4788,",")))
-    dp4_4788_ref <- dp4_4788[1] + dp4_4788[2]
-    dp4_4788_alt <- dp4_4788[3] + dp4_4788[4]
+    if( length(ref_call_4788) != 0 & length(alt_call_4788) != 0){
+      bool.4788 = T
+      if( alt_call_4788 == "." ){ alt_call_4788 <- ref_call_4788 }
+      dp4_4788 <- as.character(contamSnpDT[ POS == '4788' ]$INFO)
+      dp4_4788 <- unlist(strsplit(dp4_4788, "DP4="))[2]
+      dp4_4788 <- unlist(strsplit(dp4_4788, ";"))[1]
+      dp4_4788 <- as.integer(unlist(strsplit(dp4_4788,",")))
+      dp4_4788_ref <- dp4_4788[1] + dp4_4788[2]
+      dp4_4788_alt <- dp4_4788[3] + dp4_4788[4]
+    }else{
+      bool.4788 = F
+    }
     
     # 4822
     ref_call_4822 <- contamSnpDT[ POS == '4822' ]$REF
     alt_call_4822 <- contamSnpDT[ POS == '4822' ]$ALT
-    dp4_4822 <- as.character(contamSnpDT[ POS == '4822' ]$INFO)
-    dp4_4822 <- unlist(strsplit(dp4_4822, "DP4="))[2]
-    dp4_4822 <- unlist(strsplit(dp4_4822, ";"))[1]
-    dp4_4822 <- as.integer(unlist(strsplit(dp4_4822,",")))
-    dp4_4822_ref <- dp4_4822[1] + dp4_4822[2]
-    dp4_4822_alt <- dp4_4822[3] + dp4_4822[4]
+    if( length(ref_call_4822) != 0 & length(alt_call_4822) != 0 ){
+      bool.4822 = T
+      dp4_4822 <- as.character(contamSnpDT[ POS == '4822' ]$INFO)
+      dp4_4822 <- unlist(strsplit(dp4_4822, "DP4="))[2]
+      dp4_4822 <- unlist(strsplit(dp4_4822, ";"))[1]
+      dp4_4822 <- as.integer(unlist(strsplit(dp4_4822,",")))
+      dp4_4822_ref <- dp4_4822[1] + dp4_4822[2]
+      dp4_4822_alt <- dp4_4822[3] + dp4_4822[4]
+    }else{
+      bool.4822 = F
+    }
     
     dp4_5009 <- as.character(contamSnpDT[ POS == '5009' ]$INFO)
-    dp4_5009 <- unlist(strsplit(dp4_5009, "DP4="))[2]
-    dp4_5009 <- unlist(strsplit(dp4_5009, ";"))[1]
-    dp4_5009 <- as.integer(unlist(strsplit(dp4_5009,",")))
-    dp4_5009_ref <- dp4_5009[1] + dp4_5009[2]
+    if( length(dp4_5009) != 0 ){
+      bool.5009 = T
+      dp4_5009 <- unlist(strsplit(dp4_5009, "DP4="))[2]
+      dp4_5009 <- unlist(strsplit(dp4_5009, ";"))[1]
+      dp4_5009 <- as.integer(unlist(strsplit(dp4_5009,",")))
+      dp4_5009_ref <- dp4_5009[1] + dp4_5009[2]
+    }else{
+      bool.5009 = F
+    }
     
     # depth values needed to resolve position 6614
     ref_call_6614 <- contamSnpDT[ POS == '6614' ]$REF
     alt_call_6614 <- contamSnpDT[ POS == '6614' ]$ALT
-    dp4_6614 <- as.character(contamSnpDT[ POS == '6614' ]$INFO)
-    dp4_6614 <- unlist(strsplit(dp4_6614, "DP4="))[2]
-    dp4_6614 <- unlist(strsplit(dp4_6614, ";"))[1]
-    dp4_6614 <- as.integer(unlist(strsplit(dp4_6614,",")))
-    dp4_6614_ref <- dp4_6614[1] + dp4_6614[2]
-    dp4_6614_alt <- dp4_6614[3] + dp4_6614[4]
+    if( length(ref_call_6614) != 0 & length(alt_call_6614) != 0 ){
+      bool.6614 = T
+      dp4_6614 <- as.character(contamSnpDT[ POS == '6614' ]$INFO)
+      dp4_6614 <- unlist(strsplit(dp4_6614, "DP4="))[2]
+      dp4_6614 <- unlist(strsplit(dp4_6614, ";"))[1]
+      dp4_6614 <- as.integer(unlist(strsplit(dp4_6614,",")))
+      dp4_6614_ref <- dp4_6614[1] + dp4_6614[2]
+      dp4_6614_alt <- dp4_6614[3] + dp4_6614[4]
+    }else{
+      bool.6614 = F
+    }
     
     # Intronic position 6497 
     ref_call_6497 <- vcfDT[ POS == '6497' ]$REF
     alt_call_6497 <- vcfDT[ POS == '6497' ]$ALT
-    dp4_6497 <- as.character(vcfDT[ POS == '6497' ]$INFO)
-    dp4_6497 <- unlist(strsplit(dp4_6497, "DP4="))[2]
-    dp4_6497 <- unlist(strsplit(dp4_6497, ";"))[1]
-    dp4_6497 <- as.integer(unlist(strsplit(dp4_6497,",")))
-    dp4_6497_ref <- dp4_6497[1] + dp4_6497[2]
-    dp4_6497_alt <- dp4_6497[3] + dp4_6497[4]
+    if( length(ref_call_6497) != 0 & length(alt_call_6497) != 0 ){
+      bool.6497 = T
+      dp4_6497 <- as.character(vcfDT[ POS == '6497' ]$INFO)
+      dp4_6497 <- unlist(strsplit(dp4_6497, "DP4="))[2]
+      dp4_6497 <- unlist(strsplit(dp4_6497, ";"))[1]
+      dp4_6497 <- as.integer(unlist(strsplit(dp4_6497,",")))
+      dp4_6497_ref <- dp4_6497[1] + dp4_6497[2]
+      dp4_6497_alt <- dp4_6497[3] + dp4_6497[4]
+    }else{
+      bool.6497 = F
+    }
     
     # Remove contamination "G" from position 4788,4822
     # subtracted DP4 of 4950 alt call (A or G) from 4788 alt call (C) 
     # If less that 20% of DP4 remains for 4788 alt call after subtraction, force reference call
     ## FIX THIS CONDITION based on the above statements: (Ask Danillo, removing contam G should involve substracting from ref call not alt call?)
-    if( presence_2DS1 && ref_call_4788 == "G" ){
-      dp4_thresh_4788 <- PctFilter2DL1 * dp4_4788_ref
-      diff_4950_vs_4788 <- 0
-      if (dp4_4950_alt >= dp4_4788_ref){
+    
+    if( bool.4788 & bool.4950 ){
+      if( presence_2DS1 && ref_call_4788 == "G" ){
+        dp4_thresh_4788 <- PctFilter2DL1 * dp4_4788_ref
         diff_4950_vs_4788 <- 0
-      }else {
-        diff_4950_vs_4788 <- dp4_4788_ref - dp4_4950_alt
-      }
-      
-      # Force reference call for 4788 - 4950 dp4 is less the the theshold (for old PING the reference is wrong compared to IPD-KIR at this position, use alt call)
-      if( diff_4950_vs_4788 < dp4_thresh_4788 ){
-        
-        if( vcfDT[ POS == '4788' ]$ALT == '.' ){
-          repNuc <- NA
-        }else{
-          repNuc <- vcfDT[ POS == '4788' ]$ALT
+        if (dp4_4950_alt >= dp4_4788_ref){
+          diff_4950_vs_4788 <- 0
+        }else {
+          diff_4950_vs_4788 <- dp4_4788_ref - dp4_4950_alt
         }
         
-        cat('\n\t\tForcing ALT E4_40')
-        sampleSnpDF[,'E4_40'] <- repNuc
+        # Force reference call for 4788 - 4950 dp4 is less the the theshold (for old PING the reference is wrong compared to IPD-KIR at this position, use alt call)
+        if( diff_4950_vs_4788 < dp4_thresh_4788 ){
+          
+          if( vcfDT[ POS == '4788' ]$ALT == '.' ){
+            repNuc <- NA
+          }else{
+            repNuc <- vcfDT[ POS == '4788' ]$ALT
+          }
+          
+          cat('\n\t\tForcing ALT E4_40')
+          sampleSnpDF[,'E4_40'] <- repNuc
+        }
       }
     }
     
-    ## Remove contaminating alternate call from position 4822 if 2DS1 reads are present 
-    if( presence_2DS1 && alt_call_4822 == "A" ){
-      dp4_thresh_4822 <- PctFilter2DL1 * dp4_4822_alt
-      diff_4950_vs_4822 <- 0
-      if (dp4_4950_alt >= dp4_4822_alt){
+    if( bool.4822 & bool.4950 ){
+      ## Remove contaminating alternate call from position 4822 if 2DS1 reads are present 
+      if( presence_2DS1 && alt_call_4822 == "A" ){
+        dp4_thresh_4822 <- PctFilter2DL1 * dp4_4822_alt
         diff_4950_vs_4822 <- 0
-      }else {
-        diff_4950_vs_4822 <- dp4_4822_alt - dp4_4950_alt
+        if (dp4_4950_alt >= dp4_4822_alt){
+          diff_4950_vs_4822 <- 0
+        }else {
+          diff_4950_vs_4822 <- dp4_4822_alt - dp4_4950_alt
+        }
+        
+        # Force reference call for 4822 if the difference between the DP4 of 4950 and 4822 small
+        if( diff_4950_vs_4822 < dp4_thresh_4822 ){
+          cat('\n\t\tForcing REF E4_74')
+          sampleSnpDF[,'E4_74'] <- vcfDT[ POS == '4822' ]$REF
+        }
+        
       }
-      
-      # Force reference call for 4822 if the difference between the DP4 of 4950 and 4822 small
-      if( diff_4950_vs_4822 < dp4_thresh_4822 ){
-        cat('\n\t\tForcing REF E4_74')
-        sampleSnpDF[,'E4_74'] <- vcfDT[ POS == '4822' ]$REF
-      }
-      
     }
     
     ## Remove contaminating alternate call for position 6614 if based on subtraction from intronic position 6497 indicative of 2DS1 contamination
     #### New condition: if position 2DS1 is present and 6614 is heterozygous, remove this position from consideration in calling (not reliable)
-    if( presence_2DS1 && alt_call_6614 == "C" ){
-      cat('\n\t\tRemoving E5_34')
-      sampleSnpDF[,'E5_34'] <- NA
+    if( bool.6614 ){
+      if( presence_2DS1 && alt_call_6614 == "C" ){
+        cat('\n\t\tRemoving E5_34')
+        sampleSnpDF[,'E5_34'] <- NA
+      }
     }
     
     ## Handling Block of contaminated SNP positions introduced by 2DS1
@@ -368,41 +419,54 @@ filter_contam_snps <- function(currentSample, current.locus, sampleSnpDF,PctFilt
     
     # Handle contamination at position 1081
     # - dp4_vec[1] = Ref DP4, dp4_vec[2] = Alt DP4
-    dp4_1081_vec <- get_DP4_select_snp(pos = "1081", vcfDT = vcfDT)
-    dp4_1112_vec <- get_DP4_select_snp(pos = "1112", vcfDT = vcfDT)
-    dp4_1115_vec <- get_DP4_select_snp(pos = "1115", vcfDT = vcfDT)
     
-    # Get base calls for positions of interest and their tags
-    vcfDT[ POS == '1115' ]$ALT
-    alt_1081 <- as.character(vcfDT[ POS == '1081' ]$ALT)
-    alt_1112 <- as.character(vcfDT[ POS == '1112' ]$ALT)
-    alt_1115 <- as.character(vcfDT[ POS == '1115' ]$ALT)
+    bool.1081 <- 1081 %in% vcfDT$POS
+    bool.1112 <- 1112 %in% vcfDT$POS
+    bool.1115 <- 1115 %in% vcfDT$POS
     
-    if (alt_1081 == "C" && dp4_1081_vec[2] > 0){
-      total_contam_dp <- 0
+    if( bool.1081 ){
+      dp4_1081_vec <- get_DP4_select_snp(pos = "1081", vcfDT = vcfDT)
+    }
+    if( bool.1112 ){
+      dp4_1112_vec <- get_DP4_select_snp(pos = "1112", vcfDT = vcfDT)
+    }
+    if( bool.1115 ){
+      dp4_1115_vec <- get_DP4_select_snp(pos = "1115", vcfDT = vcfDT)
+    }
+    
+    if( bool.1081 & bool.1112 & bool.1115 ){
+      # Get base calls for positions of interest and their tags
+      vcfDT[ POS == '1115' ]$ALT
+      alt_1081 <- as.character(vcfDT[ POS == '1081' ]$ALT)
+      alt_1112 <- as.character(vcfDT[ POS == '1112' ]$ALT)
+      alt_1115 <- as.character(vcfDT[ POS == '1115' ]$ALT)
       
-      alt_dp4_1081 <- as.numeric(dp4_1081_vec[2])
-      alt_dp4_1112 <- as.numeric(dp4_1112_vec[2])
-      alt_dp4_1115 <- as.numeric(dp4_1115_vec[2])
-      
-      if (alt_1112 == "A"){total_contam_dp <- total_contam_dp + alt_dp4_1112}
-      if (alt_1115 == "T"){total_contam_dp <- total_contam_dp + alt_dp4_1115}
-      
-      force_ref <- FALSE
-      dp4_thresh_1081 <- PctFilter2DL5 * alt_dp4_1081
-      if (total_contam_dp >= alt_dp4_1081){
-        diff_dp4 <- 0
-        force_ref <- TRUE
-      } else{
-        diff_dp4 <- alt_dp4_1081 - total_contam_dp
-        if (diff_dp4 < dp4_thresh_1081){
+      if (alt_1081 == "C" && dp4_1081_vec[2] > 0){
+        total_contam_dp <- 0
+        
+        alt_dp4_1081 <- as.numeric(dp4_1081_vec[2])
+        alt_dp4_1112 <- as.numeric(dp4_1112_vec[2])
+        alt_dp4_1115 <- as.numeric(dp4_1115_vec[2])
+        
+        if (alt_1112 == "A"){total_contam_dp <- total_contam_dp + alt_dp4_1112}
+        if (alt_1115 == "T"){total_contam_dp <- total_contam_dp + alt_dp4_1115}
+        
+        force_ref <- FALSE
+        dp4_thresh_1081 <- PctFilter2DL5 * alt_dp4_1081
+        if (total_contam_dp >= alt_dp4_1081){
+          diff_dp4 <- 0
           force_ref <- TRUE
+        } else{
+          diff_dp4 <- alt_dp4_1081 - total_contam_dp
+          if (diff_dp4 < dp4_thresh_1081){
+            force_ref <- TRUE
+          }
         }
-      }
-      
-      if (force_ref){
-        cat('\n\t\tForcing REF for E2_27')
-        sampleSnpDF[,'E2_27'] <- vcfDT[ POS == '1081' ]$REF
+        
+        if (force_ref){
+          cat('\n\t\tForcing REF for E2_27')
+          sampleSnpDF[,'E2_27'] <- vcfDT[ POS == '1081' ]$REF
+        }
       }
     }
   }
@@ -437,32 +501,35 @@ filter_2DL5_allele_str <- function(allele_str, currentSample, DPthresh,PctFilter
   ### Extract position 1320
   #    - differentiates 2DL5A from 2DL5B, specifically 2DL5A*00101 vs. 2DL5B*00801
   target_pos = "1320"
-  ref_call_1320 <- as.character(vcfDT[ POS == '1320' ]$REF)
-  alt_call_1320 <- as.character(vcfDT[ POS == '1320' ]$ALT)
+  bool.1320 <- 1320 %in% vcfDT$POS
   
-  dp4_1320 <- as.character( vcfDT[ POS == '1320' ]$INFO )
-  dp4_1320 <- unlist(strsplit(dp4_1320, "DP4="))[2]
-  dp4_1320 <- unlist(strsplit(dp4_1320, ";"))[1]
-  dp4_1320 <- as.integer(unlist(strsplit(dp4_1320,",")))
-  dp4_1320_ref <- dp4_1320[1] + dp4_1320[2]
-  dp4_1320_alt <- dp4_1320[3] + dp4_1320[4]
-  
-  dp4_threshold <- PctFilter2DL5 * dp4_1320_ref
-  if (ref_call_1320 == "G" && alt_call_1320 == "."){
-    if (dp4_1320_alt < dp4_threshold){
-      presence2DL5B <- FALSE
+  if( bool.1320 ){
+    ref_call_1320 <- as.character(vcfDT[ POS == '1320' ]$REF)
+    alt_call_1320 <- as.character(vcfDT[ POS == '1320' ]$ALT)
+    
+    dp4_1320 <- as.character( vcfDT[ POS == '1320' ]$INFO )
+    dp4_1320 <- unlist(strsplit(dp4_1320, "DP4="))[2]
+    dp4_1320 <- unlist(strsplit(dp4_1320, ";"))[1]
+    dp4_1320 <- as.integer(unlist(strsplit(dp4_1320,",")))
+    dp4_1320_ref <- dp4_1320[1] + dp4_1320[2]
+    dp4_1320_alt <- dp4_1320[3] + dp4_1320[4]
+    
+    dp4_threshold <- PctFilter2DL5 * dp4_1320_ref
+    if (ref_call_1320 == "G" && alt_call_1320 == "."){
+      if (dp4_1320_alt < dp4_threshold){
+        presence2DL5B <- FALSE
+      }
     }
+    
+    # filter allele string based on 2DL5A/B presence absence
+    allele_list <- unlist(strsplit(allele_str,"/"))
+    if (presence2DL5B == FALSE && presence2DL5A == TRUE){
+      allele_list <- allele_list[grep("KIR2DL5A",allele_list)]
+    } else if (presence2DL5B == TRUE && presence2DL5A == FALSE){
+      allele_list <- allele_list[grep("KIR2DL5B",allele_list)]
+    }
+    allele_str <- paste(allele_list,collapse = '/')
   }
-  
-  # filter allele string based on 2DL5A/B presence absence
-  allele_list <- unlist(strsplit(allele_str,"/"))
-  if (presence2DL5B == FALSE && presence2DL5A == TRUE){
-    allele_list <- allele_list[grep("KIR2DL5A",allele_list)]
-  } else if (presence2DL5B == TRUE && presence2DL5A == FALSE){
-    allele_list <- allele_list[grep("KIR2DL5B",allele_list)]
-  }
-  allele_str <- paste(allele_list,collapse = '/')
-  
   return(allele_str)
 }
 

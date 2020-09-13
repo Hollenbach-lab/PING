@@ -467,7 +467,7 @@ post.filter.addKIR2DS3 <- function( typeDF, currentID ){
       type2DS3Str <- ''
     }
   }else{
-    type2DS3Str <- typeDF[currentID,index2DS3IntVect,drop=T][[1]]
+    type2DS3Str <- typeDF[currentID,index2DS3IntVect][[1]]
   }
   
     #if(length(index2DS3IntVect) > 1){
