@@ -15,10 +15,10 @@ library(gtools)
 
 
 # Initialization variables ------------------------------------------------
-rawFastqDirectory <- '/home/LAB_PROJECTS/PING2_PAPER/testSequence//' # can be set to raw sequence or extractedFastq directory
+rawFastqDirectory <- '/home/LAB_PROJECTS/PING2_PAPER/PING2/test_sequence/' # can be set to raw sequence or extractedFastq directory
 fastqPattern <- '_KIR_' # use '_KIR_' to find already extracted files, otherwise use 'fastq' or whatever fits your data
 threads <- 30
-resultsDirectory <- '/home/LAB_PROJECTS/PING2_PAPER/3_testSequence_results/' # Set the master results directory (all pipeline output will be recorded here)
+resultsDirectory <- '/home/LAB_PROJECTS/PING2_PAPER/3_test_sequence_results/' # Set the master results directory (all pipeline output will be recorded here)
 shortNameDelim <- '_' # can set a delimiter to shorten sample ID's (ID will be characters before delim)
 minDP <- 10
 
