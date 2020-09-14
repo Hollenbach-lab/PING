@@ -3,7 +3,7 @@ post.combineGenos <- function( currentSample, resultsDirectory ){
   currentID <- currentSample$name
   
   # ---------- DATA READ IN
-  DFList <- post.preGenoDFRead( resultsDirectory )
+  DFList <- post.preGenoDFRead( resultsDirectory, currentID )
   post.iterAlleleDF <- DFList$iter
   post.filterAlleleDF <- DFList$filter
   
@@ -469,6 +469,26 @@ post.filter.addKIR2DS3 <- function( typeDF, currentID ){
   }else{
     type2DS3Str <- typeDF[currentID,index2DS3IntVect][[1]]
   }
+  
+  vectType2DS3 <- tstrsplit(type2DS3Str,' ',fixed=T)
+  listType2DS3 <- list()
+  j <- 1
+  for(sub2DS3Str in vectType2DS3){
+    
+    ## KIR2DS3 split
+    if(any(grepl('KIR2DS5', sub2DS3Str, fixed=T))){
+      splitVect <- strsplit(sub2DS3Str,'+',fixed=T)[[1]]
+      sub2DS3Str <- splitVect[grepl('KIR2DS3',splitVect,fixed=T)]
+      listType2DS3[[j]] <- sub2DS3Str
+      j <- j+1
+    }else{
+      listType2DS3[[j]] <- sub2DS3Str
+      j <- j+1
+    }
+    
+  }
+  
+  type2DS3Str <- paste0(listType2DS3, collapse=' ')
   
     #if(length(index2DS3IntVect) > 1){
     #  cat('\n',type2DS3Str)
