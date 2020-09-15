@@ -659,6 +659,12 @@ allele.custom_2DL1_allele_filter <- function(currentSample,
   #vcf.genomic.df_subset <- vcf.genomic.df[vcf.genomic.df$V2 %in% target_pos_vec,]
   vcfDT.subset <- vcfDT[ POS %in% target_pos_vec ]
   
+  # If all target positions are not defined, return original allele calls
+  allPos.bool <- all( target_pos_vec %in% vcfDT$POS )
+  if( !allPos.bool ){
+    return(formattedAlleleVect)
+  }
+  
   ## 2. determine status of 2DL1*010 and 2DL1*01201
   status_010   <- FALSE
   status_01201 <- FALSE
@@ -681,11 +687,11 @@ allele.custom_2DL1_allele_filter <- function(currentSample,
     names(subset_alt_calls) <- vcfDT.subset$POS
     
     # positive filter
-    if (allele_filter_pos_frame["KIR2DL1*010","X3735"] == as.character(subset_alt_calls["3735"]) &&
-        allele_filter_pos_frame["KIR2DL1*010","X3763"] == as.character(subset_alt_calls["3763"])){
+    if( allele_filter_pos_frame["KIR2DL1*010","X3735"] == as.character(subset_alt_calls["3735"]) &&
+        allele_filter_pos_frame["KIR2DL1*010","X3763"] == as.character(subset_alt_calls["3763"]) ){
       status_010 <- TRUE
     }
-    if (allele_filter_pos_frame["KIR2DL1*01201", "X2577"] == as.character(subset_alt_calls["2577"])){
+    if( allele_filter_pos_frame["KIR2DL1*01201","X2577"] == as.character(subset_alt_calls["2577"]) ){
       status_01201 <- TRUE
     } 
     # negative filter
