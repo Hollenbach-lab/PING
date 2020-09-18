@@ -1277,6 +1277,23 @@ allele.call_allele <- function(currentSample, currentLocus, alleleFileDirectory,
   
   # Set if het allele calling should be enabled
   hetBool <- length(hetPosVect) > 0
+  homBool <- length(homPosVect) > 0
+  
+  if( !hetBool & !homBool ){
+    cat('\nNo allele differentiating SNPs found, returning NULL call (check copy results to verify).')
+   
+     if( workflow == 'iter' ){
+      currentSample[['iterAlleleCallDF']]['allele_call',currentLocus] <- paste0(currentLocus,'*NULL')
+      currentSample[['iterAlleleCallDF']]['mismatch_score',currentLocus] <- 1
+      currentSample[['iterAlleleCallDF']]['new_snps',currentLocus] <- 0
+    }else if( workflow == 'filter' ){
+      currentSample[['filterAlleleCallDF']]['allele_call',currentLocus] <- paste0(currentLocus,'*NULL')
+      currentSample[['filterAlleleCallDF']]['mismatch_score',currentLocus] <- 1
+      currentSample[['filterAlleleCallDF']]['new_snps',currentLocus] <- 0
+    }
+    
+    return(currentSample)
+  }
   
   cat('\nScoring hom positions.')
   # Narrow down adSnpDT
