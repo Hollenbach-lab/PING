@@ -2048,6 +2048,19 @@ allele.initialize_filter_SNP_tables <- function(alleleFileDirectory, locusRefLis
     exonDFPath <- file.path(alleleFileDirectory,paste0(currentLocus,'_exonSNPs.csv'))
     intronDFPath <- file.path(alleleFileDirectory,paste0(currentLocus,'_intronSNPs.csv'))
     
+    # Save the CSV paths and dataframes to a return list
+    output.snpDFList[[currentLocus]] <- list()
+    output.snpDFList[[currentLocus]][['exonSNPs']] <- list('csvPath'=exonDFPath)
+    output.snpDFList[[currentLocus]][['intronSNPs']] <- list('csvPath'=intronDFPath)
+    output.snpDFList[[currentLocus]][['failure']] <- FALSE
+    
+    resultExists.bool <- file.exists(exonDFPath) & file.exists(intronDFPath)
+    
+    if( resultExists.bool ){
+      cat('\nFound SNP dataframes in',alleleFileDirectory,'~ skipping dataframe generation.\n')
+      next
+    }
+    
     # Create the exon dataframe and save it
     exonSnpDF <- data.frame(matrix(NA,nrow=1,ncol=length(exonLabVect)), check.names = F, stringsAsFactors = F)
     rownames(exonSnpDF) <- 'coord'
@@ -2063,10 +2076,10 @@ allele.initialize_filter_SNP_tables <- function(alleleFileDirectory, locusRefLis
     write.csv(otherSnpDF, intronDFPath)
     
     # Save the CSV paths and dataframes to a return list
-    output.snpDFList[[currentLocus]] <- list()
-    output.snpDFList[[currentLocus]][['exonSNPs']] <- list('csvPath'=exonDFPath)
-    output.snpDFList[[currentLocus]][['intronSNPs']] <- list('csvPath'=intronDFPath)
-    output.snpDFList[[currentLocus]][['failure']] <- FALSE
+    #output.snpDFList[[currentLocus]] <- list()
+    #output.snpDFList[[currentLocus]][['exonSNPs']] <- list('csvPath'=exonDFPath)
+    #output.snpDFList[[currentLocus]][['intronSNPs']] <- list('csvPath'=intronDFPath)
+    #output.snpDFList[[currentLocus]][['failure']] <- FALSE
   }
   
   cat('\nFinished. Exon and intron SNP tables located in',alleleFileDirectory)
