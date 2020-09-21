@@ -1280,7 +1280,7 @@ allele.call_allele <- function(currentSample, currentLocus, alleleFileDirectory,
   homBool <- length(homPosVect) > 0
   
   if( !hetBool & !homBool ){
-    cat('\nNo allele differentiating SNPs found, returning NULL call (check copy results to verify).')
+    cat('\nNo SNPs found, returning NULL call (check copy results to verify).')
    
      if( workflow == 'iter' ){
       currentSample[['iterAlleleCallDF']]['allele_call',currentLocus] <- paste0(currentLocus,'*NULL')
@@ -1295,15 +1295,18 @@ allele.call_allele <- function(currentSample, currentLocus, alleleFileDirectory,
     return(currentSample)
   }
   
-  cat('\nScoring hom positions.')
-  # Narrow down adSnpDT
-  homScoreList <- sapply(rownames(adSnpDF), function(x){
-    sum(sapply(homPosVect, function(y){
-      addScore <- (adSnpDT[x, ..y] != sampleSnpDT[1, ..y])*1
-      subScore <- (adSnpDT[x, ..y] == '*')*1
-      max(0,addScore-subScore)
-    }))
-  })
+  # Bool check is fix for no AD homozygous positions
+  if( homBool ){
+    cat('\nScoring hom positions.')
+    # Narrow down adSnpDT
+    homScoreList <- sapply(rownames(adSnpDF), function(x){
+      sum(sapply(homPosVect, function(y){
+        addScore <- (adSnpDT[x, ..y] != sampleSnpDT[1, ..y])*1
+        subScore <- (adSnpDT[x, ..y] == '*')*1
+        max(0,addScore-subScore)
+      }))
+    })
+  }
   
   homScoreBuffer <- 1
   if( !hetBool ){
@@ -1314,7 +1317,13 @@ allele.call_allele <- function(currentSample, currentLocus, alleleFileDirectory,
     #bestMatchAlleleMat <- combinations(length(bestMatchAlleleVect), 2, bestMatchAlleleVect, repeats.allowed = T)
     #allMatchingAlleleVect <- apply(bestMatchAlleleMat,1,paste0,collapse='+')
   }else{
-    homAlleleVect <- rownames(adSnpDF)[homScoreList <= ( min(homScoreList)+homScoreBuffer ) ] # Cut any alleles with more than min mismatches
+    
+    # Fix for no AD homozygous positions
+    if( !homBool ){
+      homAlleleVect <- rownames(adSnpDF)
+    }else{
+      homAlleleVect <- rownames(adSnpDF)[homScoreList <= ( min(homScoreList)+homScoreBuffer ) ] # Cut any alleles with more than min mismatches
+    }
     
     # Generate all possible allele pairings
     possAllelePairMat <- combinations(length(homAlleleVect),2,homAlleleVect,repeats.allowed = T)
@@ -1328,9 +1337,11 @@ allele.call_allele <- function(currentSample, currentLocus, alleleFileDirectory,
     # initialize column for storing distance scores
     possAlleleDT$distance <- 0
     
-    # First score homozygous positions for allele pairs (this lowers the computational load for the het position scoring)
-    possAlleleDT[, 'distance' := allele.add_hom_score( allele1, allele2, distance, homScoreList ), by=allelePair]
-    possAlleleDT <- possAlleleDT[possAlleleDT$distance <= (min(possAlleleDT$distance)+homScoreBuffer),] # Remove all allele pairings that have more than the min mismatch
+    if( homBool ){
+      # First score homozygous positions for allele pairs (this lowers the computational load for the het position scoring)
+      possAlleleDT[, 'distance' := allele.add_hom_score( allele1, allele2, distance, homScoreList ), by=allelePair]
+      possAlleleDT <- possAlleleDT[possAlleleDT$distance <= (min(possAlleleDT$distance)+homScoreBuffer),] # Remove all allele pairings that have more than the min mismatch
+    }
     
     # Score het positions for allele pairs (this can take awhile if there are many pairs)
     cat('\nScoring',nrow(possAlleleDT),'allele pairings...')
