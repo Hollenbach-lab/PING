@@ -65,13 +65,19 @@ sampleObj.loadRefDF <- function(currentSample, referenceAlleleDF){
     if( length(currentSampleCopy) > 0 ){
       # pull out all present loci determined by the copy module
       #presentCopyLoci <- allCopyLoci[currentSampleCopy[allCopyLoci] > 0]
-      presentLociVect <- c(presentLociVect, allCopyLoci[currentSampleCopy[allCopyLoci] > 0])
+      
+      temp.allCopyLoci <- intersect(names(currentSampleCopy), allCopyLoci)
+      
+      presentLociVect <- c(presentLociVect, temp.allCopyLoci[currentSampleCopy[temp.allCopyLoci] > 0])
     }
     
     if( length(currentSampleGC) > 0 ){
       # pull out all present loci determined by the gc module
       #presentGCLoci <- allCopyLoci[currentSampleGC[allCopyLoci] > 0]
-      presentLociVect <- c(presentLociVect, allCopyLoci[currentSampleGC[allCopyLoci] > 0])
+      
+      temp.allCopyLoci <- intersect(names(currentSampleGC), allCopyLoci)
+      
+      presentLociVect <- c(presentLociVect, temp.allCopyLoci[currentSampleGC[temp.allCopyLoci] > 0])
     }
     # combine the two to cover all possible present loci
     #presentLociVect <- unique(c(presentCopyLoci,presentGCLoci))
