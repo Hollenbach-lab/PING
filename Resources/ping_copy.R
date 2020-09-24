@@ -376,7 +376,7 @@ cat('\n\nALL FINISHED!!')
 return(sampleList)
 }
 
-ping_copy.manual_threshold <- function(sampleList=list(),resultsDirectory=''){
+ping_copy.manual_threshold <- function(sampleList=list(),resultsDirectory='',use.threshFile=T){
   kirLocusList <- c('KIR3DP1','KIR2DS5','KIR2DL3','KIR2DP1',
                     'KIR2DS3','KIR2DS2','KIR2DL4','KIR3DL3',
                     'KIR3DL1','KIR3DS1','KIR2DL2','KIR3DL2','KIR2DS4','KIR2DL1', 'KIR2DS1', 'KIR2DL5')
@@ -406,7 +406,9 @@ ping_copy.manual_threshold <- function(sampleList=list(),resultsDirectory=''){
   
   threshPath <- file.path(resultsDirectory, 'manualCopyThresholds.csv')
   
-  if(!file.exists(threshPath)){
+  threshFile.bool <- file.exists(threshPath)
+  
+  if(!threshFile.bool){
     ## Set up dataframe to store copy thresholds
     thresholdCols <- c('0-1','1-2','2-3','3-4','4-5','5-6')
     thresholdDF <- data.frame(matrix(NA,nrow=length(kirLocusList),ncol=length(thresholdCols)),stringsAsFactors = F)
@@ -417,6 +419,7 @@ ping_copy.manual_threshold <- function(sampleList=list(),resultsDirectory=''){
     threshPath <- normalizePath(threshPath, mustWork=T)
     cat(paste0('\nFound manualCopyThresholds.csv in ',threshPath,'. Loading these results.'))
     thresholdDF <- read.csv(threshPath, stringsAsFactors=F, check.names=F,row.names=1)
+  
   }
   
   
@@ -428,11 +431,25 @@ ping_copy.manual_threshold <- function(sampleList=list(),resultsDirectory=''){
   copyNumberDF <- data.frame(locusCountDF)
   copyNumberDF[,] <- 0
   
-  copyResultsList <- run.set_copy(kirLocusList=kirLocusList,
-                               copyNumberDF=copyNumberDF,
-                               locusRatioDF=locusRatioDF,
-                               locusCountDF=locusCountDF,
-                               thresholdDF=thresholdDF)
+  if( use.threshFile==T & !threshFile.bool ){
+    
+    cat("\nuse.threshFile set to TRUE but manualCopyThresholds.csv not found. Terminating run.")
+    stop()
+    
+  }else if( use.threshFile==T & threshFile.bool ){
+    
+    cat("\nuse.threshFile set to TRUE, loading results from manualCopyThresholds.csv")
+    copyResultsList <- copy.set_copy_from_threshFile(copyNumberDF, locusRatioDF, locusCountDF, thresholdDF)
+    
+  }else{
+  
+    copyResultsList <- run.set_copy(kirLocusList=kirLocusList,
+                                 copyNumberDF=copyNumberDF,
+                                 locusRatioDF=locusRatioDF,
+                                 locusCountDF=locusCountDF,
+                                 thresholdDF=thresholdDF)
+    
+  }
   
   copyNumberDF <- copyResultsList$copyDF
   thresholdDF <- copyResultsList$threshDF

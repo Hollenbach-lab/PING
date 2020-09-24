@@ -803,6 +803,76 @@ run.generate_copy_number_graphs <- function(countRatioDF, kffDF, kirLocusList, p
   }
 }
 
+copy.set_copy_from_threshFile <- function(copyNumberDF, locusRatioDF, locusCountDF, thresholdDF){
+  
+  # Pull out loci which have set thresholds
+  kirLocusList <- names( which( apply( thresholdDF, 1, function(x){ any(!is.na(x)) } ) ) )
+  
+  # Record loci missing all thresholds
+  missingLocusList <- names( which( apply( thresholdDF, 1, function(x){ all(is.na(x)) } ) ) )
+  
+  cat('\nAuto-setting all KIR3DL3 copy to 2.')
+  copyNumberDF[unsetCopySampleList,kirLocus] <- 2
+  
+  cat('\n\nProcessing:')
+  for(kirLocus in kirLocusList){
+    
+    cat("",kirLocus)
+    
+    ## Set aside the samples that we do not know the copy
+    unsetCopySampleList <- row.names(locusRatioDF)
+    failedSampleList <- setdiff(row.names(locusCountDF),unsetCopySampleList)
+    
+    copyNumberDF[failedSampleList,] <- 'failed'
+    
+    if(length(unsetCopySampleList) == 0){
+      next
+    }
+    
+    # Pull out threshold boundaries
+    temp.colNameVect <- colnames(thresholdDF)[ !is.na( thresholdDF[kirLocus,] ) ]
+    
+    if( length(temp.colNameVect) == 0 ){
+      cat('\ntemp.colNameVect is length 0, something went wrong')
+      stop()
+    }
+    
+    # Pull out the max copy number for the current locus
+    maxCopyInt <- max( as.numeric( unlist( tstrsplit( temp.colNameVect, '-', fixed=T) ) ) )
+    
+    if(maxCopyInt == 0){
+      copyNumberDF[,kirLocus] <- 0
+    }else{
+      for(topCopy in 1:maxCopyInt){
+        
+        ## Pull out the threshold, indexing could also be done using paste0(topCopy,'-',topCopy-1)
+        copyThresholdDouble <- thresholdDF[kirLocus,colnames(thresholdDF)[topCopy]]
+        
+        ## Subset the sample list by the names of samples that fall in the lower copy group
+        lowerSampleList <- unsetCopySampleList[locusRatioDF[unsetCopySampleList,kirLocus] < copyThresholdDouble]
+        
+        ## Subset the sample list by the names of samples that fall in the upper copy group
+        upperSampleList <- unsetCopySampleList[locusRatioDF[unsetCopySampleList,kirLocus] >= copyThresholdDouble]
+        
+        ## Set copy number for samples that fall under the threshold
+        copyNumberDF[lowerSampleList,kirLocus] <- topCopy-1
+        
+        ## Set copy number for samples that fall above the threshold
+        copyNumberDF[upperSampleList,kirLocus] <- topCopy
+        
+        ## Remove sample names that had copy set
+        unsetCopySampleList <- setdiff(unsetCopySampleList,lowerSampleList)
+        
+        ## Break out of the loop if we run out of samples to set
+        if(length(unsetCopySampleList) == 0){
+          break
+        }
+      }
+    }
+  }
+  return(list('copyDF'=copyNumberDF,'threshDF'=thresholdDF))
+}
+
 ## Sets copy number manually
 run.set_copy <- function(kirLocusList, 
                          copyNumberDF, 
