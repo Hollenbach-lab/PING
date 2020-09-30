@@ -37,7 +37,7 @@ sampleList <- general.paired_sample_objects(rawFastqDirectory, fastqPattern, res
 
 
 # PING2 extractor ---------------------------------------------------------
-cat('\n\n----- Moving to PING2 KIR extraction -----')
+cat('\n\n----- Moving to PING KIR extraction -----')
 # Define the extracted fastq directory
 extractedFastqDirectory <- file.path(resultsDirectory,'extractedFastq') # no need to change
 # Run PING2 extractor
@@ -45,7 +45,7 @@ sampleList <- extractor.run(sampleList,threads,extractedFastqDirectory,forceRun=
 
 
 # PING2 gene content and copy number --------------------------------------
-cat('\n\n----- Moving to PING2 gene content and copy determination -----')
+cat('\n\n----- Moving to PING gene content and copy determination -----')
 sampleList <- ping_copy.graph(sampleList=sampleList,threads=threads,resultsDirectory=resultsDirectory,forceRun=F,onlyKFF=F) # set forceRun=T if you want to force alignments
 sampleList <- ping_copy.manual_threshold(sampleList=sampleList,resultsDirectory=resultsDirectory) # this function sets copy thresholds
 

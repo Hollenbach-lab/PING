@@ -1907,6 +1907,10 @@ allele.filter_alignments_to_snp_dfs <- function(currentSample, locusRefList, min
 
 allele.convert_filter_bed <- function(bedPath, currentLocus, filterRefFastaList, locusRefList, filterLocusConv){
   
+  '
+  KIR2DL3 exon9 is missed by this method because of alterations to the fasta, so the fasta sequence does not match known allele sequence
+  '
+  
   ## Process reference fasta file
   fastaPath <- filterRefFastaList[[currentLocus]]
   
@@ -1936,7 +1940,7 @@ allele.convert_filter_bed <- function(bedPath, currentLocus, filterRefFastaList,
     featSeq <- substr( fastaList[[ lineVect[['alleleName']] ]], 
                        ( as.numeric( lineVect[['startPos']] ) + 1 ) , 
                        as.numeric( lineVect[['endPos']] ) )
-      
+    
     # Match the reference sequence against known allele sequence, report all allele matches
     matchedAlleleList <- sapply(locusRefList[[realLocus]]$alleleBedList, function(x){
       x[[ lineVect[[ 'featName' ]] ]]$featSeq == featSeq
@@ -2009,6 +2013,10 @@ allele.filter_VCF_process <- function(vcfDT, currentSample, minDP, bedList, real
   vcfDT[, c('SNP1','SNP2') := general.vcfDT_set_SNPs( REF, ALT, genoVect ), by = 1:nrow(vcfDT) ]
   
   vcfDT <- vcfDT[ vcfDT$POS %in% names(bedList[[1]]), ]
+  
+  if( nrow(vcfDT) < 10 ){
+    return('failure')
+  }
   
   vcfDT[, feat:= bedList[[CHROM]][[as.character(POS)]] , by = 1:nrow(vcfDT) ]
   
