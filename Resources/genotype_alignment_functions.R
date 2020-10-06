@@ -776,6 +776,10 @@ ping_filter.run_alignments <- function( currentSample, threads ){
     return(currentSample)
   }
   
+  if('failed' %in% c(currentSample$geneContent, currentSample$copyNumber)){
+    return(currentSample)
+  }
+  
   #locusPresenceList <- sapply(intersect(names(currentSample$geneContent), names(currentSample$copyNumber)), function(locusName){
   #  as.numeric(currentSample$copyNumber[[locusName]]) > 0 | as.numeric(currentSample$geneContent[[locusName]]) > 0
   #})
