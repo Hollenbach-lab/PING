@@ -59,5 +59,14 @@ Seeing the following message in the copy graphing module is normal:
 'A line object has been specified, but lines is not in the mode
 Adding lines to the mode...'
 
+### Running included test data
+We have included 5 test sequences to run through the pipeline, they are located in the test_sequence/ directory. These samples were picked to cover a range of KIR haplotypes.
+
+
+The default input settings (lines 18-23) are setup to run on this data, but must still be modified to fit your local environment. For example, line 18 `rawFastqDirectory` must be set to where test_sequence/ is located on your local machine. Additionally, line 21 `resultsDirectory` must be set to where you want the results output to be written.
+
+
+The copy thresholding functionality will not work well for such a small cohort, but the pipeline can be run with only gene presence/absence information.
+
 ## Troubleshooting
 Please contact through github or email at wesley.marin@ucsf.edu
