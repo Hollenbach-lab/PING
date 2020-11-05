@@ -69,4 +69,4 @@ The default input settings (lines 18-23) are setup to run on this data, but must
 The copy thresholding functionality will not work well for such a small cohort, but the pipeline can be run with only gene presence/absence information.
 
 ## Troubleshooting
-Please contact through github or email at wesley.marin@ucsf.edu
+Please save a copy of your R Console output and contact me through github or email at wesley.marin@ucsf.edu
