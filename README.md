@@ -17,8 +17,12 @@ R
   - Either RStudio desktop free version, or RStudio server free version
   - It is possible to run the script without RStudio, but copy number thresholding will be more difficult
 
-### Ubuntu command-line install of dependencies
-`sudo apt install bowtie2 gzip samtools bcftools r-base`
+### Ubuntu 20.04 command-line install of dependencies
+`sudo apt install bowtie2 gzip samtools bcftools r-base gdebi-core wget`
+#### Download RStudio
+`wget https://download1.rstudio.org/desktop/bionic/amd64/rstudio-1.3.1093-amd64.deb`
+#### Install RStudio
+`sudo gdebi rstudio-1.3.1093-amd64.deb`
 
 ## Required R packages:    
 * data.table 
