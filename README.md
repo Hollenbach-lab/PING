@@ -12,6 +12,10 @@ R
 * bowtie2 (tested with version 2.3.4.1) https://sourceforge.net/projects/bowtie-bio/files/bowtie2/2.3.4.1/
 * samtools (tested with version 1.7) https://sourceforge.net/projects/samtools/files/samtools/1.7/
 * bcftools (tested with version 1.7) https://sourceforge.net/projects/samtools/files/samtools/1.7/
+* R (tested wtih version 3.6.3) https://cran.r-project.org/src/base/R-3/R-3.6.3.tar.gz
+* RStudio (used for running the script) https://rstudio.com/products/rstudio/download/
+  - Either RStudio desktop free version, or RStudio server free version
+  - It is possible to run the script without RStudio, but copy number thresholding will be more difficult
 
 ### Command-line install of dependencies
 `sudo apt install bowtie2 gzip samtools bcftools`
@@ -27,15 +31,33 @@ R
 ### R dependency console install command
 `install.packages(c("plotly","stringr","pryr","plotly","gtools","R.utils"),dependencies = T)`
 
-## Running the pipeline
-Use with the PING_run.R script.
-The run script is meant to be run from top to bottom.
+## Setting up pipeline
+### Downloading pipeline code
+Option 1: Download zip file `wget https://github.com/wesleymarin/PING/archive/master.zip`
 
-Change line 2 to wherever you download PING -> setwd('/home/LAB_PROJECTS/PING2_PAPER/PING')
+Option 2: Clone repository `git clone https://github.com/wesleymarin/PING.git`
 
-Change lines 18-23 to fit your data/environment
+### Environment setup
+1. Change line 2 of PING_run.R to the local directory where you download PING
+  - `setwd('/home/LAB_PROJECTS/PING_PAPER/PING')` Set this to your own PING working directory
+2. Change lines 18-23 to fit your data/environment
+  - `rawFastqDirectory <- '/home/LAB_PROJECTS/PING_PAPER/PING/test_sequence/'` Set to raw sequence directory or extracted fastq directory if extraction has already been performed
+  - `fastqPattern <- '_KIR_'` Use '_KIR_' to find already extracted files, otherwise use 'fastq' or whatever fits your data
+  - `threads <- 4` Number of threads to use during bowtie2 alignments
+  - `resultsDirectory <- '/home/LAB_PROJECTS/PING2_PAPER/3_test_sequence_results/'` Set the results directory, one will be created if it does not already exist (all pipeline output will be recorded here)
+  - `shortNameDelim <- '_'` Set a delimiter to shorten sample ID's (ID will be characters before delim)
+  - `minDP <- 10` Minimum depth for calling variants (set lower if using low-depth data, the default of 10 should work for most data)
+
+## Running PING
+Open PING_run.R in Rstudio
+Set environment variables outlined in **Environment setup**
+Run the script from top to bottom
+
 
 Seeing the following message in the copy graphing module is normal:
 
 'A line object has been specified, but lines is not in the mode
 Adding lines to the mode...'
+
+## Troubleshooting
+Please contact through github or email at wesley.marin@ucsf.edu
