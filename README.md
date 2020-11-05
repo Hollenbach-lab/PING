@@ -39,14 +39,14 @@ Option 2: Clone repository `git clone https://github.com/wesleymarin/PING.git`
 
 ### Environment setup
 1. Change line 2 of PING_run.R to the local directory where you download PING
-  2. `setwd('/home/LAB_PROJECTS/PING_PAPER/PING')` Set this to your own PING working directory
+  - `2 setwd('/home/LAB_PROJECTS/PING_PAPER/PING')` Set this to your own PING working directory
 2. Change lines 18-23 to fit your data/environment
-  18. `rawFastqDirectory <- '/home/LAB_PROJECTS/PING_PAPER/PING/test_sequence/'` Set to raw sequence directory or extracted fastq directory if extraction has already been performed
-  19. `fastqPattern <- '_KIR_'` Use '_KIR_' to find already extracted files, otherwise use 'fastq' or whatever fits your data
-  20. `threads <- 4` Number of threads to use during bowtie2 alignments
-  21. `resultsDirectory <- '/home/LAB_PROJECTS/PING2_PAPER/3_test_sequence_results/'` Set the results directory, one will be created if it does not already exist (all pipeline output will be recorded here)
-  22. `shortNameDelim <- '_'` Set a delimiter to shorten sample ID's (ID will be characters before delim)
-  23. `minDP <- 10` Minimum depth for calling variants (set lower if using low-depth data, the default of 10 should work for most data)
+  - `18 rawFastqDirectory <- '/home/LAB_PROJECTS/PING_PAPER/PING/test_sequence/'` Set to raw sequence directory or extracted fastq directory if extraction has already been performed
+  - `19 fastqPattern <- '_KIR_'` Use '_KIR_' to find already extracted files, otherwise use 'fastq' or whatever fits your data
+  - `20 threads <- 4` Number of threads to use during bowtie2 alignments
+  - `21 resultsDirectory <- '/home/LAB_PROJECTS/PING2_PAPER/3_test_sequence_results/'` Set the results directory, one will be created if it does not already exist (all pipeline output will be recorded here)
+  - `22 shortNameDelim <- '_'` Set a delimiter to shorten sample ID's (ID will be characters before delim)
+  - `23 minDP <- 10` Minimum depth for calling variants (set lower if using low-depth data, the default of 10 should work for most data)
 
 ## Running PING
 Open PING_run.R in Rstudio
