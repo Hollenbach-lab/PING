@@ -17,7 +17,7 @@ R
   - Either RStudio desktop free version, or RStudio server free version
   - It is possible to run the script without RStudio, but copy number thresholding will be more difficult
 
-### Command-line install of dependencies
+### Ubuntu command-line install of dependencies
 `sudo apt install bowtie2 gzip samtools bcftools r-base`
 
 ## Required R packages:    
