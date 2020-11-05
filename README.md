@@ -18,7 +18,7 @@ R
   - It is possible to run the script without RStudio, but copy number thresholding will be more difficult
 
 ### Ubuntu 20.04 command-line install of dependencies
-`sudo apt install bowtie2 gzip samtools bcftools r-base gdebi-core wget`
+`sudo apt install bowtie2 gzip samtools bcftools r-base gdebi-core wget libssl-dev libcurl4-openssl-dev`
 #### Download RStudio
 `wget https://download1.rstudio.org/desktop/bionic/amd64/rstudio-1.3.1093-amd64.deb`
 #### Install RStudio
