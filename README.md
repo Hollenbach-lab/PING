@@ -37,8 +37,7 @@ R
 
 ## Setting up pipeline
 ### Downloading pipeline code
-Option 1: Download zip file `wget https://github.com/wesleymarin/PING/archive/master.zip
-unzip master.zip`
+Option 1: Download zip file `wget https://github.com/wesleymarin/PING/archive/master.zip | unzip master.zip`
 
 Option 2: Clone repository `git clone https://github.com/wesleymarin/PING.git`
 
