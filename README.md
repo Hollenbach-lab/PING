@@ -54,7 +54,9 @@ Option 2: Clone repository `git clone https://github.com/wesleymarin/PING.git`
 
 ## Running PING
 Open PING_run.R in Rstudio
+
 Set environment variables outlined in **Environment setup**
+
 Run the script from top to bottom
 
 
