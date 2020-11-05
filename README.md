@@ -33,7 +33,7 @@ R
 * R.utils
  
 ### R dependency console install command
-`install.packages(c("plotly","stringr","pryr","gtools","R.utils"),dependencies = T)`
+`install.packages(c("data.table","plotly","stringr","pryr","gtools","R.utils"),dependencies = T)`
 
 ## Setting up pipeline
 ### Downloading pipeline code
