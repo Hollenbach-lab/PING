@@ -1,5 +1,6 @@
 
-setwd('~/PING') #Set this to your own PING working directory
+cwd <- Sys.getenv("CWD", unset='~/PING')
+setwd(cwd) #Set this to your own PING working directory
 
 # ---- DEPENDENCIES ----
 ' if any dependencies are missing, install with
