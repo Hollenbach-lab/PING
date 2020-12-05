@@ -19,16 +19,207 @@ if(!file.exists(alignmentFileDirectory)){
   dir.create(alignmentFileDirectory)
 }
 
-# ----- Generating reference object list for each locus -----
-locusRefList <- general.initialize_locus_ref_object()
-locusRefList <- initLocusRef.read_raw_msf(locusRefList, copiedMsfDirectory)
-locusRefList <- initLocusRef.create_bed(locusRefList, referenceResourceDirectory, kirLocusFeatureNameList, writeBed=F)
 
-# Read in reference allele dataframe
-referenceAlleleDF <- read.csv('Resources/genotype_resources/master_haplo_iteration_testing_v10.csv',row.names=1,stringsAsFactors = F)
+# ----- NEW Generating reference object list for each locus -----
 
 # Read in reference allele 5'UTR and 3'UTR extensions
 UTRextList <- general.read_fasta('Resources/genotype_resources/KIR_UTR_ext.fasta')
+snpDFDirectory <- file.path('Resources/genotype_resources/SNP_files/')
+new.initLocusRef.read_snp_df <- function(locusRefList, snpDFDirectory, kirLocusVect = kir.locus.vect){
+  
+  knownSnpDFList <- list()
+  cat('\n\nReading in:')
+  for(locus in kirLocusVect){
+    cat('',locus)
+    alleleSnpDF <- read.csv( normalizePath(
+      file.path(snpDFDirectory,
+                paste0(locus, '_alleleSNPs.csv')
+      )), check.names=F, row.names=1, stringsAsFactors = F,colClasses = 'character')
+    
+    knownSnpDFList[[locus]] <- alleleSnpDF
+  }
+  
+  cat('\n\nFilling invariant positions:')
+  for( locus in kirLocusVect ){
+    cat('',locus)
+    snpDF <- knownSnpDFList[[locus]]
+    numUniqueNuc.byPosition.list <- apply( snpDF, 2, num_unique_nuc )
+    invariantColVect <- names( which( numUniqueNuc.byPosition.list == 1 ) )
+    
+    invariantNucVect <- unlist( apply( snpDF[,invariantColVect], 2, function(x) unique( x[is_nuc(x)] ) ) )
+    
+    for(i in 1:nrow(snpDF)){
+      snpDF[i,invariantColVect] <- invariantNucVect
+    }
+    
+    knownSnpDFList[[locus]] <- snpDF
+  }
+  
+  return(knownSnpDFList)
+}
+new.initLocusRef.extend_5UTR <- function( filled.snpDFList, UTRextList ){
+  
+  cat('\n\nExtending 5UTR:')
+  out.list <- list()
+  for( currentLocus in names(filled.snpDFList) ){
+    cat('',currentLocus)
+    snpDF <- filled.snpDFList[[currentLocus]]
+    utr5.ext.str <- UTRextList[[paste0(currentLocus,'_5UTR')]]
+    utr5.ext.str.length <- nchar(utr5.ext.str)
+    
+    utr5.colVect <- grep('5UTR', colnames(snpDF), value=T)
+    utr5.indexVect <- grep('5UTR', colnames(snpDF))
+    utr5.length <- length(utr5.colVect)
+    
+    utr5.addition.length <- utr5.ext.str.length - utr5.length
+    
+    utr5.addition.str <- substr(utr5.ext.str, 1, utr5.addition.length)
+    
+    
+    # Replace 5UTR naming by offset (to account for added positions)
+    utr5.replacement.colVect <- unlist( sapply(utr5.colVect, function(x) {
+      xVect <- strsplit(x,'_',fixed=T)[[1]]
+      xPos <- as.integer(xVect[2]) + utr5.addition.length
+     return( paste0(xVect[1],'_',xPos) )
+      }) )
+    
+    colnames(snpDF)[utr5.indexVect] <- utr5.replacement.colVect
+    
+    utr5.add.df <- as.data.frame( matrix('',nrow=nrow(snpDF),ncol=utr5.addition.length), check.names=F, stringsAsFactors = F)
+    rownames(utr5.add.df) <- rownames(snpDF)
+    colnames(utr5.add.df) <- paste0('5UTR_',1:utr5.addition.length)
+    
+    for(i in 1:nrow(utr5.add.df)){
+      utr5.add.df[i,] <- strsplit( utr5.addition.str, '')[[1]]
+    }
+    
+    snpDF <- cbind(utr5.add.df, snpDF)
+    
+    out.list[[currentLocus]] <- snpDF
+  }
+  
+  return(out.list)
+}
+new.initLocusRef.extend_3UTR <- function( filled.snpDFList, UTRextList ){
+  
+  cat('\n\nExtending 3UTR:')
+  out.list <- list()
+  for( currentLocus in names(filled.snpDFList) ){
+    cat('',currentLocus)
+    snpDF <- filled.snpDFList[[currentLocus]]
+    utr3.ext.str <- UTRextList[[paste0(currentLocus,'_3UTR')]]
+    
+    utr3.ext.str.length <- nchar(utr3.ext.str)
+    
+    utr3.colVect <- grep('3UTR',colnames(snpDF),value=T)
+    utr3.indexVect <- grep('3UTR',colnames(snpDF))
+    utr3.length <- length(utr3.colVect)
+    
+    utr3.addition.length <- utr3.ext.str.length - utr3.length
+    
+    utr3.addition.str <- substr(utr3.ext.str, (utr3.length+1), utr3.ext.str.length)
+    
+    utr3.add.df <- as.data.frame( matrix('',nrow=nrow(snpDF),ncol=utr3.addition.length), check.names=F, stringsAsFactors = F)
+    rownames(utr3.add.df) <- rownames(snpDF)
+    colnames(utr3.add.df) <- paste0('3UTR_',(utr3.length+1):utr3.ext.str.length)
+    
+    for(i in 1:nrow(utr3.add.df)){
+      utr3.add.df[i,] <- strsplit( utr3.addition.str, '')[[1]]
+    }
+    
+    snpDF <- cbind(snpDF, utr3.add.df)
+    
+    out.list[[currentLocus]] <- snpDF
+  }
+  
+  return(out.list)
+}
+new.initLocusRef.snpDFtoLocusRefAlleleSeq <- function( filled.snpDFList, locusRefList ){
+  cat('\n\nAdding allele sequences to locus reference object:')
+  for(locusRef in locusRefList){
+    cat('',locusRef$name)
+    locusRef$alleleStrList <- as.list( apply(filled.snpDFList[[locusRef$name]],1,function(x) paste0(x,collapse='') ) )
+  }
+  
+  return(locusRefList)
+}
+new.initLocusRef.snpDFtoLocusRefBed <- function( filled.snpDFList, locusRefList, kirLocusFeatureNameList ){
+  cat('\n\nAdding feature names and coordinates to locus reference object:')
+  for(locusRef in locusRefList){
+    cat('',locusRef$name)
+    
+    snpDF <- filled.snpDFList[[locusRef$name]]
+    
+    ## pull out the locus feature names from the SNP DF and predefined
+    locusFeatVect <- unique( tstrsplit( colnames(snpDF), '_', fixed=T)[[1]] )
+    featureNameVect <- kirLocusFeatureNameList[[locusRef$name]]
+    if( length(locusFeatVect) != length(featureNameVect) ){
+      stop('Mismatched features for',locusRef$name)
+    }
+    
+    locusBedList <- list()
+    for( alleleNameStr in names(locusRef$alleleStrList) ){
+      alleleStr <- locusRef$alleleStrList[[alleleNameStr]]
+      
+      ## Initialize list for storing BED information
+      locusBedList[[alleleNameStr]] <- list()
+      
+      totalDelOffset <- 0
+      ## Process each gene feature for this allele
+      for(featNameStr in featureNameVect){
+        
+        featIndexVect <- grep(paste0(featNameStr,'_'),colnames(snpDF),fixed=T)
+        featColVect <- grep(paste0(featNameStr,'_'),colnames(snpDF),fixed=T,value=T)
+        
+        featSeqStr <- paste0( snpDF[alleleNameStr,featColVect], collapse='' )
+        snpVect <- unlist( snpDF[alleleNameStr,featColVect] )
+        preBoundaryInt <- as.integer( featIndexVect[1]-1 ) - totalDelOffset
+        boundaryInt <- as.integer( featIndexVect[length(featIndexVect)] ) - totalDelOffset
+        
+        delCount <- str_count(featSeqStr,pattern = fixed('.'))
+        totalDelOffset <- delCount + totalDelOffset
+        
+        boundaryInt <- boundaryInt - delCount
+        
+        delIndex <- grep('.',unlist(strsplit(featSeqStr,'')),fixed=T)
+        noDelFeatSeqStr <- gsub('.','',featSeqStr,fixed=T)
+        
+        #### BED coordinates should be preBoundaryInt : boundaryInt
+        ## Save gene feature coordinates to list
+        locusBedList[[alleleNameStr]][[featNameStr]] <- list(alleleName=alleleNameStr,
+                                                             startPos=preBoundaryInt,
+                                                             endPos=boundaryInt,
+                                                             featName=featNameStr,
+                                                             featSeq=noDelFeatSeqStr,
+                                                             featDelIndex=delIndex,
+                                                             snpVect=snpVect)
+        
+        preBoundaryInt <- boundaryInt
+      }
+    }
+    
+    locusRef$alleleBedList <- locusBedList
+  }
+  
+  return(locusRefList)
+} 
+
+
+locusRefList <- general.initialize_locus_ref_object()
+filled.snpDFList <- new.initLocusRef.read_snp_df( locusRefList, snpDFDirectory )
+filled.snpDFList <- new.initLocusRef.extend_5UTR( filled.snpDFList, UTRextList )
+filled.snpDFList <- new.initLocusRef.extend_3UTR( filled.snpDFList, UTRextList )
+#locusRefList <- new.initLocusRef.convertSnpDFtoLocusRefObject( filled.snpDFList, locusRefList )
+locusRefList <- new.initLocusRef.snpDFtoLocusRefAlleleSeq( filled.snpDFList, locusRefList )
+locusRefList <- new.initLocusRef.snpDFtoLocusRefBed( filled.snpDFList, locusRefList, kirLocusFeatureNameList )
+
+# ----- Generating reference object list for each locus -----
+#old.locusRefList <- general.initialize_locus_ref_object()
+#old.locusRefList <- initLocusRef.read_raw_msf(old.locusRefList, copiedMsfDirectory)
+#old.locusRefList <- initLocusRef.create_bed(old.locusRefList, referenceResourceDirectory, kirLocusFeatureNameList, writeBed=F)
+
+# Read in reference allele dataframe
+referenceAlleleDF <- read.csv('Resources/genotype_resources/master_haplo_iteration_testing_v10.csv',row.names=1,stringsAsFactors = F)
 
 # Generate df's to store allele calls for both workflows covering all samples and loci
 alleleDFPathList <- allele.setup_results_df( locusRefList, filterLocusConv, resultsDirectory, sampleList )
@@ -728,11 +919,11 @@ ping_iter.run_alignments <- function( currentSample, threads ){
   currentSample <- sampleObj.loadRefDF(currentSample, referenceAlleleDF) # Subset reference allele dataframe by present loci, save to sample object
   
   cat('\nWriting reference files')
-  currentSample <- sampleObj.writeRefFastaBed(currentSample, locusRefList, alignmentFileDirectory) # Write fasta reference file for sample object based on refDF
+  currentSample <- new.sampleObj.writeRefFastaBed(currentSample, locusRefList, alignmentFileDirectory, synSeq.key) # Write fasta reference file for sample object based on refDF
   
   currentSample <- sampleObj.iterBowtie2Index(currentSample, bowtie2Build, threads) # Converts fasta file from previous line into a bowtie2 index
   
-  currentSample <- sampleObj.iterBowtie2Align(currentSample, bowtie2, threads, deleteSam=T) # Align sample to bowtie2 index
+  currentSample <- sampleObj.iterBowtie2Align(currentSample, bowtie2, threads, deleteSam=F) # Align sample to bowtie2 index
   
   currentSample <- sampleObj.iterVCFGen(currentSample, samtools, bcftools, threads) # Convert SAM file into VCF
   

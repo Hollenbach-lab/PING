@@ -36,9 +36,10 @@ post.combineGenos <- function( currentSample, resultsDirectory ){
   sharedLocusVect <- setdiff(locusVect, otherLocusVect)
   
   # KIR3DP1 - DONE
+
   iter.3DP1Result <- post.iterAlleleDF[currentID,'KIR3DP1']
   if( !is.na(iter.3DP1Result) ){
-    
+    cat('\tKIR3DP1')
     iterNewBool <- grepl('unresolved',post.iterAlleleDF[currentID,'KIR3DP1'],fixed=T)
     
     if(iterNewBool){
@@ -56,7 +57,7 @@ post.combineGenos <- function( currentSample, resultsDirectory ){
   # KIR2DS1 - DONE
   iter.2DS1Result <- post.iterAlleleDF[currentID,'KIR2DS1']
   if( !is.na(iter.2DS1Result) ){
-    
+    cat('\tKIR2DS1')
     iterNewBool <- grepl('unresolved',post.iterAlleleDF[currentID,'KIR2DS1'],fixed=T)
     
     if(iterNewBool){
@@ -74,7 +75,7 @@ post.combineGenos <- function( currentSample, resultsDirectory ){
   # KIR2DS2 - DONE
   iter.2DS2Result <- post.iterAlleleDF[currentID,'KIR2DS2']
   if( !is.na(iter.2DS2Result) ){
-    
+    cat('\tKIR2DS2')
     iterNewBool <- grepl('unresolved',post.iterAlleleDF[currentID,'KIR2DS2'],fixed=T)
     
     if(iterNewBool){
@@ -98,7 +99,7 @@ post.combineGenos <- function( currentSample, resultsDirectory ){
   }
   
   for(currentLocus in sharedLocusVect){
-    
+    cat('\t',currentLocus)
     #iterLocusBool <- currentLocus %in% colnames(post.iterAlleleDF)
     #filterLocusBool <- currentLocus %in% colnames(post.filterAlleleDF)
     
@@ -165,7 +166,7 @@ post.combineGenos <- function( currentSample, resultsDirectory ){
       }
       
       if( currentLocus == 'KIR3DP1' ){
-        
+
         # only using ITER workflow results (no FILTER results)
         post.interTypeDF <- post.iterTypeDF
         
@@ -441,6 +442,7 @@ post.filter.addKIR2DS5 <- function( typeDF, currentID ){
     
   }
   
+  listType2DS5 <- unique(listType2DS5)
   typeStr <- paste0(listType2DS5, collapse=' ')
   
   if( typeStr == '' ){
@@ -488,6 +490,7 @@ post.filter.addKIR2DS3 <- function( typeDF, currentID ){
     
   }
   
+  listType2DS3 <- unique(listType2DS3)
   type2DS3Str <- paste0(listType2DS3, collapse=' ')
   
     #if(length(index2DS3IntVect) > 1){

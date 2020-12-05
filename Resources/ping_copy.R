@@ -376,7 +376,7 @@ cat('\n\nALL FINISHED!!')
 return(sampleList)
 }
 
-ping_copy.manual_threshold <- function(sampleList=list(),resultsDirectory='',use.threshFile=T){
+ping_copy.manual_threshold <- function(sampleList=list(),resultsDirectory='',use.threshFile=F){
   kirLocusList <- c('KIR3DP1','KIR2DS5','KIR2DL3','KIR2DP1',
                     'KIR2DS3','KIR2DS2','KIR2DL4','KIR3DL3',
                     'KIR3DL1','KIR3DS1','KIR2DL2','KIR3DL2','KIR2DS4','KIR2DL1', 'KIR2DS1', 'KIR2DL5')

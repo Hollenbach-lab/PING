@@ -141,11 +141,12 @@ run.bowtie2_gc_alignment <- function(bowtie2_command, reference_index, threads, 
   
   ## Building up the run command
   optionsCommand <- c(paste0('-x ',reference_index),
-                      '-5 0', '-3 6', '-N 0', '--end-to-end', paste0('-p ',threads), '--score-min "C,-2,0"',
+                      '-5 0', '-3 6', '-N 0', '--end-to-end', paste0('-p ',threads), '--score-min "L,-2,-0.02"',
                       '-I 75', '-X 1000',
                       paste0('-1 ',current_sample$kirfastq1path),
                       paste0('-2 ',current_sample$kirfastq2path),
-                      '--no-unal','-a','--np 0', '--mp 2,2', '--rdg 1,1', '--rfg 1,1',
+                      '--no-unal',
+                      '-a','--np 0', '--mp 2,2', '--rdg 1,1', '--rfg 1,1',
                       paste0('-S ',current_sample$samPath))
   
   ## Run the bowtie2 alignment command
@@ -169,6 +170,97 @@ run.bowtie2_gc_alignment <- function(bowtie2_command, reference_index, threads, 
   
   return(current_sample)
 }
+
+general.count_sam_header <- function( samPath ){
+  if(!file.exists(samPath)){
+    stop('This sam file does not exist')
+  }
+  
+  headerLines <- 0
+  con = file( samPath, "r")
+  
+  while(TRUE){
+    
+    line = readLines(con, n = 1)
+    #if(strsplit(line,'\t')[[1]][1] != "@SQ"){
+    #  break
+    #}
+    
+    if(substr(line,1,1) != '@'){
+      break
+    }
+    
+    headerLines <- headerLines + 1
+  }
+  close(con)
+  
+  return(headerLines)
+}
+
+## This function reads in a SAM file with no header to a data.table
+general.read_sam <- function( samPath, allele_alignment=F, rows_to_skip=0){
+  cat("\n\nReading in",samPath)
+  
+  ## Make sure the SAM file can be read in
+  sam_path <- normalizePath(samPath, mustWork=T)
+  
+  ## SAM files can have a variable number of column names, the col.names=1:25 is a possible
+  ## point of failure if the SAM file has more than 25 columns
+  #output.samTable <- read.table(sam_path, sep='\t', col.names=1:25, stringsAsFactors=F, check.names=F, fill=T, skip=rows_to_skip, nrows = 30000000)
+  output.samTable <- read.table(sam_path, sep='\t', stringsAsFactors=F, check.names=F, fill=T, skip=rows_to_skip,col.names=1:25)
+  
+  ## Convert the dataframe to a datatable for faster access
+  output.samTable <- as.data.table(output.samTable)
+  
+  ## Name the columns that are used for downstream analysis
+  colnames(output.samTable)[1] <- 'read_name'
+  colnames(output.samTable)[3] <- 'reference_name'
+  colnames(output.samTable)[4] <- 'ref_pos'
+  colnames(output.samTable)[6] <- 'cigarStr'
+  colnames(output.samTable)[10] <- 'read_seq'
+  
+  ## Convert the alignment scores into integers
+  alignmentScoreList <- as.integer(tstrsplit(output.samTable$`12`, ':', fixed=TRUE)[[3]])
+  
+  ## Save alignment scores to their own columns
+  cat('\nSetting alignment scores.')
+  output.samTable[,alignment_score := alignmentScoreList]
+  
+  ## Convert the allele names into locus names
+  if(allele_alignment){
+    locusList <- tstrsplit(output.samTable$reference_name, '_', fixed=T)[[1]]
+  }else{
+    locusList <- tstrsplit(output.samTable$reference_name, '*', fixed=TRUE)[[1]]
+  }
+  locusList <- tstrsplit(output.samTable$reference_name, '*', fixed=TRUE)[[1]]
+  locusList[locusList %in% 'KIR2DL5A'] = 'KIR2DL5'
+  locusList[locusList %in% 'KIR2DL5B'] = 'KIR2DL5'
+  
+  ## Save locus names to their own columns
+  cat('\nSetting locus names.')
+  output.samTable[,locus:=locusList]
+  
+  ## Create new column names to store universal coordinates
+  output.samTable$startPos <- 0
+  output.samTable$endPos <- 0
+  
+  ## Create a new column to store read lengths
+  cat('\nSetting read lengths.')
+  output.samTable[,readLen := nchar(read_seq)]
+  
+  cat('\nRemoving read alignments that do not include alignment scores.')
+  
+  ## Discard any rows of the samTable that do not have alignment scores (can happen for various reasons)
+  output.samTable <- output.samTable[!is.na(alignmentScoreList),]
+  
+  ## Check if there were any formatting errors with the alignment score conversions
+  if(any(is.na(output.samTable$alignment_score))){
+    stop("NA found in SAM file alignment scores for ", samPath)
+  }
+  
+  return(output.samTable)
+}
+
 
 ## This function counts the number of header lines in a SAM file (using '@SQ')
 samfile.count_header_lines <- function(currentSample){
@@ -812,12 +904,16 @@ copy.set_copy_from_threshFile <- function(copyNumberDF, locusRatioDF, locusCount
   missingLocusList <- names( which( apply( thresholdDF, 1, function(x){ all(is.na(x)) } ) ) )
   
   cat('\nAuto-setting all KIR3DL3 copy to 2.')
-  copyNumberDF[unsetCopySampleList,kirLocus] <- 2
+  copyNumberDF[rownames(locusRatioDF),'KIR3DL3'] <- 2
   
   cat('\n\nProcessing:')
   for(kirLocus in kirLocusList){
     
     cat("",kirLocus)
+    
+    if(kirLocus == 'KIR3DL3'){
+      next
+    }
     
     ## Set aside the samples that we do not know the copy
     unsetCopySampleList <- row.names(locusRatioDF)
@@ -3228,6 +3324,13 @@ nucListConv <- list('A'=1,
                     'C'=3,
                     'G'=4,
                     '.'=5)
+
+nucListConvWIns <- list('A'=1,
+                    'T'=2,
+                    'C'=3,
+                    'G'=4,
+                    '.'=5,
+                    'INS'=6)
 
 hetNucConv <- list('R'=c('A','G'),
                    'Y'=c('C','T'),

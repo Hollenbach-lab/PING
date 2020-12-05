@@ -2,6 +2,47 @@ library(data.table)
 library(stringr)
 library(methods)
 
+synSeqAnswerKey <- '/home/LAB_PROJECTS/PING2_PAPER/figure_scripts/synSeq_data_run3/synSeq.info.txt'
+# Reads in answer key (synSeq.info.txt)
+synSeq.readAnswerKey <- function(keyFile){
+  
+  out.list <- list()
+  con  <- file(keyFile, open = "r")
+  
+  while (length(oneLine <- readLines(con, n = 1)) > 0) {
+    lineVect <- unlist((strsplit(oneLine, "\t",fixed=T)))
+    sampleID <- lineVect[1]
+    genoID <- lineVect[2]
+    genoStr <- lineVect[3]
+    
+    genoVect <- unlist(strsplit(genoStr,'_',fixed=T))
+    out.list[[sampleID]] <- list('genoID'=genoID,'genoVect'=genoVect)
+  }
+  
+  close(con)
+  
+  return(out.list)
+}
+
+alleleSetup.readAnswerKey <- function(keyFile){
+  out.list <- list()
+  con  <- file(keyFile, open = "r")
+  
+  while (length(oneLine <- readLines(con, n = 1)) > 0) {
+    lineVect <- unlist((strsplit(oneLine, "\t",fixed=T)))
+    sampleID <- lineVect[1]
+    genoStr <- lineVect[2]
+    
+    genoVect <- unlist(strsplit(genoStr,'_',fixed=T))
+    out.list[[sampleID]] <- list('genoVect'=genoVect)
+  }
+  
+  close(con)
+  
+  return(out.list)
+}
+
+#synSeq.key <- synSeq.readAnswerKey(synSeqAnswerKey)
 
 # rawFastqDirectory
 # fastqPattern
@@ -140,10 +181,16 @@ sampleObj.writeRefFastaBed <- function(currentSample, locusRefList, alignmentFil
     currentIterLociVect <- rownames(currentIterDF)
     
     # For each locus, write a reference allele and bed coordinates
-    for(currentLocus in currentIterLociVect){
-      currentRefAllele <- currentRefAlleleDF[currentLocus,currentIter]
+    #for(currentLocus in currentIterLociVect){
+    #  currentRefAllele <- currentRefAlleleDF[currentLocus,currentIter]
+    for(currentRefAllele in refAlleleVect){  
+      cat('\n',currentRefAllele)
       
-      #cat('\n',currentRefAllele)
+      currentLocus <- strsplit(currentRefAllele,'*',fixed=T)[[1]][1]
+      
+      if(currentLocus == 'KIR2DL5A' | currentLocus == 'KIR2DL5B'){
+        currentLocus <- 'KIR2DL5'
+      }
       
       # Remove deletion positions from the allele string
       noDelAlleleStr <- gsub('.','',locusRefList[[currentLocus]]$alleleStrList[[currentRefAllele]],fixed = T)
@@ -218,6 +265,138 @@ sampleObj.writeRefFastaBed <- function(currentSample, locusRefList, alignmentFil
   
   return(currentSample)
 }
+
+# Write fasta and bed files for dynamic reference building
+new.sampleObj.writeRefFastaBed <- function(currentSample, locusRefList, alignmentFileDirectory, synSeq.key){
+  currentRefAlleleDF <- currentSample$refAlleleDF
+  
+  if('failed' %in% currentRefAlleleDF){
+    currentSample[['iterRefDirectory']] <- 'failed'
+    currentSample[['refIterVect']] <- 'failed'
+    return(currentSample)
+  }
+  
+  # pull out the number of iterations from the ref allele DF
+  #iterVect <- colnames(currentRefAlleleDF)
+  
+  # Create a directory for the current iteration reference files
+  currentSampleResultsDirectory <- file.path(alignmentFileDirectory,currentSample$name,'iterAlign')
+  if(!file.exists(currentSampleResultsDirectory)){
+    dir.create(currentSampleResultsDirectory, recursive=T)
+  }
+  
+  refAlleleVect <- synSeq.key[[currentSample$name]]$genoVect
+  iterVect <- 'iter_1'
+  
+  # For each iteration, write a fasta and bed file
+  for(currentIter in iterVect){
+    
+    # Pull out ref alleles for current iteration
+    #currentIterDF <- currentRefAlleleDF[,currentIter,drop=F]
+    
+    # Create a directory for the current iteration reference files
+    currentIterResultsDirectory <- file.path(currentSampleResultsDirectory,currentIter)
+    if(!file.exists(currentIterResultsDirectory)){
+      dir.create(currentIterResultsDirectory)
+    }
+    
+    # Open fasta file connection
+    fastaPath <- file.path(currentIterResultsDirectory, 'alleleReference.fasta')
+    fastaCon <- file(fastaPath, 'w')
+    
+    # Open bed file connection
+    bedPath <- file.path(currentIterResultsDirectory, 'alleleReference.bed')
+    bedCon <- file(bedPath, 'w')
+    
+    # Pull out loci to create references for
+    #currentIterLociVect <- rownames(currentIterDF)
+    
+    # For each locus, write a reference allele and bed coordinates
+    #for(currentLocus in currentIterLociVect){
+    #  currentRefAllele <- currentRefAlleleDF[currentLocus,currentIter]
+    for(currentRefAllele in refAlleleVect){  
+      cat('\n',currentRefAllele)
+      
+      currentLocus <- strsplit(currentRefAllele,'*',fixed=T)[[1]][1]
+      
+      if(currentLocus == 'KIR2DL5A' | currentLocus == 'KIR2DL5B'){
+        currentLocus <- 'KIR2DL5'
+      }
+      
+      # Remove deletion positions from the allele string
+      noDelAlleleStr <- gsub('.','',locusRefList[[currentLocus]]$alleleStrList[[currentRefAllele]],fixed = T)
+      
+      # Add in 5UTR extension (by replacing current 5UTR with 1000bp 5UTR)
+      #UTRextName <- paste0(currentLocus,'_5UTR')
+      #UTRextStr5 <- UTRextList[[UTRextName]]
+      #noDelAlleleStr <- gsub(paste0(locusRefList[[currentLocus]]$alleleBedList[[currentRefAllele]]$`5UTR`$featSeq,
+      #                              locusRefList[[currentLocus]]$alleleBedList[[currentRefAllele]]$`E1`$featSeq),
+      #                       paste0(UTRextStr5,
+      #                              locusRefList[[currentLocus]]$alleleBedList[[currentRefAllele]]$`E1`$featSeq),
+      #                       noDelAlleleStr,
+      #                       fixed=T)
+      
+      # Add in 3UTR extension (by replacing current 5UTR with 1000bp 5UTR)
+      #lastExonLab <- names(locusRefList[[currentLocus]]$alleleBedList[[currentRefAllele]])[ (length(locusRefList[[currentLocus]]$alleleBedList[[currentRefAllele]])-1) ]
+      #UTRextName <- paste0(currentLocus,'_3UTR')
+      #UTRextStr3 <- UTRextList[[UTRextName]]
+      #noDelAlleleStr <- gsub(paste0(locusRefList[[currentLocus]]$alleleBedList[[currentRefAllele]][[lastExonLab]]$featSeq,
+      #                              locusRefList[[currentLocus]]$alleleBedList[[currentRefAllele]]$`3UTR`$featSeq),
+      #                       paste0(locusRefList[[currentLocus]]$alleleBedList[[currentRefAllele]][[lastExonLab]]$featSeq,
+      #                              UTRextStr3),
+      #                       noDelAlleleStr,
+      #                       fixed=T)
+      
+      # Replace all '*' with 'N'
+      noDelAlleleStr <- gsub('*','N',noDelAlleleStr,fixed=T)
+      
+      # Pull out bed coordinate list
+      alleleBed <- locusRefList[[currentLocus]]$alleleBedList[[currentRefAllele]]
+      
+      # Modify allele bed to account for 5' and 3' UTR extensions
+      #utr5ExtraLen <- nchar(UTRextStr5) - nchar(alleleBed$`5UTR`$featSeq)
+      #utr3ExtraLen <- nchar(UTRextStr3) - nchar(alleleBed$`3UTR`$featSeq)
+      
+      # Count the number of ambiguous characters in this reference allele
+      ambChrCount <- str_count(noDelAlleleStr, pattern=fixed('N'))
+      if(ambChrCount > 0){
+        message('\nAmbiguous characters found in reference allele\nAllele ID:\t',currentRefAllele,
+                '\nNumber:\t',ambChrCount)
+      }
+      
+      # Catch if the last bed coord and the no del reference allele length do not match
+      #if( (as.numeric(alleleBed$`3UTR`$endPos) + utr5ExtraLen + utr3ExtraLen) != nchar(noDelAlleleStr) ){
+      #  message('\nMismatch between BED coordinates to reference allele length\nAllele ID:\t',currentRefAllele,
+      #          '\nlast BED coord:\t',alleleBed$`3UTR`$endPos,
+      #          '\nallele length:\t',nchar(noDelAlleleStr),
+      #          '\niter:\t\t',currentIter)
+      #  close(bedCon)
+      #  close(fastaCon)
+      #  stop()
+      #}
+      
+      # Write allele seq to fasta file
+      general.write_fasta(fastaCon, currentRefAllele, noDelAlleleStr)
+      
+      # Write feature coordinates to bed file
+      sapply(alleleBed, function(x){
+        general.write_bed(bedCon, x$alleleName, x$startPos, x$endPos, x$featName)
+      })
+      
+    }
+    
+    # close connections
+    close(bedCon)
+    close(fastaCon)
+    
+    currentSample[['refIterVect']] <- iterVect
+  }
+  
+  currentSample[['iterRefDirectory']] <- currentSampleResultsDirectory
+  
+  return(currentSample)
+}
+
 
 # Write bowtie2 index
 sampleObj.iterBowtie2Index <- function(currentSample, bowtie2Build, threads){
@@ -353,7 +532,7 @@ iterAlign.sam_to_bam <- function(samtools, samPath, bamPath, threads){
 }
 
 # bowtie2-align
-sampleObj.iterBowtie2Align <- function(currentSample, bowtie2, threads, deleteSam=T, forceRun=F){
+sampleObj.iterBowtie2Align <- function(currentSample, bowtie2, threads, deleteSam=F, forceRun=F){
   
   if(currentSample$iterRefDirectory == 'failed'){
     return(currentSample)
@@ -411,6 +590,9 @@ sampleObj.iterBowtie2Align <- function(currentSample, bowtie2, threads, deleteSa
     output.sampleAlign <- system2(bowtie2, optionsCommand, stdout=T, stderr=T)
     
     check.system2_output(output.sampleAlign, 'bowtie2 gc alignment failed')
+    
+    ## Print the bowtie2 output
+    cat('\n',paste0(output.sampleAlign, collapse='\n'))
     
     iterAlign.sam_to_bam(samtools, 
                          currentSample[['iterSamPathList']][[currentIter]], 

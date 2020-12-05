@@ -241,6 +241,9 @@ allele.iter_alignments_to_snp_dfs <- function(currentSample, locusRefList, refer
   cat('\n\nProcessing alignment files for',currentSample$name,'.\n')
   
   # Initialize SNP dataframes
+  '
+  currentSample$refAlleleDF should be changed out
+  '
   sampleSnpDFList <- allele.initialize_SNP_tables(currentSample$iterRefDirectory, locusRefList, currentSample$refAlleleDF, 'iter')
   cat('\n')
   for(refIter in currentSample$refIterVect){
@@ -269,6 +272,7 @@ allele.iter_alignments_to_snp_dfs <- function(currentSample, locusRefList, refer
     
     # Pull out all loci 
     locusVect <- unique(vcfDT$Locus)
+    alleleVect <- unique(vcfDT$CHROM)
     
     cat('\n\t\tWriting SNP table(s)')
     
@@ -368,124 +372,156 @@ allele.iter_alignments_to_snp_dfs <- function(currentSample, locusRefList, refer
       })
       }
       
-      # Write the exon SNPs to the dataframe
-      exonSnpDF[paste0(refIter,'_SNP1'), unlist(exonDT$feat)] <- unlist(exonDT$SNP1)
-      exonSnpDF[paste0(refIter,'_SNP2'), unlist(exonDT$feat)] <- unlist(exonDT$SNP2)
+      exonSNPs.mat <- unlist( sapply( unique(exonDT$feat), function(x) {
+        snpVect <- unique( exonDT[feat == x,c(SNP1,SNP2)] ) 
+        vectLength <- length(snpVect)
+        if(vectLength > 2){
+          return(c('3SNP','3SNP'))
+        }else if(vectLength == 1){
+          return(c(snpVect,snpVect))
+        }else{
+          return(snpVect)
+        }
+      }) )
       
+      # Write the exon SNPs to the dataframe
+      #exonSnpDF[paste0(refIter,'_SNP1'), unlist(exonDT$feat)] <- unlist(exonDT$SNP1)
+      #exonSnpDF[paste0(refIter,'_SNP2'), unlist(exonDT$feat)] <- unlist(exonDT$SNP2)
+      
+      exonSnpDF[paste0(refIter,'_SNP1'), names( unlist( exonSNPs.mat[1,] ) )] <- unlist( exonSNPs.mat[1,] )
+      exonSnpDF[paste0(refIter,'_SNP2'), names( unlist( exonSNPs.mat[2,] ) )] <- unlist( exonSNPs.mat[2,] )
+      
+      'This part is currently not working in new system'
       # Write the exon DP4 to the dataframe
-      exon.DP4.DF[paste0(refIter,'_SNP1'), unlist(exonDT$feat)] <- unlist(exonDT$SNP1.DP4)
-      exon.DP4.DF[paste0(refIter,'_SNP2'), unlist(exonDT$feat)] <- unlist(exonDT$SNP2.DP4)
+      #exon.DP4.DF[paste0(refIter,'_SNP1'), unlist(exonDT$feat)] <- unlist(exonDT$SNP1.DP4)
+      #exon.DP4.DF[paste0(refIter,'_SNP2'), unlist(exonDT$feat)] <- unlist(exonDT$SNP2.DP4)
       
       snp1Row <- paste0(refIter,'_SNP1')
       snp2Row <- paste0(refIter,'_SNP2')
       
-      exonSnpDF <- allele.process_del_index(exonSnpDF, bedDelIndex, unique(exonDT$CHROM), snp1Row, snp2Row)
+      exonSnpDF <- new.allele.process_del_index(exonSnpDF, bedDelIndex, unique(exonDT$CHROM), snp1Row, snp2Row)
       
       write.csv(exonSnpDF, sampleSnpDFList[[currentLocus]]$exonSNPs$csvPath)
-      write.csv(exon.DP4.DF, sampleSnpDFList[[currentLocus]]$exonDP4$csvPath)
+      #write.csv(exon.DP4.DF, sampleSnpDFList[[currentLocus]]$exonDP4$csvPath)
       
       cat('\tINTRONs')
       intronDT <- vcfDT[ Locus == currentLocus ][ featLab %in% otherFeatNameVect ]
-      
+       
       # Split up SNPs from INDELs
       intronDTList <- general.VCF_sep_INDEL(intronDT)
       intronDT <- intronDTList$nodelDT
       intronIndelDT <- intronDTList$indelDT
       
       intronIndelBoolVect <- !sapply(intronIndelDT$genoVect, function(x) all(x == 1))
-      
+       
       # Write intron INDEL table
       if( any(intronIndelBoolVect) ){
         cat('\tINDELs')
         intronIndelDT <- intronIndelDT[intronIndelBoolVect,]
         intronIndelDT$refIter <- refIter
-        
+
         intronIndelRepList <- lapply(1:nrow(intronIndelDT), function(i){
           x <- intronIndelDT[i,]
           allele.formatIndelSnps(x$REF, x$SNP1, x$SNP2, x$featLab, x$featCoord)
         })
-        
+
         indelPath <- file.path(currentSample$iterRefDirectory, paste0(currentLocus,'_intronINDELs.tsv'))
-        
+
         if(refIter == 'iter_1' | !file.exists(indelPath)){
           appendBool <- FALSE
         }else{
           appendBool <- TRUE
         }
-        
+
         write.table(intronIndelDT[,c('CHROM','POS','ID',
                                      'REF','ALT','QUAL',
                                      'FILTER','INFO','FORMAT',
                                      'GENO','DP','SNP1',
                                      'SNP2','feat','featLab',
-                                     'featCoord','Locus','refIter')], 
-                    file=indelPath, sep='\t', quote = F, 
+                                     'featCoord','Locus','refIter')],
+                    file=indelPath, sep='\t', quote = F,
                     row.names = F, append=appendBool, col.names = !appendBool)
       }
-      
-      
-      intronSnpDF <- read.csv(sampleSnpDFList[[currentLocus]]$intronSNPs$csvPath, 
-                              stringsAsFactors = F, 
-                              check.names = F, 
+       
+       
+      intronSnpDF <- read.csv(sampleSnpDFList[[currentLocus]]$intronSNPs$csvPath,
+                              stringsAsFactors = F,
+                              check.names = F,
                               row.names = 1)
-      
-      intron.DP4.DF <- read.csv(sampleSnpDFList[[currentLocus]]$intronDP4$csvPath, 
-                              stringsAsFactors = F, 
-                              check.names = F, 
+
+      intron.DP4.DF <- read.csv(sampleSnpDFList[[currentLocus]]$intronDP4$csvPath,
+                              stringsAsFactors = F,
+                              check.names = F,
                               row.names = 1)
-      
+
       currentRow <- paste0(refIter,'_SNP1')
       if(!currentRow %in% rownames(intronSnpDF)){
         intronSnpDF[nrow(intronSnpDF)+1,] <- NA
         rownames(intronSnpDF)[nrow(intronSnpDF)] <- paste0(refIter,'_SNP1')
         intronSnpDF[nrow(intronSnpDF)+1,] <- NA
         rownames(intronSnpDF)[nrow(intronSnpDF)] <- paste0(refIter,'_SNP2')
-        
+
         intron.DP4.DF[nrow(intron.DP4.DF)+1,] <- NA
         rownames(intron.DP4.DF)[nrow(intron.DP4.DF)] <- paste0(refIter,'_SNP1')
         intron.DP4.DF[nrow(intron.DP4.DF)+1,] <- NA
         rownames(intron.DP4.DF)[nrow(intron.DP4.DF)] <- paste0(refIter,'_SNP2')
       }
-      
+
       if( any(intronIndelBoolVect) ){
         lapply(intronIndelRepList, function(x){
         snp1List <- x$SNP1
         snp2List <- x$SNP2
-        
+
         x.feat <- unique( tstrsplit(names(snp2List),'_',fixed=T)[[1]] )
         if(x.feat == '3UTR'){
           x.1.pos <- tstrsplit(names(snp1List),'_',fixed=T)[[2]]
           x.2.pos <- tstrsplit(names(snp2List),'_',fixed=T)[[2]]
-          
+
           # Skip INDEL processing that happens at the end of 3'UTR
           if( any( as.numeric( unique(c(x.1.pos, x.2.pos)) ) > 950 ) ) {
             return(NULL)
           }
         }
-        
+
         combNames <- unique(names(snp1List), names(snp2List))
-        
+
         # Remove INDEL positions from intron datatable
         intronDT <<- intronDT[ !feat %in% combNames ]
-        
+
         # Write INDEL positions to SNP DF
         intronSnpDF[paste0(refIter,'_SNP1'),names(snp1List)] <<- unlist(snp1List)
         intronSnpDF[paste0(refIter,'_SNP2'),names(snp2List)] <<- unlist(snp2List)
-        
+
         return(NULL)
       })
       }
+
+      
+      intronSNPs.mat <- unlist( sapply( unique(intronDT$feat), function(x) {
+        snpVect <- unique( intronDT[feat == x,c(SNP1,SNP2)] ) 
+        vectLength <- length(snpVect)
+        if(vectLength > 2){
+          return(c('3SNP','3SNP'))
+        }else if(vectLength == 1){
+          return(c(snpVect,snpVect))
+        }else{
+          return(snpVect)
+        }
+      }) )
+      
+      intronSnpDF[paste0(refIter,'_SNP1'), names( unlist( intronSNPs.mat[1,] ) )] <- unlist( intronSNPs.mat[1,] )
+      intronSnpDF[paste0(refIter,'_SNP2'), names( unlist( intronSNPs.mat[2,] ) )] <- unlist( intronSNPs.mat[2,] )
       
       # Write the intron SNPs to the dataframe
-      intronSnpDF[paste0(refIter,'_SNP1'), unlist(intronDT$feat)] <- unlist(intronDT$SNP1)
-      intronSnpDF[paste0(refIter,'_SNP2'), unlist(intronDT$feat)] <- unlist(intronDT$SNP2)
-      
-      # Write the intron DP4 to the dataframe
-      intron.DP4.DF[paste0(refIter,'_SNP1'), unlist(intronDT$feat)] <- unlist(intronDT$SNP1.DP4)
-      intron.DP4.DF[paste0(refIter,'_SNP2'), unlist(intronDT$feat)] <- unlist(intronDT$SNP2.DP4)
-      
-      intronSnpDF <- allele.process_del_index(intronSnpDF, bedDelIndex, unique(exonDT$CHROM), snp1Row, snp2Row)
-      
+      #intronSnpDF[paste0(refIter,'_SNP1'), unlist(intronDT$feat)] <- unlist(intronDT$SNP1)
+      #intronSnpDF[paste0(refIter,'_SNP2'), unlist(intronDT$feat)] <- unlist(intronDT$SNP2)
+
+      # # Write the intron DP4 to the dataframe
+      # intron.DP4.DF[paste0(refIter,'_SNP1'), unlist(intronDT$feat)] <- unlist(intronDT$SNP1.DP4)
+      # intron.DP4.DF[paste0(refIter,'_SNP2'), unlist(intronDT$feat)] <- unlist(intronDT$SNP2.DP4)
+      # 
+      intronSnpDF <- new.allele.process_del_index(intronSnpDF, bedDelIndex, unique(intronDT$CHROM), snp1Row, snp2Row)
+       
       write.csv(intronSnpDF, sampleSnpDFList[[currentLocus]]$intronSNPs$csvPath)
       write.csv(intron.DP4.DF, sampleSnpDFList[[currentLocus]]$intronDP4$csvPath)
     }
@@ -608,6 +644,12 @@ allele.iter_combine_KIR2DL23 <- function( currentSample, knownSnpDFList, alleleF
     }
   }
   
+  anyNAindex <- which( apply(KIR2DL23SnpDF[rowVect,], 2, function(x){any(is.na(x))}) )
+  
+  if(length(anyNAindex) > 0){
+    KIR2DL23SnpDF[rowVect,names(anyNAindex)] <- NA
+  }
+  
   write.csv(x = KIR2DL23SnpDF, file = snpFilePath )
   
   currentSample[['iterSnpDFList']][['KIR2DL23']] <- list()
@@ -644,7 +686,54 @@ allele.filter.process_del_index <- function(snpDF, bedDelIndex, snp1Row, snp2Row
   return(snpDF)
 }
 
+new.allele.process_del_index <- function(snpDF, bedDelIndex, alleleVect, snp1Row, snp2Row){
+  
+  
+  for(alleleName in alleleVect){
+    
+    for( featName in names(bedDelIndex[[alleleName]]) ){
+      
+      curDelIndex <- bedDelIndex[[alleleName]][[featName]]
+      
+      if( length(curDelIndex) == 0 ){
+        next
+      }
+      
+      for(curDelPos  in curDelIndex){
+        curPos <- paste0(featName,'_',curDelPos)
+        
+        if( !curPos %in% colnames(snpDF) ){
+          next
+        }else{
+          #cat('\n',alleleName,'',featName)
+          #stop()
+        }
+        
+        prevPos <- paste0(featName,'_',curDelPos-1)
+        
+        # If the previous position passed QC checks and the current position is undefined, then replace NA's with '.'
+        if( !any(is.na(snpDF[c(snp1Row, snp2Row),prevPos])) ){
+          
+          if( all(is.na(snpDF[c(snp1Row, snp2Row), curPos])) ){
+            
+            snpDF[c(snp1Row, snp2Row), curPos] <- '.'
+          }else if( length(unique(snpDF[c(snp1Row,snp2Row),curPos])) == 1 ){
+            # if the current position is defined, then we set this as a heterozygous deletion position
+            snpDF[c(snp1Row,snp2Row),curPos] <- c( unique(snpDF[c(snp1Row,snp2Row),curPos]), '.' )
+          }
+        }
+      }
+      
+    }
+  }
+  
+  return(snpDF)
+}
+
+
 allele.process_del_index <- function(snpDF, bedDelIndex, alleleName, snp1Row, snp2Row){
+  
+  
   
   for( featName in names(bedDelIndex[[alleleName]]) ){
     
@@ -880,18 +969,20 @@ general.del_insert <- function(noDelStr,delIndexVect){
 general.read_VCF <- function(vcfFile){
   
   #vcfDT <- fread(vcfFile)
-  
+
   vcfDT <- tryCatch({
     fread(vcfFile)
   },
   error=function(cond){
     message('failure to read VCF')
+    message(cond)
     return('failure')
-  },
-  warning=function(cond){
-    message('failure to read VCF')
-    return('failure')
-  }
+  }#,
+  #warning=function(cond){
+  #  message('warning in reading VCF')
+  #  message(cond)
+  #  return('failure')
+  #}
   )
   
   if(length(vcfDT) == 1){
@@ -945,7 +1036,7 @@ allele.combine_iter_snps <- function(currentSample, snpDFList, dp4SnpRatio=5){
     masterIntronSnpDFPath <- snpDFList[[currentLocus]]$intronSNPs$csvPath
     
     sampleExonSnpDFPath <- currentSample$iterSnpDFList[[currentLocus]]$exonSNPs$csvPath
-    sampleExonDP4DFPath <- currentSample$iterSnpDFList[[currentLocus]]$exonDP4$csvPath
+    #sampleExonDP4DFPath <- currentSample$iterSnpDFList[[currentLocus]]$exonDP4$csvPath
     sampleIntronSnpDFPath <- currentSample$iterSnpDFList[[currentLocus]]$intronSNPs$csvPath
     
     # Intron Processing
@@ -991,10 +1082,10 @@ allele.combine_iter_snps <- function(currentSample, snpDFList, dp4SnpRatio=5){
                                 check.names = F,
                                 row.names = 1)
     
-    sampleExonDP4DF <- read.csv(sampleExonDP4DFPath,
-                                stringsAsFactors = F,
-                                check.names = F,
-                                row.names = 1)
+    #sampleExonDP4DF <- read.csv(sampleExonDP4DFPath,
+    #                            stringsAsFactors = F,
+    #                            check.names = F,
+    #                            row.names = 1)
     
     masterExonSnpDF <- read.csv(masterExonSnpDFPath,
                                 stringsAsFactors = F,
@@ -1015,20 +1106,20 @@ allele.combine_iter_snps <- function(currentSample, snpDFList, dp4SnpRatio=5){
       snpVect <- sampleExonSnpDF[2:nrow(sampleExonSnpDF),currentCol]
       snpVect <- snpVect[!is.na(snpVect)]
       
-      dp4Vect <- sampleExonDP4DF[2:nrow(sampleExonSnpDF),currentCol]
-      dp4Vect <- as.numeric( dp4Vect[!is.na(dp4Vect)] )
+      #dp4Vect <- sampleExonDP4DF[2:nrow(sampleExonSnpDF),currentCol]
+      #dp4Vect <- as.numeric( dp4Vect[!is.na(dp4Vect)] )
       
-      uniqueSnpVect <- unique(snpVect)
+      #uniqueSnpVect <- unique(snpVect)
       
-      if( length(dp4Vect) > 0 && length( uniqueSnpVect ) > 1 ){
+      #if( length(dp4Vect) > 0 && length( uniqueSnpVect ) > 1 ){
         #maxDP4 <- max( dp4Vect )
         #dp4Thresh <- as.integer( maxDP4*dp4SnpRatio )
-        dp4Thresh <- dp4SnpRatio
+      #  dp4Thresh <- dp4SnpRatio
         
-        snpVect <- unique( snpVect[ dp4Vect >= dp4Thresh ] )
-      }else{
-        snpVect <- uniqueSnpVect
-      }
+      #  snpVect <- unique( snpVect[ dp4Vect >= dp4Thresh ] )
+      #}else{
+      #snpVect <- uniqueSnpVect
+      #}
       
       #snpVect <- uniqueSnpVect
       
@@ -1205,18 +1296,27 @@ allele.call_allele <- function(currentSample, currentLocus, alleleFileDirectory,
   sampleSnpDF <- locusExonSnpDF[sampleRows,]
   
   if( workflow == 'filter' & currentLocus %in% c( 'KIR2DL1', 'KIR2DL5' ) ){
-    sampleSnpDF <- filter_contam_snps( currentSample, currentLocus, sampleSnpDF )
+    #sampleSnpDF <- filter_contam_snps( currentSample, currentLocus, sampleSnpDF )
+    sampleSnpDF <- tryCatch({
+      filter_contam_snps( currentSample, currentLocus, sampleSnpDF )
+    },
+    error = function(cond){
+      message('failure to filter snps.')
+      message(cond)
+      return(sampleSnpDF)
+    })
   }
+  
   
   # Pull out the aligned positions that passed QC checks
   definedCols <- colnames(sampleSnpDF)[apply(sampleSnpDF, 2, function(x){ all(is_nuc(x)) })]
   
   # Take out any masked positions ( usually deletion positions with poor alignment accuracy )
-  if( currentLocus %in% names(maskedPosList) & workflow == 'iter' ){
-    definedCols <- definedCols[ !definedCols %in% maskedPosList[[currentLocus]] ]
-    
-    sampleSnpDF <- sampleSnpDF[,definedCols]
-  }
+  #if( currentLocus %in% names(maskedPosList) & workflow == 'iter' ){
+  #  definedCols <- definedCols[ !definedCols %in% maskedPosList[[currentLocus]] ]
+  #  
+  #  sampleSnpDF <- sampleSnpDF[,definedCols]
+  #}
   
   # Format sample DF and transform into data table
   sampleSnpDT <- as.data.table(sampleSnpDF)
@@ -1298,14 +1398,27 @@ allele.call_allele <- function(currentSample, currentLocus, alleleFileDirectory,
   # Bool check is fix for no AD homozygous positions
   if( homBool ){
     cat('\nScoring hom positions.')
-    # Narrow down adSnpDT
-    homScoreList <- sapply(rownames(adSnpDF), function(x){
-      sum(sapply(homPosVect, function(y){
-        addScore <- (adSnpDT[x, ..y] != sampleSnpDT[1, ..y])*1
-        subScore <- (adSnpDT[x, ..y] == '*')*1
-        max(0,addScore-subScore)
-      }))
+    
+    # More efficient method to norrow down adSnpDT
+    scoreDF <- sapply( homPosVect, function(x){
+      outVect1 <- (adSnpDT[,..x] != sampleSnpDT[1,..x][[1]])*1
+      outVect2 <- (adSnpDT[,..x] != '*')*1
+      
+      finalOutVect <- pmin(outVect1, outVect2)
+      names(finalOutVect) <- adSnpDT$alleleName
+      return(finalOutVect)
     })
+    
+    homScoreList <- apply(scoreDF, 1, sum)
+    
+    # Narrow down adSnpDT
+    #homScoreList <- sapply(rownames(adSnpDF), function(x){
+    #  sum(sapply(homPosVect, function(y){
+    #    addScore <- (adSnpDT[x, ..y] != sampleSnpDT[1, ..y])*1
+    #    subScore <- (adSnpDT[x, ..y] == '*')*1
+    #    max(0,addScore-subScore)
+    #  }))
+    #})
   }
   
   homScoreBuffer <- 1
@@ -1404,7 +1517,7 @@ allele.save_new_allele <- function( currentSample, currentLocus, knownSnpDF, sam
     alleleVect <- strsplit(x,'+',fixed=T)[[1]]
     
     scoreList <- sapply(checkCols, function(curPos){
-      
+      #cat('\n',curPos)
       if( all( is.na(sampleSnpDF[,curPos]) ) ){
         return(0)
       }
@@ -1676,7 +1789,7 @@ allele.filter_alignments_to_snp_dfs <- function(currentSample, locusRefList, min
   for( currentLocus in names(currentSample$filterVCFList) ){
     
     cat('\n',currentLocus)
-    
+
     vcfPath <- currentSample$filterVCFList[[currentLocus]]
     bedPath <- currentSample$filterBEDList[[currentLocus]]
     
@@ -1694,7 +1807,21 @@ allele.filter_alignments_to_snp_dfs <- function(currentSample, locusRefList, min
     otherFeatNameVect <- setdiff(kirLocusFeatureNameList[[realLocus]], exonFeatNameVect)
     
     cat('\n\tReading VCF')
-    vcfDT <- general.read_VCF(vcfPath)
+    
+    vcfDT <- tryCatch({
+      general.read_VCF(vcfPath)
+    },
+    error=function(cond){
+      message('failure to read VCF')
+      message(cond)
+      return('failure')
+    }#,
+    #warning=function(cond){
+    #  message('warning in reading VCF')
+    #  message(cond)
+    #  return('failure')
+    #}
+    )
     
     # VCF failure condition ( most likely due to insufficient depth )
     if( length(vcfDT) == 1 ){
