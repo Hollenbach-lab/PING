@@ -15,10 +15,10 @@ library(gtools)
 
 
 # Initialization variables ------------------------------------------------
-rawFastqDirectory <- '/home/wmarin/african_samples/1_raw_fastq/' # can be set to raw sequence or extractedFastq directory
+rawFastqDirectory <- 'test_sequence/' # can be set to raw sequence or extractedFastq directory
 fastqPattern <- 'fastq' # use '_KIR_' to find already extracted files, otherwise use 'fastq' or whatever fits your data
 threads <- 36
-resultsDirectory <- '/home/wmarin/african_samples/3_validation_gc_align_method/' # Set the master results directory (all pipeline output will be recorded here)
+resultsDirectory <- '3_test_sequence_results/' # Set the master results directory (all pipeline output will be recorded here)
 shortNameDelim <- '_' # can set a delimiter to shorten sample ID's (ID will be characters before delim)
 setup.hetRatio <- 0.5
 final.hetRatio <- 0.25
