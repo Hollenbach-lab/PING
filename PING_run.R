@@ -64,6 +64,7 @@ sampleList <- ping_copy.graph(sampleList=sampleList,threads=threads,resultsDirec
 '
 
 sampleList <- ping_copy.manual_threshold(sampleList=sampleList,resultsDirectory=resultsDirectory,use.threshFile = T) # this function sets copy thresholds
+sampleList <- ping_copy.load_copy_results( sampleList, resultsDirectory )
 
 # Fix for poor 2DL2 
 #sapply(sampleList, function(x) x$copyNumber[['KIR2DL2']] <- as.character(2-as.integer(x$copyNumber[['KIR2DL3']])))
