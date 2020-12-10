@@ -24,7 +24,7 @@ library(plotly)
 ###########
 source('Resources/gc_functions.R')
 
-ping_copy.version <- '2.0'
+ping_copy.version <- '2.1'
 cat('\nPING_copy version:',ping_copy.version)
 
 ping_copy.graph <- function(sampleList=list(),
@@ -34,7 +34,8 @@ ping_copy.graph <- function(sampleList=list(),
                     maxReadThreshold=50000,
                     probelistFile='probelist_2020_05_07.csv',
                     onlyKFF=F,
-                    forceRun=F){
+                    forceRun=F,
+                    fullAlign=F){
   predictCopy=F
   kirLocusList <- c('KIR3DP1','KIR2DS5','KIR2DL3','KIR2DP1',
                     'KIR2DS3','KIR2DS2','KIR2DL4','KIR3DL3',
@@ -72,9 +73,14 @@ ping_copy.graph <- function(sampleList=list(),
   gcResourceDirectory <- normalizePath('Resources/gc_resources', mustWork = T)
   ### /Set up
   
-  ### Read in reference files
-  kirReferenceFasta <- normalizePath(file.path(gcResourceDirectory,'filled_kir_reference','KIR_gen_onelines_filled.fasta'), mustWork=T)
-  kirReferenceIndex <- file.path(gcResourceDirectory,'filled_kir_reference','KIR_gen_onelines_filled')
+  if( fullAlign ){
+    ### Read in reference files
+    kirReferenceFasta <- normalizePath(file.path(gcResourceDirectory,'filled_kir_reference','KIR_gen_onelines_filled.fasta'), mustWork=T)
+    kirReferenceIndex <- file.path(gcResourceDirectory,'filled_kir_reference','KIR_gen_onelines_filled')
+  }else{
+    kirReferenceFasta <- normalizePath(file.path(gcResourceDirectory,'filled_kir_reference','KIR_compact_filled.fasta'), mustWork=T)
+    kirReferenceIndex <- file.path(gcResourceDirectory,'filled_kir_reference','KIR_compact_filled')
+  }
   ### /Read in
   
   ### Initialize lists of kir alleles at different resolutions
@@ -419,7 +425,7 @@ ping_copy.manual_threshold <- function(sampleList=list(),resultsDirectory='',use
     threshPath <- normalizePath(threshPath, mustWork=T)
     cat(paste0('\nFound manualCopyThresholds.csv in ',threshPath,'. Loading these results.'))
     thresholdDF <- read.csv(threshPath, stringsAsFactors=F, check.names=F,row.names=1)
-  
+    thresholdNA.bool <- all( apply(thresholdDF, 1, function(x) all( is.na(x)) ) )
   }
   
   
@@ -431,9 +437,10 @@ ping_copy.manual_threshold <- function(sampleList=list(),resultsDirectory='',use
   copyNumberDF <- data.frame(locusCountDF)
   copyNumberDF[,] <- 0
   
-  if( use.threshFile==T & !threshFile.bool ){
+  
+  if( (use.threshFile & !threshFile.bool) | (use.threshFile & thresholdNA.bool) ){
     
-    cat("\nuse.threshFile set to TRUE but manualCopyThresholds.csv not found. Terminating run.")
+    cat("\nuse.threshFile set to TRUE but manualCopyThresholds.csv is either not found or not filled out. Terminating run.")
     stop()
     
   }else if( use.threshFile==T & threshFile.bool ){

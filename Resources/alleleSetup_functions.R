@@ -23,9 +23,7 @@ for(locus in kirLocusList){
 
 alleleSetupRef.df <- read.table('Resources/genotype_resources/gc_allele_reference.csv',stringsAsFactors = F, sep=',', check.names=F,row.names=1)
 
-if(!allele.fullAlign){
-  alleleSeq.list <- alleleSeq.list[ names(alleleSeq.list) %in% unlist(alleleSetupRef.df) ]
-}
+compact.alleleSeq.list <- alleleSeq.list[ names(alleleSeq.list) %in% unlist(alleleSetupRef.df) ]
 
 delIndex.list <- list()
 for( locus in names(setup.knownSnpDFList) ){
@@ -381,51 +379,9 @@ alleleSetup.read_formatter <- function( readName, currentSeq, refPos, currentLoc
 
 alleleSetup.process_samDT <- function( samPath, delIndex.list, processSharedReads, readBoost.thresh){
   
-  #currentSample <- samtools.bam_to_sam(samtools, currentSample, '/home/LAB_PROJECTS/PING2_PAPER/3_validation_gc_align_method/gc_bam_files/', threads)
-  
   # Read in SAM file, then delete SAM to save space
   nHead <- general.count_sam_header( samPath )
   samTable <- general.read_sam( samPath , rows_to_skip = nHead )
-  
-  #nHead <- general.count_sam_header( currentSample$samPath )
-  #samTable <- general.read_sam( currentSample$samPath, rows_to_skip = nHead )
-  
-  
-  # Separate KIR2DL1 & KIR2DS1 reads
-  # if( 'KIR2DL1' %in% samTable$locus & 'KIR2DS1' %in% samTable$locus & sepL1S1 ){
-  #   maxScoreBuffer <- 6
-  #   cat("\n\tRunning 2DL1 / 2DS1 cross-mapped read separation method with maxScoreBuffer=",maxScoreBuffer)
-  #   
-  #   L1.readVect <- unique( samTable[locus == 'KIR2DL1']$read_name )
-  #   S1.readVect <- unique( samTable[locus == 'KIR2DS1']$read_name )
-  #   L1S1.readVect <- intersect( L1.readVect, S1.readVect )
-  # 
-  #   subSamTable <- samTable[read_name %in% L1S1.readVect][,sum(alignment_score),by=c('read_name','reference_name','locus')]
-  # 
-  #   maxScore.subSamTable <- subSamTable[subSamTable[,V1 >= (max(V1)-maxScoreBuffer),by=c('read_name')]$V1,]
-  #   maxScore.isUniqueDT <- maxScore.subSamTable[,length(unique(locus)) == 1,by='read_name']
-  #   maxScore.uniqueReadVect <- maxScore.isUniqueDT$read_name[maxScore.isUniqueDT$V1]
-  # 
-  #   L1.selectedReadVect <- unique( maxScore.subSamTable[ read_name %in% maxScore.uniqueReadVect & locus == 'KIR2DL1']$read_name )
-  #   S1.selectedReadVect <- unique( maxScore.subSamTable[ read_name %in% maxScore.uniqueReadVect & locus == 'KIR2DS1']$read_name )
-  # 
-  #   L1.samTable <- samTable[ read_name %in% L1.selectedReadVect & locus == 'KIR2DL1' ]
-  #   S1.samTable <- samTable[ read_name %in% S1.selectedReadVect & locus == 'KIR2DS1' ]
-  # 
-  #   L1S1.samTable <- merge(L1.samTable, S1.samTable, all=T)
-  # 
-  #   L1S1.selectedReadVect <- unique( c(L1.selectedReadVect, S1.selectedReadVect) )
-  # 
-  #   samTable <- merge( samTable[ !(read_name %in% L1S1.selectedReadVect) ], L1S1.samTable, all=T, by=colnames(L1S1.samTable))
-  # }
-  # 
-  #samTable$combLocus <- samTable$locus
-  
-  # if(combS35){
-  #   if( all(c('KIR2DS3','KIR2DS5') %in% unique(samTable$locus) )){
-  #     samTable[ locus %in% c('KIR2DS3','KIR2DS5')]$combLocus <- 'KIR2DS35'
-  #   }
-  # }
   
   # Pull out reads that align to s single locus
   isUniqueDT <- samTable[, length( unique(locus) ) == 1, by=read_name ]
@@ -434,17 +390,21 @@ alleleSetup.process_samDT <- function( samPath, delIndex.list, processSharedRead
   sharedReadVect <- isUniqueDT$read_name[!isUniqueDT$V1]
   
   if(processSharedReads){
-    readBoost.LociVect <- c('KIR2DS1','KIR2DS2','KIR3DS1','KIR2DL2')
     cat("\n\tRunning cross-mapped read separation with readBoost.thresh (alignment score buffer) =",readBoost.thresh)
-    cat('\n\tImpacted genes:',sharedReadLociVect)
-    sharedSamTable <- samTable[read_name %in% sharedReadVect & locus %in% readBoost.LociVect]
-    summed.sharedSamTable <- sharedSamTable[,sum(alignment_score), by=c('read_name','reference_name','locus')]
-    maxScore.sharedSamTable <- summed.sharedSamTable[summed.sharedSamTable[,V1 >= (max(V1)-maxScoreBuffer),by=c('read_name')]$V1,]
-    maxScore.isUniqueDT <- maxScore.sharedSamTable[,length(unique(locus)) == 1,by=c('read_name')]
-    maxScore.uniqueReadVect <- maxScore.isUniqueDT$read_name[maxScore.isUniqueDT$V1]
     
-    addSamTable <- samTable[ read_name %in% maxScore.uniqueReadVect ]
+    sharedSamTable <- samTable[read_name %in% sharedReadVect]
+    sharedSamTable$asSum <- 0
+    sharedSamTable[,asSum:= sum(alignment_score), by=c('read_name','reference_name')]
+    
+    passedThresh.index <- sharedSamTable[,asSum >= (max(asSum) - readBoost.thresh),by=c('read_name')]$V1
+    passedThresh.sharedSamTable <- sharedSamTable[passedThresh.index,]
+    
+    unique.passedThresh.subDT <- passedThresh.sharedSamTable[,length(unique(locus)) == 1,by='read_name']
+    unique.sharedReadVect <- unique.passedThresh.subDT$read_name[unique.passedThresh.subDT$V1]
+    
+    addSamTable <- passedThresh.sharedSamTable[ read_name %in% unique.sharedReadVect ]
     addSamTable <- unique(addSamTable, by=c('read_seq'))
+    
     cat("\n\tRescued",nrow(addSamTable),'reads.')
   }
   
@@ -458,13 +418,7 @@ alleleSetup.process_samDT <- function( samPath, delIndex.list, processSharedRead
   
   rm(samTable)
   
-  #uniqueSamDT$readTable <- list()
-  
-  #cigarMod.indel.index <- grepl('D', uniqueSamDT$cigarStr) & grepl('I', uniqueSamDT$cigarStr)
-  
   cat('\nFormatting reads.')
-  #uniqueSamDT[cigarMod.del.index,'read_seq' := samFormat.adjustReadSeq( cigarStr, read_seq), by=seq_len(nrow(uniqueSamDT))]
-  #uniqueSamDT$readLen <- nchar(uniqueSamDT$read_seq)
   uniqueSamDT[, 'readTable' := alleleSetup.read_formatter(read_name, read_seq, ref_pos, locus, reference_name, cigarStr), by=seq_len(nrow(uniqueSamDT))]
   
   return(uniqueSamDT)
@@ -1025,7 +979,7 @@ pingAllele.generate_snp_df <- function( currentSample, uniqueSamDT, setup.knownS
   cat('\nSorting read table by locus and alignment coordinates.')
   uniqueSamDT <- uniqueSamDT[order(locus, startPos)]
   
-  currentSample[['snpDFPathList']][[workflow]] <- list()
+  currentSample[['snpDFPathList']][[workflow]] <- list('DP'=list(),'SNP'=list())
   
   cat('\n\nGenerating SNP tables for',paste0(currentSample$name,':'))
   for(currentLocus in unique(uniqueSamDT$locus)){
@@ -1067,14 +1021,15 @@ pingAllele.generate_snp_df <- function( currentSample, uniqueSamDT, setup.knownS
     colnames(currentDepthDF) <- colnames(locusSnpDF)
     
     write.csv(currentDepthDF, file.path(currentSample$iterRefDirectory,paste0(workflow,'_',currentLocus,'_DP.csv')))
-    # cat('\n\t\tCompleted depth file generation')
-    
+    currentSample[['snpDFPathList']][[workflow]][['DP']][[currentLocus]] <- file.path(currentSample$iterRefDirectory,paste0(workflow,'_',currentLocus,'_DP.csv'))
+    cat('\n\t\tCompleted depth file generation')
+
     currentSnpDF <- as.data.frame( matrix('',nrow=3,ncol=ncol(currentDepthDF)),stringsAsFactors=F)
     passedMinDP.index <- apply(currentDepthDF,2,sum)>=minDP
-    
+
     currentSnpDF <- currentSnpDF[,passedMinDP.index]
     currentDepthDF <- currentDepthDF[,passedMinDP.index]
-    
+
     currentSnpDF[,] <- apply( currentDepthDF, 2, function(x){
       snpIndex <- which( ( x / max(x) ) > hetRatio )
       snpVect <- names(nucListConvWIns)[snpIndex]
@@ -1082,13 +1037,13 @@ pingAllele.generate_snp_df <- function( currentSample, uniqueSamDT, setup.knownS
       returnVect <- c(snpVect,addVect)
       return(returnVect[1:3])
     })
-    
+
     colnames(currentSnpDF) <- colnames(currentDepthDF)
     rownames(currentSnpDF) <- c('SNP_1','SNP_2','SNP_3')
-    
+
     write.csv(currentSnpDF, file.path(currentSample$iterRefDirectory,paste0(workflow,'_',currentLocus,'_SNP.csv')))
-    # cat('\n\t\tCompleted SNP file generation')
-    currentSample[['snpDFPathList']][[workflow]][[currentLocus]] <- file.path(currentSample$iterRefDirectory,paste0(workflow,'_',currentLocus,'_SNP.csv'))
+    cat('\n\t\tCompleted SNP file generation')
+    currentSample[['snpDFPathList']][[workflow]][['SNP']][[currentLocus]] <- file.path(currentSample$iterRefDirectory,paste0(workflow,'_',currentLocus,'_SNP.csv'))
   }
   return(currentSample)
 }

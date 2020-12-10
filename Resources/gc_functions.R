@@ -141,12 +141,12 @@ run.bowtie2_gc_alignment <- function(bowtie2_command, reference_index, threads, 
   
   ## Building up the run command
   optionsCommand <- c(paste0('-x ',reference_index),
-                      '-5 0', '-3 6', '-N 0', '--end-to-end', paste0('-p ',threads), '--score-min "L,-2,-0.02"',
+                      '-5 0', '-3 6', '-N 0', '--end-to-end', paste0('-p ',threads), '--score-min "L,-2,-0.08"',
                       '-I 75', '-X 1000',
                       paste0('-1 ',current_sample$kirfastq1path),
                       paste0('-2 ',current_sample$kirfastq2path),
                       '--no-unal',
-                      '-a','--np 0', '--mp 2,2', '--rdg 1,1', '--rfg 1,1',
+                      '-a','--np 1', '--mp 2,2', '--rdg 1,1', '--rfg 1,1',
                       paste0('-S ',current_sample$samPath))
   
   ## Run the bowtie2 alignment command
