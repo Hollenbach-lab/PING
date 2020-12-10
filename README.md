@@ -18,7 +18,7 @@ R
 
 
 ### Ubuntu 20.04 command-line install of dependencies
-`sudo apt install docker`
+`sudo apt install docker.io`
 
 
 ## Setting up pipeline
