@@ -12,7 +12,8 @@ RUN apt-get update -qq && apt-get -y --no-install-recommends install \
     libcurl4-openssl-dev \
     samtools \
     bcftools \
-    libxml2-dev
+    libxml2-dev \
+    pandoc
 
 RUN wget https://sourceforge.net/projects/bowtie-bio/files/bowtie2/2.3.4.1/bowtie2-2.3.4.1-source.zip/download
 RUN unzip download
