@@ -1,5 +1,33 @@
 # PING docker
+An R-based bioinformatic pipeline to determine killer-cell immunoglobulin-like receptor (KIR) copy number and genotypes from short-read sequencing data.
+
 This branch of PING is setup to be run using Docker [https://www.docker.com/]
+
+
+## Language
+R
+
+
+## System compatibility
+* Linux (tested on Ubuntu, CentOs)
+* Possible on OS X, but untested
+
+
+## System dependencies download and install
+* docker 
+
+
+### Ubuntu 20.04 command-line install of dependencies
+`sudo apt install docker`
+
+
+## Setting up pipeline
+### Downloading pipeline code
+Option 1: Download zip file `wget https://github.com/wesleymarin/PING/archive/ping-reborn.zip ; unzip ping-reborn.zip`
+
+Option 2: Clone repository `git clone https://github.com/wesleymarin/PING.git`
+          Switch to docker branch  `git checkout ping-reborn`
+
 
 ## Docker environment variables
 `CWD` Set to local PING directory (default ~/PING)
