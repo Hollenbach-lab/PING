@@ -17,7 +17,7 @@ library(gtools)
 
 # Initialization variables ------------------------------------------------
 rawFastqDirectory <- Sys.getenv("RAW_FASTQ_DIR", unset='~/PING/test_sequence/') # can be set to raw sequence or extractedFastq directory
-fastqPattern <- Sys.getenv("FASTQ_PATTERN", unset='_KIR_') # use '_KIR_' to find already extracted files, otherwise use 'fastq' or whatever fits your data
+fastqPattern <- Sys.getenv("FASTQ_PATTERN", unset='fastq') # use '_KIR_' to find already extracted files, otherwise use 'fastq' or whatever fits your data
 threads <- Sys.getenv("THREADS", unset=4)
 resultsDirectory <- Sys.getenv("RESULTS_DIR", unset='~/3_test_sequence_results/') # Set the master results directory (all pipeline output will be recorded here)
 shortNameDelim <- Sys.getenv("SHORTNAME_DELIM", unset='_') # can set a delimiter to shorten sample ID's (ID will be characters before delim)
