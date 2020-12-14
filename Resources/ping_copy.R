@@ -69,6 +69,10 @@ ping_copy.graph <- function(sampleList=list(),
     dir.create(bamDirectory)
   }
   
+  ## Create directory for holding the SNP output files
+  snpDir <- pathObj(name='snp_output',path=file.path(resultsDirectory,'snp_output'))
+  snpDir$dirGen()
+  
   #sequenceDirectory <- normalizePath(sequenceDirectory, mustWork=T)
   gcResourceDirectory <- normalizePath('Resources/gc_resources', mustWork = T)
   ### /Set up
@@ -297,22 +301,31 @@ ping_copy.graph <- function(sampleList=list(),
       currentSample <- samtools.bam_to_sam(samtools, currentSample, bamDirectory, threads)
     }
     
-    ## Count how many header lines there in the SAM file so they can be skipped during read in
-    headerLineCountInt <- samfile.count_header_lines(currentSample)
-    
-    ## Read in the SAM file to analyze where the reads are aligning
-    samTable <- read.bowtie2_sam_nohd(currentSample, rows_to_skip=headerLineCountInt)
-    
-    file.remove(currentSample$samPath) ## Remove the SAM file to save space
-    
-    cat('\nCounting reads that align uniquely to a locus or allele ')
-    
-    ## Count how many reads align uniquely to a locus or allele
-    countList <- run.count_kir_read_matches(currentSample, samTable, maxReadThreshold, kirLocusList, kirAlleleListRes3)
+    samDT <- alleleSetup.process_samDT( currentSample$samPath, delIndex.list,processSharedReads = copy.readBoost, readBoost.thresh = 2 )
     
     ## Add the counts to the appropriate count dataframe
-    locusCountDF[currentSample$name,names(countList$locusMatches)] = countList$locusMatches
-    #alleleCountDF[currentSample$name,names(countList$alleleMatches)] = countList$alleleMatches
+    locusCount.tab <- table( samDT$locus )
+    locusCountDF[currentSample$name,names(locusCount.tab)] = as.integer( locusCount.tab )
+    
+    currentSample <- pingAllele.generate_snp_df( currentSample, samDT, snpDir$path, setup.knownSnpDFList,'copy', setup.hetRatio, setup.minDP)
+    
+    # 
+    # ## Count how many header lines there in the SAM file so they can be skipped during read in
+    # headerLineCountInt <- samfile.count_header_lines(currentSample)
+    # 
+    # ## Read in the SAM file to analyze where the reads are aligning
+    # samTable <- read.bowtie2_sam_nohd(currentSample, rows_to_skip=headerLineCountInt)
+    # 
+    file.remove(currentSample$samPath) ## Remove the SAM file to save space
+    
+    # cat('\nCounting reads that align uniquely to a locus or allele ')
+    # 
+    # ## Count how many reads align uniquely to a locus or allele
+    # countList <- run.count_kir_read_matches(currentSample, samTable, maxReadThreshold, kirLocusList, kirAlleleListRes3)
+    # 
+    # ## Add the counts to the appropriate count dataframe
+    # locusCountDF[currentSample$name,names(countList$locusMatches)] = countList$locusMatches
+    # #alleleCountDF[currentSample$name,names(countList$alleleMatches)] = countList$alleleMatches
     
     ## Write the results to a csv file
     write.csv(locusCountDF, file = locusCountDFFile)
