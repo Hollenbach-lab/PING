@@ -1020,9 +1020,9 @@ pingAllele.generate_snp_df <- function( currentSample, uniqueSamDT, output.dir, 
     rownames(currentDepthDF) <- c(names(nucListConv),'INS')
     colnames(currentDepthDF) <- colnames(locusSnpDF)
     
-    write.csv(currentDepthDF, file.path(output.dir,paste0(workflow,'_',currentLocus,'_DP.csv')))
-    currentSample[['snpDFPathList']][[workflow]][['DP']][[currentLocus]] <- file.path(output.dir,paste0(workflow,'_',currentLocus,'_DP.csv'))
-    cat('\n\t\tCompleted depth file generation')
+    write.csv(currentDepthDF, file.path(output.dir,paste0(workflow,'_',currentLocus,'_',currentSample$name,'_DP.csv')))
+    currentSample[['snpDFPathList']][[workflow]][['DP']][[currentLocus]] <- file.path(output.dir,paste0(workflow,'_',currentLocus,'_',currentSample$name,'_DP.csv'))
+    #cat('\n\t\tCompleted depth file generation')
 
     currentSnpDF <- as.data.frame( matrix('',nrow=3,ncol=ncol(currentDepthDF)),stringsAsFactors=F)
     passedMinDP.index <- apply(currentDepthDF,2,sum)>=minDP
@@ -1041,9 +1041,9 @@ pingAllele.generate_snp_df <- function( currentSample, uniqueSamDT, output.dir, 
     colnames(currentSnpDF) <- colnames(currentDepthDF)
     rownames(currentSnpDF) <- c('SNP_1','SNP_2','SNP_3')
 
-    write.csv(currentSnpDF, file.path(output.dir,paste0(workflow,'_',currentLocus,'_SNP.csv')))
-    cat('\n\t\tCompleted SNP file generation')
-    currentSample[['snpDFPathList']][[workflow]][['SNP']][[currentLocus]] <- file.path(output.dir,paste0(workflow,'_',currentLocus,'_SNP.csv'))
+    write.csv(currentSnpDF, file.path(output.dir,paste0(workflow,'_',currentLocus,'_',currentSample$name,'_SNP.csv')))
+    #cat('\n\t\tCompleted SNP file generation')
+    currentSample[['snpDFPathList']][[workflow]][['SNP']][[currentLocus]] <- file.path(output.dir,paste0(workflow,'_',currentLocus,'_',currentSample$name,'_SNP.csv'))
   }
   return(currentSample)
 }
