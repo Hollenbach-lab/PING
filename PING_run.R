@@ -114,12 +114,19 @@ if(allele.fullAlign){
 
 # Alignment and allele calling workflow
 for(currentSample in sampleList){
-
-  currentSample <- alleleSetup.gc_matched_ref_alignment( currentSample, alleleSetupDirectory, as.list, threads)
   
-  if( currentSample$ASSamPath == 'failed' ){
+  currentSample <- tryCatch(
+    {alleleSetup.gc_matched_ref_alignment( currentSample, alleleSetupDirectory, as.list, threads)},
+    error=function(cond) {
+      currentSample[['ASSamPath']] <- 'failed'
+      return(currentSample)
+    })
+  #currentSample <- alleleSetup.gc_matched_ref_alignment( currentSample, alleleSetupDirectory, as.list, threads)
+  
+  if( currentSample[['ASSamPath']] == 'failed' ){
     next
   }
+  
   uniqueSamDT <- alleleSetup.process_samDT( currentSample$ASSamPath, delIndex.list, processSharedReads = setup.readBoost, readBoost.thresh )
   file.remove(currentSample$ASSamPath)
 
