@@ -417,11 +417,11 @@ sampleObj.iterBowtie2Index <- function(currentSample, bowtie2Build, threads){
     
     currentSample[['iterIndexPathList']][[currentIter]] <- indexPath
     
-    vcfPath <- file.path(iterDir,paste0(currentSample$name, '.vcf'))
-    if( file.exists(vcfPath) ){
-      cat('\nFound VCF, skipping bowtie2-build')
-      next
-    }
+    # vcfPath <- file.path(iterDir,paste0(currentSample$name, '.vcf'))
+    # if( file.exists(vcfPath) ){
+    #   cat('\nFound VCF, skipping bowtie2-build')
+    #   next
+    # }
     
     ## Creqte a bowtie2 index for the kir_reference.fasta file <- only needed when building a new reference index
     createIndex <- system2(bowtie2Build, c(fastaPath, indexPath,'--quiet',paste('--threads', threads)))
@@ -548,17 +548,17 @@ sampleObj.iterBowtie2Align <- function(currentSample, bowtie2, threads, deleteSa
     iterDir <- normalizePath(file.path(currentSample$iterRefDirectory,currentIter), mustWork=T)
     
     #-- catch for skipping alingment if VCF file exists
-    vcfPath <- file.path(iterDir,paste0(currentSample$name, '.vcf'))
-    
-    vcfExists.bool <- file.exists(vcfPath)
-    
-    if( vcfExists.bool ){
-      cat('\nFound VCF, skipping bowtie2 alignment')
-      ## Intitialize an output path for the SAM file
-      currentSample[['iterSamPathList']][[currentIter]] <- file.path(iterDir,paste0(currentSample$name,'.sam'))
-      currentSample[['iterBamPathList']][[currentIter]] <- file.path(iterDir,paste0(currentSample$name,'.bam'))
-      next
-    }
+    # vcfPath <- file.path(iterDir,paste0(currentSample$name, '.vcf'))
+    # 
+    # vcfExists.bool <- file.exists(vcfPath)
+    # 
+    # if( vcfExists.bool ){
+    #   cat('\nFound VCF, skipping bowtie2 alignment')
+    #   ## Intitialize an output path for the SAM file
+    #   currentSample[['iterSamPathList']][[currentIter]] <- file.path(iterDir,paste0(currentSample$name,'.sam'))
+    #   currentSample[['iterBamPathList']][[currentIter]] <- file.path(iterDir,paste0(currentSample$name,'.bam'))
+    #   next
+    # }
     
     ## Intitialize an output path for the SAM file
     currentSample[['iterSamPathList']][[currentIter]] <- file.path(iterDir,paste0(currentSample$name,'.sam'))
