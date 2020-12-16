@@ -102,6 +102,7 @@ alleleSetup.bt2_align <- function( currentSample, alleleSetupDirectory, bowtie2,
   
   if( currentSample[['ASIndexPath']] == 'failed' ){
     currentSample[['ASSamPath']] <- 'failed'
+    return(currentSample)
   }
   currentSample[['ASSamPath']] <- file.path(alleleSetupDirectory,paste0(currentSample$name,'.sam'))
 
@@ -166,6 +167,11 @@ alleleSetup.bt2_align <- function( currentSample, alleleSetupDirectory, bowtie2,
 }
 ## This function runs a samtools sam to bam conversion
 alleleSetup.sam_to_bam <- function(samtools_command, currentSample, bamDirectory, threads){
+  
+  if( currentSample[['ASSamPath']] == 'failed' ){
+    currentSample[['ASBamPath']] <- 'failed'
+    return(currentSample)
+  }
   
   ## Initialize an output path for the BAM file
   currentSample[['ASBamPath']] <- file.path(bamDirectory,paste0(currentSample$name,'.bam'))
