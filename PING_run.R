@@ -1,7 +1,7 @@
 
-#setwd('/home/wmarin/ping_reborn/PING/') #Set this to your own PING2 working directory
-cwd <- Sys.getenv("CWD", unset='~/PING')
-setwd(cwd) #Set this to your own PING working directory
+setwd('/home/wmarin/ping_reborn/PING/') #Set this to your own PING2 working directory
+#cwd <- Sys.getenv("CWD", unset='~/PING')
+#setwd(cwd) #Set this to your own PING working directory
 
 # ---- DEPENDENCIES ----
 ' if any dependencies are missing, install with
@@ -115,13 +115,7 @@ if(allele.fullAlign){
 # Alignment and allele calling workflow
 for(currentSample in sampleList){
   
-  currentSample <- tryCatch(
-    {alleleSetup.gc_matched_ref_alignment( currentSample, alleleSetupDirectory, as.list, threads)},
-    error=function(cond) {
-      currentSample[['ASSamPath']] <- 'failed'
-      return(currentSample)
-    })
-  #currentSample <- alleleSetup.gc_matched_ref_alignment( currentSample, alleleSetupDirectory, as.list, threads)
+  currentSample <- alleleSetup.gc_matched_ref_alignment( currentSample, alleleSetupDirectory, as.list, threads)
   
   if( currentSample[['ASSamPath']] == 'failed' ){
     next
