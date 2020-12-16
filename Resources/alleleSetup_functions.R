@@ -61,6 +61,10 @@ alleleSetup.write_fasta <- function( alleleSeq.list, fastaPath){
 }
 alleleSetup.write_sample_gc_fasta <- function( currentSample, alleleSetupDirectory, alleleSeq.list ){
   
+  if( any( currentSample$copyNumber == 'failed' ) | any( is.na(currentSample$copyNumber) ) ){
+    currentSample[['ASFastaPath']] <- 'failed'
+    return(currentSample)
+  }
   currentSample[['ASFastaPath']] <- file.path(alleleSetupDirectory,paste0(currentSample$name,'.fasta'))
   
   presentLociVect <- names(currentSample$copyNumber)[as.integer(currentSample$copyNumber) > 0]
@@ -80,6 +84,11 @@ alleleSetup.write_sample_gc_fasta <- function( currentSample, alleleSetupDirecto
 }
 alleleSetup.write_bt2_index <- function( currentSample, alleleSetupDirectory, bowtie2Build, threads ){
   
+  if( currentSample[['ASFastaPath']] == 'failed' ){
+    currentSample[['ASIndexPath']] <- 'failed'
+    return(currentSample)
+  }
+  
   currentSample[['ASIndexPath']] <- file.path(alleleSetupDirectory,paste0(currentSample$name,'.alleleSetupRef'))
   
   ## Creqte a bowtie2 index for the kir_reference.fasta file <- only needed when building a new reference index
@@ -90,9 +99,12 @@ alleleSetup.write_bt2_index <- function( currentSample, alleleSetupDirectory, bo
   return(currentSample)
 }
 alleleSetup.bt2_align <- function( currentSample, alleleSetupDirectory, bowtie2, threads ){
+  
+  if( currentSample[['ASIndexPath']] == 'failed' ){
+    currentSample[['ASSamPath']] <- 'failed'
+  }
   currentSample[['ASSamPath']] <- file.path(alleleSetupDirectory,paste0(currentSample$name,'.sam'))
-  
-  
+
   ### 1. Align KIR extracted reads to haplo-reference
   #bt2_p <- paste0("-p", threads)
   #bt2_5 <- "-5 3"
@@ -132,6 +144,12 @@ alleleSetup.bt2_align <- function( currentSample, alleleSetupDirectory, bowtie2,
   if(!is.null(attributes(output.sampleAlign))){
     cat('\nBowtie2 failed, retrying alignment...')
     output.sampleAlign <- system2(bowtie2, optionsCommand, stdout=T, stderr=T)
+  }
+  
+  if(!is.null(attributes(output.sampleAlign))){
+    cat('\nBowtie2 failed, marking sequence as failure and moving on')
+    currentSample[['ASSamPath']] <- 'failed'
+    return(currentSample)
   }
   
   check.system2_output(output.sampleAlign, 'bowtie2 gc alignment failed')

@@ -116,6 +116,10 @@ if(allele.fullAlign){
 for(currentSample in sampleList){
 
   currentSample <- alleleSetup.gc_matched_ref_alignment( currentSample, alleleSetupDirectory, as.list, threads)
+  
+  if( currentSample$ASSamPath == 'failed' ){
+    next
+  }
   uniqueSamDT <- alleleSetup.process_samDT( currentSample$ASSamPath, delIndex.list, processSharedReads = setup.readBoost, readBoost.thresh )
   file.remove(currentSample$ASSamPath)
 

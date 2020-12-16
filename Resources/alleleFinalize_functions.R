@@ -367,6 +367,7 @@ pingFinalize.format_calls <- function( resultsDirectory ){
                           stringsAsFactors=F,check.names=F,row.names=1)
   copyCall.df <- read.csv(paste0(resultsDirectory,'manualCopyNumberFrame.csv'),
                           stringsAsFactors=F,check.names=F,row.names=1)
+  
   goodSampleID.vect <- rownames(iterCall.df)[ !apply( iterCall.df, 1, function(x) all( is.na(x) ) ) ]
   iterCall.df <- iterCall.df[goodSampleID.vect,]
   copyCall.df <- copyCall.df[goodSampleID.vect,]
