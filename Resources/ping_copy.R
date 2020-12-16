@@ -331,7 +331,7 @@ ping_copy.graph <- function(sampleList=list(),
     write.csv(locusCountDF, file = locusCountDFFile)
     #write.csv(alleleCountDF, file = file.path(resultsDirectory, 'alleleCountFrame.csv'))
     
-    rm(samTable)
+    rm(samDT)
   }
   
   if(onlyKFF){

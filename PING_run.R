@@ -41,7 +41,7 @@ final.hetRatio <- 0.25
 setup.minDP <- 6
 final.minDP <- 20
 copy.readBoost <- T
-setup.readBoost <- F
+setup.readBoost <- T
 final.readBoost <- F
 readBoost.thresh <- 6
 allele.fullAlign <- F
@@ -80,14 +80,14 @@ source('Resources/alleleSetup_functions.R')
 cat('\n\n----- Moving to PING gene content and copy determination -----')
 sampleList <- ping_copy.graph(sampleList=sampleList,threads=threads,resultsDirectory=outDir$path,forceRun=F,onlyKFF=F,fullAlign = copy.fullAlign) # set forceRun=T if you want to force alignments
 
-cat('\n\nZipping relevant results.')
-zip(file.path(resultsDirectory,'copy_output.zip'),c(file.path(resultsDirectory,'snp_output'), file.path(resultsDirectory,'locusCountFrame.csv'),file.path(resultsDirectory,'kffCountFrame.csv'), file.path(resultsDirectory,'copyPlots')))
-cat('\n\n----- Finished run, please find results at',paste0(resultsDirectory,'copy_output.zip'))
+#cat('\n\nZipping relevant results.')
+#zip(file.path(resultsDirectory,'copy_output.zip'),c(file.path(resultsDirectory,'snp_output'), file.path(resultsDirectory,'locusCountFrame.csv'),file.path(resultsDirectory,'kffCountFrame.csv'), file.path(resultsDirectory,'copyPlots')))
+#cat('\n\n----- Finished run, please find results at',paste0(resultsDirectory,'copy_output.zip'))
 # 
 # ' 6.12 hours for 50 samples at 40 threads, 150bp, 50dp
 # '
-# sampleList <- ping_copy.manual_threshold(sampleList=sampleList,resultsDirectory=resultsDirectory,use.threshFile = T) # this function sets copy thresholds
-# sampleList <- ping_copy.load_copy_results( sampleList, resultsDirectory )
+sampleList <- ping_copy.manual_threshold(sampleList=sampleList,resultsDirectory=resultsDirectory,use.threshFile = T) # this function sets copy thresholds
+sampleList <- ping_copy.load_copy_results( sampleList, resultsDirectory )
 # 
 # # Fix for poor 2DL2 
 # #sapply(sampleList, function(x) x$copyNumber[['KIR2DL2']] <- as.character(2-as.integer(x$copyNumber[['KIR2DL3']])))
@@ -102,48 +102,48 @@ cat('\n\n----- Finished run, please find results at',paste0(resultsDirectory,'co
 #   IND00001 [example]
 # '
 # 
-# # PING2 alignments and allele calling ----------------------------------------------
-# # Iter align workflow
+# PING2 alignments and allele calling ----------------------------------------------
+# Iter align workflow
 
-# 
-# if(allele.fullAlign){
-#   as.list <- alleleSeq.list
-# }else{
-#   as.list <- compact.alleleSeq.list
-# }
-# 
-# # Alignment and allele calling workflow
-# for(currentSample in sampleList){
-#   
-#   currentSample <- alleleSetup.gc_matched_ref_alignment( currentSample, alleleSetupDirectory, as.list, threads)
-#   uniqueSamDT <- alleleSetup.process_samDT( currentSample$ASSamPath, delIndex.list, processSharedReads = setup.readBoost, readBoost.thresh )
-#   file.remove(currentSample$ASSamPath)
-#   
-#   currentSample <- alleleSetup.prep_results_directory( currentSample, alignmentFileDirectory )
-#   
-#   currentSample <- alleleSetup.call_setup_alleles( currentSample, uniqueSamDT, setup.knownSnpDFList, setup.hetRatio, setup.minDP )
-#   currentSample <- alleleSetup.write_sample_ref_info( currentSample, alleleSetupDirectory )
-#   
-#   synSeq.key <- alleleSetup.readAnswerKey( currentSample$refInfoPath )
-#   
-#   currentSample <- ping_iter.run_alignments(currentSample, threads)
-#   uniqueSamDT <- alleleSetup.process_samDT( currentSample$iterSamPathList[[1]], delIndex.list, processSharedReads = final.readBoost, readBoost.thresh )
-#   currentSample <- pingAllele.generate_snp_df( currentSample,uniqueSamDT,setup.knownSnpDFList,'final', final.hetRatio, final.minDP )
-#   
-#   cat('\n\n\n----- Final allele calling -----')
-#   for( currentLocus in names( currentSample[['snpDFPathList']][['final']] )){
-#     cat('\n\t',currentLocus)
-#     currentSample <- pingAllele.call_final_alleles(currentSample, currentLocus, knownSnpDFList[[currentLocus]]$snpDF)
-#   }
-#   
-#   currentSample <- pingAllele.save_call( currentSample, alleleDFPathList$iter$alleleCallPath )
-# }
-# 
-# source('Resources/alleleFinalize_functions.R')
-# # ----- Formatting Results Genotypes (carry directly over to PING_run) -----
-# 
-# cat('\n\n ----- FINALIZING GENOTYPES ----- ')
-# finalCallPath <- pingFinalize.format_calls( resultsDirectory )
-# cat('\nFinal calls written to:',finalCallPath)
-# 
-# 
+
+if(allele.fullAlign){
+  as.list <- alleleSeq.list
+}else{
+  as.list <- compact.alleleSeq.list
+}
+
+# Alignment and allele calling workflow
+for(currentSample in sampleList){
+
+  currentSample <- alleleSetup.gc_matched_ref_alignment( currentSample, alleleSetupDirectory, as.list, threads)
+  uniqueSamDT <- alleleSetup.process_samDT( currentSample$ASSamPath, delIndex.list, processSharedReads = setup.readBoost, readBoost.thresh )
+  file.remove(currentSample$ASSamPath)
+
+  currentSample <- alleleSetup.prep_results_directory( currentSample, alignmentFileDirectory )
+
+  currentSample <- alleleSetup.call_setup_alleles( currentSample, uniqueSamDT, setup.knownSnpDFList, setup.hetRatio, setup.minDP )
+  currentSample <- alleleSetup.write_sample_ref_info( currentSample, alleleSetupDirectory )
+
+  synSeq.key <- alleleSetup.readAnswerKey( currentSample$refInfoPath )
+
+  currentSample <- ping_iter.run_alignments(currentSample, threads)
+  uniqueSamDT <- alleleSetup.process_samDT( currentSample$iterSamPathList[[1]], delIndex.list, processSharedReads = final.readBoost, readBoost.thresh )
+  currentSample <- pingAllele.generate_snp_df( currentSample,uniqueSamDT,setup.knownSnpDFList,'final', final.hetRatio, final.minDP )
+
+  cat('\n\n\n----- Final allele calling -----')
+  for( currentLocus in names( currentSample[['snpDFPathList']][['final']] )){
+    cat('\n\t',currentLocus)
+    currentSample <- pingAllele.call_final_alleles(currentSample, currentLocus, knownSnpDFList[[currentLocus]]$snpDF)
+  }
+
+  currentSample <- pingAllele.save_call( currentSample, alleleDFPathList$iter$alleleCallPath )
+}
+
+source('Resources/alleleFinalize_functions.R')
+# ----- Formatting Results Genotypes (carry directly over to PING_run) -----
+
+cat('\n\n ----- FINALIZING GENOTYPES ----- ')
+finalCallPath <- pingFinalize.format_calls( resultsDirectory )
+cat('\nFinal calls written to:',finalCallPath)
+
+
