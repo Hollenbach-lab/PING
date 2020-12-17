@@ -428,7 +428,7 @@ alleleSetup.process_samDT <- function( samPath, delIndex.list, processSharedRead
     
     addSamTable <- passedThresh.sharedSamTable[ read_name %in% unique.sharedReadVect ]
     addSamTable <- unique(addSamTable, by=c('read_seq'))
-    
+    addSamTable[,asSum:=NULL]
     cat("\n\tRescued",nrow(addSamTable),'reads.')
   }
   
@@ -436,7 +436,8 @@ alleleSetup.process_samDT <- function( samPath, delIndex.list, processSharedRead
   uniqueSamDT <- unique(uniqueSamDT, by=c('read_seq'))
   
   if(processSharedReads){
-    uniqueSamDT <- merge( uniqueSamDT, addSamTable, all=T, by=colnames(uniqueSamDT) )
+    #uniqueSamDT <- merge( uniqueSamDT, addSamTable, all=T, by=colnames(uniqueSamDT) )
+    uniqueSamDT <- rbindlist( list(uniqueSamDT, addSamTable) )
     rm(addSamTable)
   }
   
