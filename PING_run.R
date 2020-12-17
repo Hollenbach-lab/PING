@@ -133,10 +133,10 @@ for(currentSample in sampleList){
 
   currentSample <- ping_iter.run_alignments(currentSample, threads)
   uniqueSamDT <- alleleSetup.process_samDT( currentSample$iterSamPathList[[1]], delIndex.list, processSharedReads = final.readBoost, readBoost.thresh )
-  currentSample <- pingAllele.generate_snp_df( currentSample,uniqueSamDT,setup.knownSnpDFList,'final', final.hetRatio, final.minDP )
+  currentSample <- pingAllele.generate_snp_df( currentSample,uniqueSamDT,currentSample[['iterRefDirectory']],setup.knownSnpDFList,'final', final.hetRatio, final.minDP )
 
   cat('\n\n\n----- Final allele calling -----')
-  for( currentLocus in names( currentSample[['snpDFPathList']][['final']] )){
+  for( currentLocus in names( currentSample[['snpDFPathList']][['final']][['SNP']] )){
     cat('\n\t',currentLocus)
     currentSample <- pingAllele.call_final_alleles(currentSample, currentLocus, knownSnpDFList[[currentLocus]]$snpDF)
   }
