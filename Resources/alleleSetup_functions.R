@@ -801,7 +801,7 @@ alleleSetup.call_setup_alleles <- function( currentSample, uniqueSamDT, setup.kn
     # rawSnpTbl <- alleleSetup.generate_rawSnpTbl( currentLocus , currentLocusSnpDF, currentADSnpDF, uniqueSamDT, setup.minDP )
     # currentSnpDF <- alleleSetup.generate_snpDF( rawSnpTbl )
     
-    currentSnpDF <- read.csv(file.path(currentSample$snpDFPathList[['setup']][[currentLocus]]),
+    currentSnpDF <- read.csv(file.path(currentSample$snpDFPathList[['setup']][['SNP']][[currentLocus]]),
                              check.names=F,stringsAsFactors = F,row.names=1,header = T,colClasses = c("character"))
     
     
@@ -1080,7 +1080,7 @@ pingAllele.call_final_alleles <- function( currentSample, currentLocus, refSnpDF
   exonNameVect <- grep('E',kirLocusFeatureNameList[[currentLocus]],value=T)
   exonNameVect <- grep('PE',exonNameVect,value=T,invert = T)
   
-  currentSnpDF <- read.csv(file.path(currentSample[['snpDFPathList']][['final']][[currentLocus]]),
+  currentSnpDF <- read.csv(file.path(currentSample[['snpDFPathList']][['final']][['SNP']][[currentLocus]]),
                            check.names=F,stringsAsFactors = F,row.names=1,header = T,colClasses = c("character"))
   
   sampleCols <- tstrsplit(colnames(currentSnpDF),'_',fixed=T)[[1]] 
