@@ -786,7 +786,7 @@ alleleSetup.call_setup_alleles <- function( currentSample, uniqueSamDT, setup.kn
   '
   pingAllele.generate_snp_df could be sped up by only processing AD SNP positions, would save time and storage without impacting results
   '
-  currentSample <- pingAllele.generate_snp_df( currentSample, uniqueSamDT, setup.knownSnpDFList, 'setup', hetRatio, setup.minDP )
+  currentSample <- pingAllele.generate_snp_df( currentSample, uniqueSamDT, currentSample[['iterRefDirectory']], setup.knownSnpDFList, 'setup', hetRatio, setup.minDP )
   
   # ----- CALL ALLELES -----
   presentLociVect <- names(currentSample$copyNumber)[currentSample$copyNumber > 0]
