@@ -402,11 +402,11 @@ ping_copy.manual_threshold <- function(sampleList=list(),resultsDirectory='',use
   
   cat('Current working directory: ', getwd(),'\n')
   
-  plotDirectory <- file.path(resultsDirectory,'copyPlots')
-  
   ### Set up directory paths, make sure they exist
   resultsDirectory <- normalizePath(resultsDirectory, mustWork=T)
   cat('Running manual thresholding on:',resultsDirectory)
+  
+  plotDirectory <- normalizePath(file.path(resultsDirectory,'copyPlots'))
   
   ## Load in KFF presence file
   kffPresenceDFFile <- normalizePath(file.path(resultsDirectory, 'kffPresenceFrame.csv'), mustWork=T)
