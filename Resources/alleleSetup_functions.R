@@ -906,6 +906,8 @@ alleleSetup.write_sample_ref_info <- function( currentSample, alleleSetupDirecto
   
   formattedAlleleCall.vect <- unlist( sapply( currentSample$setupAlleleList, function(x) unlist( tstrsplit(x, '+', fixed=T )) ) )
   
+  formattedAlleleCall.vect <- unique( formattedAlleleCall.vect )
+  
   alleleSetup.write_info( currentSample$name, formattedAlleleCall.vect, currentSample$refInfoPath)
   return(currentSample)
 }
