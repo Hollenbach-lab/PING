@@ -382,5 +382,5 @@ pingFinalize.format_calls <- function( resultsDirectory ){
   iterCall.df <- iterCall.df[,mod.locusVect]
   
   write.csv( iterCall.df, file.path( resultsDirectory, 'finalAlleleCalls.csv') )
-  return( paste0( resultsDirectory, 'finalAlleleCalls.csv') )
+  return( file.path( resultsDirectory, 'finalAlleleCalls.csv') )
 }
