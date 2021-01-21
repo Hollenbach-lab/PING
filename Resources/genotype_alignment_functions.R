@@ -213,11 +213,21 @@ filled.snpDFList <- new.initLocusRef.extend_3UTR( filled.snpDFList, UTRextList )
 locusRefList <- new.initLocusRef.snpDFtoLocusRefAlleleSeq( filled.snpDFList, locusRefList )
 locusRefList <- new.initLocusRef.snpDFtoLocusRefBed( filled.snpDFList, locusRefList, kirLocusFeatureNameList )
 
-# ----- Generating reference object list for each locus -----
-#old.locusRefList <- general.initialize_locus_ref_object()
-#old.locusRefList <- initLocusRef.read_raw_msf(old.locusRefList, copiedMsfDirectory)
-#old.locusRefList <- initLocusRef.create_bed(old.locusRefList, referenceResourceDirectory, kirLocusFeatureNameList, writeBed=F)
+# ----- IPD-KIR update workflow -----
+# 1. Copy gene alignments from https://www.ebi.ac.uk/ipd/kir/align.html with 'full genomic', 'show all bases' and 'show all alleles' checked
+#   1.1 Copied alignments should be pasted into Resources/ipdkir_resources/copied_msf/[gene]_raw.msf
+# 2. Run the following lines
+#locusRefList <- general.initialize_locus_ref_object()
+#locusRefList <- initLocusRef.read_raw_msf(locusRefList, copiedMsfDirectory)
+#locusRefList <- initLocusRef.create_bed(locusRefList, referenceResourceDirectory, kirLocusFeatureNameList, writeBed=F)
+#knownSnpDFList <- allele.create_allele_resources(locusRefList, alleleFileDirectory)
+# 3. copy csv files from alleleFileDirectory to Resources/genotype_resources/SNP_files/
+# 4. source('Resources/genotype_alignment_functions.R')
+# 5. copy csv files from alleleFileDirectory to Resources/genotyep_resources/extended_SNP_files
+# This process is perverse. 
+# DONE
 
+# ----- Generating reference object list for each locus -----
 # Read in reference allele dataframe
 referenceAlleleDF <- read.csv('Resources/genotype_resources/master_haplo_iteration_testing_v10.csv',row.names=1,stringsAsFactors = F)
 
