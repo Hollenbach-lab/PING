@@ -1,7 +1,7 @@
 
 extractor.bowtie2_align <- function(bowtie2_command, threads, currentSample, extractedFastqDirectory){
   currentSample$samPath <- file.path(extractedFastqDirectory,paste0(currentSample$name,'.sam'))
-  optionsCommand <- c('-x Resources/extractor_resources/reference/output',
+  optionsCommand <- c('-x Resources/extractor_resources/reference/output','--no-unal',
                      '-5 3','-3 7','-L 20','-i S,1,0.5','--score-min L,0,-0.187',
                      '-I 75','-X 1000', 
                      paste0('-p ',threads),
@@ -10,8 +10,8 @@ extractor.bowtie2_align <- function(bowtie2_command, threads, currentSample, ext
                      paste0('-S ',currentSample$samPath),
                      paste0('--al-conc-gz ',
                             file.path(extractedFastqDirectory,paste0(currentSample$name,'_KIR_%.fastq.gz'))
-                            ),
-                     '--un delete.me'
+                            )#,
+                     #'--un delete.me'
                      )
   cat('\n\n',bowtie2_command, optionsCommand)
   output.sampleAlign <- system2(bowtie2_command, optionsCommand, stdout=T, stderr=T)
@@ -32,7 +32,7 @@ extractor.bowtie2_align <- function(bowtie2_command, threads, currentSample, ext
   
   cat('\nCleaning up alignment files.')
   file.remove('delete.me')
-  file.remove(currentSample$samPath)
+  #file.remove(currentSample$samPath)
   
   return(currentSample)
 }

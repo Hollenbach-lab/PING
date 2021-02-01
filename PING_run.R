@@ -1,7 +1,7 @@
 
-#setwd('/home/wmarin/ping_reborn/PING/') #Set this to your own PING2 working directory
+#setwd('/home/wmarin/PING/') #Set this to your own PING2 working directory
 cwd <- Sys.getenv("CWD", unset='~/PING')
-setwd(cwd) #Set this to your own PING working directory
+#setwd(cwd) #Set this to your own PING working directory
 
 # ---- DEPENDENCIES ----
 ' if any dependencies are missing, install with
@@ -25,7 +25,7 @@ shortNameDelim <- Sys.getenv("SHORTNAMEDELIM", unset='_') # can set a delimiter 
 setup.hetRatio <- Sys.getenv("SETUP_HETRATIO", unset=0.25)
 final.hetRatio <- Sys.getenv("FINAL_HETRATIO", unset=0.25)
 setup.minDP <- Sys.getenv("SETUP_MINDP", unset=8)
-final.minDP <- Sys.getenv("FINAL_MINDP", unset=20)
+final.minDP <- Sys.getenv("FINAL_MINDP", unset=10)
 copy.readBoost <- Sys.getenv("COPY_READBOOST", unset=T)
 setup.readBoost <- Sys.getenv("SETUP_READBOOST", unset=T)
 final.readBoost <- Sys.getenv("FINAL_READBOOST", unset=F)
@@ -34,15 +34,15 @@ allele.fullAlign <- Sys.getenv("ALLELE_FULLALIGN", unset=F)
 copy.fullAlign <- Sys.getenv("COPY_FULLALIGN", unset=F)
 
 # Initialization variables ------------------------------------------------
-# rawFastqDirectory <- 'test_sequence/' # can be set to raw sequence or extractedFastq directory
+# rawFastqDirectory <- '~/test_sample/' # can be set to raw sequence or extractedFastq directory
 # fastqPattern <- 'fastq' # use '_KIR_' to find already extracted files, otherwise use 'fastq' or whatever fits your data
-# threads <- 36
-# resultsDirectory <- '3_test_sequence_results/' # Set the master results directory (all pipeline output will be recorded here)
+# threads <- 64
+# resultsDirectory <- '3_test_sequence_results_3/' # Set the master results directory (all pipeline output will be recorded here)
 # shortNameDelim <- '_' # can set a delimiter to shorten sample ID's (ID will be characters before delim)
-# setup.hetRatio <- 0.5
+# setup.hetRatio <- 0.25
 # final.hetRatio <- 0.25
-# setup.minDP <- 6
-# final.minDP <- 20
+# setup.minDP <- 8
+# final.minDP <- 10
 # copy.readBoost <- T
 # setup.readBoost <- T
 # final.readBoost <- F
@@ -75,21 +75,21 @@ outDir.extFqDir <- pathObj(name='extractedFqDir',path=extractedFastqDirectory)
 outDir.extFqDir$dirGen()
 
 # Run PING2 extractor
-sampleList <- extractor.run(sampleList,threads,outDir.extFqDir$path,forceRun=F) # set forceRun=T if you want to force alignments
+sampleList <- extractor.run(sampleList,threads,outDir.extFqDir$path,forceRun=T) # set forceRun=T if you want to force alignments
 
 # PING2 gene content and copy number --------------------------------------
 source('Resources/genotype_alignment_functions.R') # do not change
 source('Resources/alleleSetup_functions.R')
 cat('\n\n----- Moving to PING gene content and copy determination -----')
-sampleList <- ping_copy.graph(sampleList=sampleList,threads=threads,resultsDirectory=outDir$path,forceRun=F,onlyKFF=F,fullAlign = copy.fullAlign) # set forceRun=T if you want to force alignments
+sampleList <- ping_copy.graph(sampleList=sampleList,threads=threads,resultsDirectory=outDir$path,forceRun=F,onlyKFF=F,fullAlign = copy.fullAlign, hetRatio=setup.hetRatio, minDP = setup.minDP) # set forceRun=T if you want to force alignments
 
-cat('\n\nZipping relevant results.')
-zip(file.path(resultsDirectory,'copy_output.zip'),c(file.path(resultsDirectory,'snp_output'), file.path(resultsDirectory,'locusCountFrame.csv'),file.path(resultsDirectory,'kffCountFrame.csv'), file.path(resultsDirectory,'copyPlots')))
-cat('\n\n----- Finished run, please find results at',paste0(resultsDirectory,'copy_output.zip'))
+#cat('\n\nZipping relevant results.')
+#zip(file.path(resultsDirectory,'copy_output.zip'),c(file.path(resultsDirectory,'snp_output'), file.path(resultsDirectory,'locusCountFrame.csv'),file.path(resultsDirectory,'kffCountFrame.csv'), file.path(resultsDirectory,'copyPlots')))
+#cat('\n\n----- Finished run, please find results at',paste0(resultsDirectory,'copy_output.zip'))
 # 
 # ' 6.12 hours for 50 samples at 40 threads, 150bp, 50dp
 # '
-# sampleList <- ping_copy.manual_threshold(sampleList=sampleList,resultsDirectory=outDir$path,use.threshFile = F) # this function sets copy thresholds
+# sampleList <- ping_copy.manual_threshold(sampleList=sampleList,resultsDirectory=outDir$path,use.threshFile = T) # this function sets copy thresholds
 # sampleList <- ping_copy.load_copy_results( sampleList, outDir$path )
 # 
 # # Fix for poor 2DL2 
@@ -117,13 +117,13 @@ cat('\n\n----- Finished run, please find results at',paste0(resultsDirectory,'co
 # 
 # # Alignment and allele calling workflow
 # for(currentSample in sampleList){
-#   
+# 
 #   currentSample <- alleleSetup.gc_matched_ref_alignment( currentSample, alleleSetupDirectory, as.list, threads)
-#   
+# 
 #   if( currentSample[['ASSamPath']] == 'failed' ){
 #     next
 #   }
-#   
+# 
 #   uniqueSamDT <- alleleSetup.process_samDT( currentSample$ASSamPath, delIndex.list, processSharedReads = setup.readBoost, readBoost.thresh )
 #   file.remove(currentSample$ASSamPath)
 # 

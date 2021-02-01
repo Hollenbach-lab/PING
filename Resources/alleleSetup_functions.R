@@ -1003,6 +1003,9 @@ pingAllele.generate_snp_df <- function( currentSample, uniqueSamDT, output.dir, 
   cat('\n\nSetting read start positions.')
   uniqueSamDT$startPos <- as.integer( apply( uniqueSamDT, 1, function(x) names( x$readTable )[1] ) )
   
+  cat('\n\nSetting read end positions.')
+  uniqueSamDT$endPos <- as.integer( apply( uniqueSamDT, 1, function(x) names(x$readTable)[length(names(x$readTable))] ) )
+  
   cat('\nSorting read table by locus and alignment coordinates.')
   uniqueSamDT <- uniqueSamDT[order(locus, startPos)]
   
@@ -1015,6 +1018,8 @@ pingAllele.generate_snp_df <- function( currentSample, uniqueSamDT, output.dir, 
     locusSnpDF <- setup.knownSnpDFList[[currentLocus]]
     locusSamDT <- uniqueSamDT[locus == currentLocus]
     currentDepthDF <- as.data.frame( matrix(data=0,nrow=6,ncol=ncol(locusSnpDF)) )
+    
+    locusSamDT <- locusSamDT[locusSamDT$endPos < ncol( locusSnpDF ),]
     
     namedReadVect <- unlist( locusSamDT$readTable )
     
@@ -1035,7 +1040,7 @@ pingAllele.generate_snp_df <- function( currentSample, uniqueSamDT, output.dir, 
     # Then process all other nucleotides and deletion positions
     uniqueNucVect <- intersect( unique(namedReadVect.noIns), names(nucListConv) )
     for( nuc in uniqueNucVect ){
-      #   cat('',nuc)
+      #cat('',nuc)
       nucIndex <- which( namedReadVect.noIns == nuc, useNames=F )
       nucTab <- table( as.integer(names(nucIndex)) )
       currentDepthDF[ nucListConv[[nuc]], as.integer(names(nucTab)) ] <- as.vector( nucTab )

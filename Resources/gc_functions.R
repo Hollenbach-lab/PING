@@ -615,7 +615,7 @@ run.generate_copy_number_graphs <- function(countRatioDF, kffDF, kirLocusList, p
   
   ## Iterate over all KIR loci, create a plot for each one
   for(currentLocus in kirLocusList){
-    
+    cat('',currentLocus)
     if(currentLocus =='KIR3DL3'){
       next
     }
@@ -1079,7 +1079,6 @@ run.generate_predicted_copy_number_graphs <- function(countRatioDF, kirLocusList
   
   ## Iterate over all KIR loci, create a plot for each one
   for(currentLocus in kirLocusList){
-    
     if(currentLocus =='KIR3DL3'){
       next
     }

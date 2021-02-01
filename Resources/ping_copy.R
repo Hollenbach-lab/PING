@@ -35,7 +35,9 @@ ping_copy.graph <- function(sampleList=list(),
                     probelistFile='probelist_2020_05_07.csv',
                     onlyKFF=F,
                     forceRun=F,
-                    fullAlign=F){
+                    fullAlign=F,
+                    hetRatio,
+                    minDP){
   predictCopy=F
   kirLocusList <- c('KIR3DP1','KIR2DS5','KIR2DL3','KIR2DP1',
                     'KIR2DS3','KIR2DS2','KIR2DL4','KIR3DL3',
@@ -307,7 +309,12 @@ ping_copy.graph <- function(sampleList=list(),
     locusCount.tab <- table( samDT$locus )
     locusCountDF[currentSample$name,names(locusCount.tab)] = as.integer( locusCount.tab )
     
-    currentSample <- pingAllele.generate_snp_df( currentSample, samDT, snpDir$path, setup.knownSnpDFList,'copy', setup.hetRatio, setup.minDP)
+    nullLocus.vect <- setdiff( colnames(locusCountDF), names(locusCount.tab) )
+    if( length(nullLocus.vect) > 0 ){
+      locusCountDF[currentSample$name,nullLocus.vect] <- 0
+    }
+    
+    currentSample <- pingAllele.generate_snp_df( currentSample, samDT, snpDir$path, setup.knownSnpDFList,'copy', hetRatio, minDP)
     
     # 
     # ## Count how many header lines there in the SAM file so they can be skipped during read in
@@ -353,10 +360,10 @@ ping_copy.graph <- function(sampleList=list(),
   sampleNameList <- names(sampleList)
   
   ## Only analyze samples that have at least 'KIR3DL3MinReadThreshold' number of unique KIR3DL3 reads
-  goodRows <- rownames(locusCountDF[sampleNameList,])[apply(locusCountDF[sampleNameList,], 1, function(x) x['KIR3DL3']>=KIR3DL3MinReadThreshold)]
+  goodRows <- rownames(locusCountDF[sampleNameList,,drop=F])[apply(locusCountDF[sampleNameList,], 1, function(x) x['KIR3DL3']>=KIR3DL3MinReadThreshold)]
   
   ## Keep track of what samples are being discarded
-  badRows <- rownames(locusCountDF[sampleNameList,])[apply(locusCountDF[sampleNameList,], 1, function(x) x['KIR3DL3']<KIR3DL3MinReadThreshold)]
+  badRows <- rownames(locusCountDF[sampleNameList,,drop=F])[apply(locusCountDF[sampleNameList,], 1, function(x) x['KIR3DL3']<KIR3DL3MinReadThreshold)]
   cat('\nSkipping', length(badRows), 'samples that had fewer than',KIR3DL3MinReadThreshold,'KIR3DL3 reads.')
   
   ## Mark bad samples as failed
@@ -367,13 +374,20 @@ ping_copy.graph <- function(sampleList=list(),
   }
   
   ## Subset the count dataframe by the samples that were determined to be good, then normalize each locus unique read count by KIR3DL3
-  locusRatioDF <- apply(locusCountDF[goodRows,], 2, function(x) x / locusCountDF[goodRows,'KIR3DL3'])
-  locusRatioDF <- as.data.frame(locusRatioDF)
+  locusRatioDF <- apply(locusCountDF[goodRows,,drop=F], 2, function(x) x / locusCountDF[goodRows,'KIR3DL3'])
+  
+  if( length(goodRows) == 1){
+    locusRatioDF <- data.frame( as.list( locusRatioDF ) ,stringsAsFactors = F, row.names = goodRows)
+  }else{ 
+    locusRatioDF <- as.data.frame(locusRatioDF)
+  }
   
   ## Write the locus ratio results to a csv file
   write.csv(locusRatioDF, file = file.path(resultsDirectory, 'locusRatioFrame.csv'))
   
-  if(predictCopy){
+  if( length( goodRows ) < 2 ){
+    cat('\nFewer than 2 samples passed minimum 3DL3 requirement, skipping graphing...')
+  }else if(predictCopy){
     ## Use the random forest models to predict copy number
     cat('\nPredicting copy number... ')
     copyNumberDF <- run.predict_copy(locusRatioDF, locusCountDF, copyNumberDF, goodRows, resultsDirectory, rfAllPathList)
