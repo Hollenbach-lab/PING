@@ -2,7 +2,7 @@ library(data.table)
 library(stringr)
 library(methods)
 
-synSeqAnswerKey <- '/home/LAB_PROJECTS/PING2_PAPER/figure_scripts/synSeq_data_run3/synSeq.info.txt'
+#synSeqAnswerKey <- '/home/LAB_PROJECTS/PING2_PAPER/figure_scripts/synSeq_data_run3/synSeq.info.txt'
 # Reads in answer key (synSeq.info.txt)
 synSeq.readAnswerKey <- function(keyFile){
   
@@ -532,7 +532,7 @@ iterAlign.sam_to_bam <- function(samtools, samPath, bamPath, threads){
 }
 
 # bowtie2-align
-sampleObj.iterBowtie2Align <- function(currentSample, bowtie2, threads, deleteSam=F, forceRun=F){
+sampleObj.iterBowtie2Align <- function(currentSample, bowtie2, threads, deleteSam=F, all.align=F, forceRun=F){
   
   if(currentSample$iterRefDirectory == 'failed'){
     return(currentSample)
@@ -573,6 +573,9 @@ sampleObj.iterBowtie2Align <- function(currentSample, bowtie2, threads, deleteSa
     bt2_I <- "-I 75"
     bt2_X <- "-X 1500"
     bt2_noUnal <- '--no-unal'
+    if( all.align ){
+      bt2_a <- '-a'
+    }
     
     bt2_x <- paste0("-x ", currentSample$iterIndexPathList[[currentIter]])
     bt2_1 <- paste0('-1 ',currentSample$kirfastq1path)
@@ -583,7 +586,11 @@ sampleObj.iterBowtie2Align <- function(currentSample, bowtie2, threads, deleteSa
     bt2_al_conc <- paste0("--al-conc-gz ", fastqBase, "_%.fastq.gz")
     bt2_un <- "--un dump.me"
     
-    optionsCommand <- c(bt2_p, bt2_5, bt2_3, bt2_i, bt2_min_score, bt2_I, bt2_X, bt2_x, bt2_1, bt2_2, bt2_noUnal, bt2_stream, bt2_al_conc, bt2_un)
+    if( all.align ){
+      optionsCommand <- c(bt2_p, bt2_5, bt2_3, bt2_i, bt2_min_score, bt2_I, bt2_X, bt2_x, bt2_1, bt2_2, bt2_noUnal, bt2_stream, bt2_al_conc, bt2_un, bt2_a)
+    }else{
+      optionsCommand <- c(bt2_p, bt2_5, bt2_3, bt2_i, bt2_min_score, bt2_I, bt2_X, bt2_x, bt2_1, bt2_2, bt2_noUnal, bt2_stream, bt2_al_conc, bt2_un)
+    }
     
     ## Run the bowtie2 alignment command
     cat('\n\n',bowtie2,optionsCommand)

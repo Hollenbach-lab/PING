@@ -913,7 +913,7 @@ allele.custom_2DL1_allele_filter <- function(currentSample,
 # ----- Container functions to coordinate FILTER and ITER alignments
 
 # function to run the ITER alignments
-ping_iter.run_alignments <- function( currentSample, threads ){
+ping_iter.run_alignments <- function( currentSample, threads, all.align=F ){
   
   cat('\nLoading ref DF')
   currentSample <- sampleObj.loadRefDF(currentSample, referenceAlleleDF) # Subset reference allele dataframe by present loci, save to sample object
@@ -923,7 +923,7 @@ ping_iter.run_alignments <- function( currentSample, threads ){
   
   currentSample <- sampleObj.iterBowtie2Index(currentSample, bowtie2Build, threads) # Converts fasta file from previous line into a bowtie2 index
   
-  currentSample <- sampleObj.iterBowtie2Align(currentSample, bowtie2, threads, deleteSam=F) # Align sample to bowtie2 index
+  currentSample <- sampleObj.iterBowtie2Align(currentSample, bowtie2, threads, deleteSam=F, all.align=all.align) # Align sample to bowtie2 index
   
   #currentSample <- sampleObj.iterVCFGen(currentSample, samtools, bcftools, threads) # Convert SAM file into VCF
   

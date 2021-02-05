@@ -32,7 +32,7 @@ ping_copy.graph <- function(sampleList=list(),
                     resultsDirectory,
                     KIR3DL3MinReadThreshold=100,
                     maxReadThreshold=50000,
-                    probelistFile='probelist_2020_05_07.csv',
+                    probelistFile='probelist_2021_01_24.csv',
                     onlyKFF=F,
                     forceRun=F,
                     fullAlign=F){
