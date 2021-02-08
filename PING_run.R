@@ -120,7 +120,7 @@ probeDF <- read.csv(file.path(gcResourceDirectory, probelistFile), stringsAsFact
 row.names(probeDF) <- probeDF$Name
 
 # Alignment and allele calling workflow
-for( currentSample in sampleList[1:length(sampleList)] ){
+for( currentSample in sampleList[8:length(sampleList)] ){
   
   currentSample <- alleleSetup.gc_matched_ref_alignment( currentSample, alleleSetupDirectory, as.list, threads)
   
@@ -133,20 +133,20 @@ for( currentSample in sampleList[1:length(sampleList)] ){
   file.remove(currentSample$ASSamPath)
   currentSample <- alleleSetup.prep_results_directory( currentSample, alignmentFileDirectory )
   currentSample <- alleleSetup.call_setup_alleles( currentSample, uniqueSamDT, setup.knownSnpDFList, setup.hetRatio, setup.minDP, includeAmb = T )
-  currentSample <- alleleSetup.write_sample_ref_info( currentSample, alleleSetupDirectory, setup.knownSnpDFList, alleleSetupRef.df, addFullyDefined = T)
-  
-  synSeq.key <- alleleSetup.readAnswerKey( currentSample$refInfoPath )
-  currentSample <- ping_iter.run_alignments(currentSample, threads, all.align=T)
-  uniqueSamDT <- alleleSetup.process_samDT( currentSample$iterSamPathList[[1]], delIndex.list, processSharedReads = T, 2 )
-  currentSample <- alleleSetup.call_setup_alleles( currentSample, uniqueSamDT, setup.knownSnpDFList, setup.hetRatio, setup.minDP, includeAmb=F, ambScore=F, allPosScore = F, homScoreBuffer = 1, addDiversity = F)
-  currentSample <- alleleSetup.call_setup_alleles( currentSample, uniqueSamDT, setup.knownSnpDFList, final.hetRatio, final.minDP, includeAmb=T, ambScore=T, allPosScore = F, onlyExonScore = T, homScoreBuffer = 1, addDiversity=T,combineTypings=T, skipSnpGen=T)
   currentSample <- alleleSetup.write_sample_ref_info( currentSample, alleleSetupDirectory, setup.knownSnpDFList, alleleSetupRef.df, addFullyDefined = F)
   
   synSeq.key <- alleleSetup.readAnswerKey( currentSample$refInfoPath )
   currentSample <- ping_iter.run_alignments(currentSample, threads, all.align=T)
   uniqueSamDT <- alleleSetup.process_samDT( currentSample$iterSamPathList[[1]], delIndex.list, processSharedReads = T, 2 )
-  currentSample <- alleleSetup.call_setup_alleles( currentSample, uniqueSamDT, setup.knownSnpDFList, setup.hetRatio, setup.minDP, includeAmb=F, ambScore=F, allPosScore = F, homScoreBuffer = 1, addDiversity = F, skipSet = F)
-  currentSample <- alleleSetup.call_setup_alleles( currentSample, uniqueSamDT, setup.knownSnpDFList, final.hetRatio, final.minDP, includeAmb=T, ambScore=T, allPosScore = F, onlyExonScore = T, homScoreBuffer = 1, addDiversity=T,combineTypings=T,skipSnpGen=T, skipSet=F)
+  currentSample <- alleleSetup.call_setup_alleles( currentSample, uniqueSamDT, setup.knownSnpDFList, setup.hetRatio, setup.minDP, includeAmb=T, ambScore=F, allPosScore = F, homScoreBuffer = 1, addDiversity = F)
+  currentSample <- alleleSetup.call_setup_alleles( currentSample, uniqueSamDT, setup.knownSnpDFList, final.hetRatio, final.minDP, includeAmb=T, ambScore=T, allPosScore = F, onlyExonScore = T, homScoreBuffer = 1, addDiversity=T,combineTypings=T, skipSnpGen=T)
+  currentSample <- alleleSetup.write_sample_ref_info( currentSample, alleleSetupDirectory, setup.knownSnpDFList, alleleSetupRef.df, addFullyDefined = T)
+  
+  synSeq.key <- alleleSetup.readAnswerKey( currentSample$refInfoPath )
+  currentSample <- ping_iter.run_alignments(currentSample, threads, all.align=F)
+  uniqueSamDT <- alleleSetup.process_samDT( currentSample$iterSamPathList[[1]], delIndex.list, processSharedReads = F, 2 )
+  currentSample <- alleleSetup.call_setup_alleles( currentSample, uniqueSamDT, setup.knownSnpDFList, setup.hetRatio, setup.minDP, includeAmb=T, ambScore=F, allPosScore = F, homScoreBuffer = 1, addDiversity = F, skipSet = F)
+  currentSample <- alleleSetup.call_setup_alleles( currentSample, uniqueSamDT, setup.knownSnpDFList, final.hetRatio, final.minDP, includeAmb=T, ambScore=T, allPosScore = F, onlyExonScore = T, homScoreBuffer = 1, addDiversity=F,combineTypings=T,skipSnpGen=T, skipSet=F)
   currentSample <- alleleSetup.write_sample_ref_info( currentSample, alleleSetupDirectory, setup.knownSnpDFList, alleleSetupRef.df, addFullyDefined = T)
   
   synSeq.key <- alleleSetup.readAnswerKey( currentSample$refInfoPath )
