@@ -7,6 +7,7 @@ RUN apt-get update -qq && apt-get -y --no-install-recommends install \
     gzip \
     gdebi-core \
     wget \
+    bedtools \
     libtbb-dev \
     libssl-dev \
     libcurl4-openssl-dev \

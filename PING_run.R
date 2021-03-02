@@ -29,12 +29,13 @@ Options:
 library(docopt)
 
 #setwd('/home/wmarin/PING/') #Set this to your own PING2 working directory
+arguments <- docopt(doc, version = 'PING 2.0-alpha')
 
 
 # ---- DEPENDENCIES ----
-' if any dependencies are missing, install with
-install.packages("plotly",dependencies = T)
-'
+#' if any dependencies are missing, install with
+#install.packages("plotly",dependencies = T)
+#'
 library(data.table)
 library(stringr)
 library(methods)
@@ -45,7 +46,7 @@ library(gtools)
 library(zip)
 
                                         # Initialization
-cwd <- arguments$ Sys.getenv("CWD", unset='~/PING')
+## cwd <- arguments$ Sys.getenv("CWD", unset='~/PING')
 # setwd(cwd) #Set this to your own PING working directory
 
 workingDirectory <- arguments$workingDirectory
