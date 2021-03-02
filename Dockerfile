@@ -25,8 +25,8 @@ RUN mkdir -p /opt/PING/
 COPY Resources/ /opt/PING/Resources/
 COPY test_sequence/ /opt/PING/test_sequence/
 COPY PING_run.R /opt/PING/PING_run.R
-#COPY install_packages.R /opt/PING/install_packages.R
+COPY install_packages.R /opt/PING/install_packages.R
 
-RUN Rscript install_packages.R
+RUN Rscript /opt/PING/install_packages.R
 
 #CMD Rscript PING_run.R
