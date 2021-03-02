@@ -15,7 +15,7 @@ RUN apt-get update -qq && apt-get -y --no-install-recommends install \
     libxml2-dev \
     pandoc
 
-RUN wget https://sourceforge.net/projects/bowtie-bio/files/bowtie2/2.3.4.1/bowtie2-2.3.4.1-source.zip/download
+RUN wget --no-check-certificate https://sourceforge.net/projects/bowtie-bio/files/bowtie2/2.3.4.1/bowtie2-2.3.4.1-source.zip/download
 RUN unzip download
 RUN cd bowtie2-2.3.4.1 && make
 ENV PATH=$PATH:/usr/home/bowtie2-2.3.4.1
