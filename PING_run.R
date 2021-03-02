@@ -1,7 +1,35 @@
+'PING_run.
+
+Usage:
+  PING_run.R [--rawFastqDirectory=<fqd>]
+  PING_run.R (-h | --help)
+  PING_run.R --version
+
+Options:
+  -h --help     Show this screen.
+  --version     Show version.
+  --workingDirectory=<c> directory containing \'Resources\' in which to perform analysis [default: /opt/]
+  --rawFastqDirectory=<i>  can be set to raw sequence or extractedFastq directory [default: test_sequence/].
+  --fastqPattern=<p> # use \'_KIR_\' to find already extracted files, otherwise use \'fastq\' or whatever fits your data [default: fastq]
+  --threads=<t> threads [default: 26]
+  --resultsDirectory=<r> master results directory (all pipeline output will be recorded here) [default: 3_test_sequence_results/]
+  --shortNameDelim=<d>  can set a delimiter to shorten sample IDs (ID will be characters before delim) [default: _]
+  --setupHetRatio=<shr> setup het ratio [default: 0.25]
+  --finalHetRatio=<fhr> final het ratio [default: 0.25]
+  --setupMinDP=<smdp> setup minimum DP [default:  8]
+  --finalMinDP=<fmdp> final minimum DP [default: 10]
+  --no_copy_readBoost do not set copy.readBoost
+  --no_setup_readBoost do not set setup.readBoost
+  --final_readBoost set final.readBoost
+  --readBoostThresh=<rbt> readBoost threshold [default: 6]
+  --alleleFullAlign do full alignment of alleles
+  --copyFullAlign do full alignment of copy
+' -> doc
+
+library(docopt)
 
 #setwd('/home/wmarin/PING/') #Set this to your own PING2 working directory
-cwd <- Sys.getenv("CWD", unset='~/PING')
-#setwd(cwd) #Set this to your own PING working directory
+
 
 # ---- DEPENDENCIES ----
 ' if any dependencies are missing, install with
@@ -16,22 +44,46 @@ library(R.utils)
 library(gtools)
 library(zip)
 
-# Initialization variables ------------------------------------------------
-rawFastqDirectory <- Sys.getenv("RAW_FASTQ_DIR", unset='~/PING/test_sequence/') # can be set to raw sequence or extractedFastq directory
-fastqPattern <- Sys.getenv("FASTQ_PATTERN", unset='fastq') # use '_KIR_' to find already extracted files, otherwise use 'fastq' or whatever fits your data
-threads <- Sys.getenv("THREADS", unset=4)
-resultsDirectory <- Sys.getenv("OUTDIR", unset='~/3_test_sequence_results/') # Set the master results directory (all pipeline output will be recorded here)
-shortNameDelim <- Sys.getenv("SHORTNAMEDELIM", unset='_') # can set a delimiter to shorten sample ID's (ID will be characters before delim)
-setup.hetRatio <- Sys.getenv("SETUP_HETRATIO", unset=0.25)
-final.hetRatio <- Sys.getenv("FINAL_HETRATIO", unset=0.25)
-setup.minDP <- Sys.getenv("SETUP_MINDP", unset=8)
-final.minDP <- Sys.getenv("FINAL_MINDP", unset=10)
-copy.readBoost <- Sys.getenv("COPY_READBOOST", unset=T)
-setup.readBoost <- Sys.getenv("SETUP_READBOOST", unset=T)
-final.readBoost <- Sys.getenv("FINAL_READBOOST", unset=F)
-readBoost.thresh <- Sys.getenv("READBOOST_THRESH", unset=2)
-allele.fullAlign <- Sys.getenv("ALLELE_FULLALIGN", unset=F)
-copy.fullAlign <- Sys.getenv("COPY_FULLALIGN", unset=F)
+                                        # Initialization
+cwd <- arguments$ Sys.getenv("CWD", unset='~/PING')
+# setwd(cwd) #Set this to your own PING working directory
+
+workingDirectory <- arguments$workingDirectory
+#resourcesPref <- arguments$resourcesPref
+rawFastqDirectory <- arguments$rawFastqDirectory
+fastqPattern <- arguments$fastqPattern
+threads <- as.integer(arguments$threads)
+resultsDirectory <- arguments$resultsDirectory
+shortNameDelim <- arguments$shortNameDelim
+setup.hetRatio <- as.numeric(arguments$setupHetRatio)
+final.hetRatio <- as.numeric(arguments$finalHetRatio)
+setup.minDP <- as.numeric(arguments$setupMinDP)
+final.minDP <- as.numeric(arguments$finalMinDP)
+copy.readBoost <- !(arguments$no_copy_readBoost)
+setup.readBoost <- !(arguments$no_setup_readBoost)
+final.readBoost <- (arguments$final_readBoost)
+readBoost.thresh <- as.numeric(arguments$readBoostThresh)
+allele.fullAlign <- arguments$alleleFullAlign
+copy.fullAlign <- arguments$copyFullAlign
+
+setwd(workingDirectory)
+
+
+## rawFastqDirectory <- Sys.getenv("RAW_FASTQ_DIR", unset='~/PING/test_sequence/') # can be set to raw sequence or extractedFastq directory
+## fastqPattern <- Sys.getenv("FASTQ_PATTERN", unset='fastq') # use '_KIR_' to find already extracted files, otherwise use 'fastq' or whatever fits your data
+## threads <- Sys.getenv("THREADS", unset=4)
+## resultsDirectory <- Sys.getenv("OUTDIR", unset='~/3_test_sequence_results/') # Set the master results directory (all pipeline output will be recorded here)
+## shortNameDelim <- Sys.getenv("SHORTNAMEDELIM", unset='_') # can set a delimiter to shorten sample ID's (ID will be characters before delim)
+## setup.hetRatio <- Sys.getenv("SETUP_HETRATIO", unset=0.25)
+## final.hetRatio <- Sys.getenv("FINAL_HETRATIO", unset=0.25)
+## setup.minDP <- Sys.getenv("SETUP_MINDP", unset=8)
+## final.minDP <- Sys.getenv("FINAL_MINDP", unset=10)
+## copy.readBoost <- Sys.getenv("COPY_READBOOST", unset=T)
+## setup.readBoost <- Sys.getenv("SETUP_READBOOST", unset=T)
+## final.readBoost <- Sys.getenv("FINAL_READBOOST", unset=F)
+## readBoost.thresh <- Sys.getenv("READBOOST_THRESH", unset=2)
+## allele.fullAlign <- Sys.getenv("ALLELE_FULLALIGN", unset=F)
+## copy.fullAlign <- Sys.getenv("COPY_FULLALIGN", unset=F)
 
 # Initialization variables ------------------------------------------------
 # rawFastqDirectory <- '~/test_sample/' # can be set to raw sequence or extractedFastq directory

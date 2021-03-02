@@ -17,21 +17,16 @@ RUN apt-get update -qq && apt-get -y --no-install-recommends install \
 
 RUN wget --no-check-certificate https://sourceforge.net/projects/bowtie-bio/files/bowtie2/2.3.4.1/bowtie2-2.3.4.1-source.zip/download
 RUN unzip download
-RUN cd bowtie2-2.3.4.1 && make
-ENV PATH=$PATH:/usr/home/bowtie2-2.3.4.1
-RUN bowtie2 --help
-
-ENV CWD=/usr/home
-ENV RAW_FASTQ_DIR=test_sequence/
-RUN mkdir results/
-ENV RESULTS_DIR=results
+RUN cd bowtie2-2.3.4.1 && make install
+RUN cd && bowtie2 --help && rm -rf download
+RUN mkdir -p /opt/PING/
 
 ## copy files
-COPY Resources/ Resources/
-COPY test_sequence/ test_sequence/
-COPY PING_run.R PING_run.R
-COPY install_packages.R install_packages.R
+COPY Resources/ /opt/PING/Resources/
+COPY test_sequence/ /opt/PING/test_sequence/
+COPY PING_run.R /opt/PING/PING_run.R
+#COPY install_packages.R /opt/PING/install_packages.R
 
 RUN Rscript install_packages.R
 
-CMD Rscript PING_run.R
+#CMD Rscript PING_run.R
