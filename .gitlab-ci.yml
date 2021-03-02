@@ -9,6 +9,6 @@ before_script:
   
 ping:
   script:
-    - docker build -t registry.code.roche.com/knoblauch.nicholas/PING/ping:latest .
-    - docker push  registry.code.roche.com/knoblauch.nicholas/PING/ping
+    - docker build -t registry.code.roche.com/knoblauch.nicholas/ping/ping:latest .
+    - docker push  registry.code.roche.com/knoblauch.nicholas/ping/ping
     
