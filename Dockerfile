@@ -23,9 +23,8 @@ RUN cd && bowtie2 --help && rm -rf download
 RUN mkdir -p /opt/PING/
 
 ## copy files
-COPY Resources/ /opt/PING/Resources/
+#COPY Resources/ /opt/PING/Resources/
 COPY test_sequence/ /opt/PING/test_sequence/
-COPY PING_run.R /opt/PING/PING_run.R
 COPY install_packages.R /opt/PING/install_packages.R
 
 RUN Rscript /opt/PING/install_packages.R

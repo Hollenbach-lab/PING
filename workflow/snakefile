@@ -1,0 +1,7 @@
+include: "rules/retrieve_1kg.smk"
+include: "rules/ping.smk"
+
+
+
+rule all:
+  "../output/HG00501.tar.gz"

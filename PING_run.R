@@ -1,7 +1,7 @@
 'PING_run.
 
 Usage:
-  PING_run.R [--rawFastqDirectory=<fqd>] [--rawFastqDirectory=<i>] [--fastqPattern=<p>] [--threads=<t>] [--resultsDirectory=<r>] [--shortNameDelim=<d>] [--setupHetRatio=<shr>] [--finalHetRatio=<fhr>] [--setupMinDP=<smdp>] [--finalMinDP=<fmdp>] [--no_copy_readBoost] [--no_setup_readBoost] [--final_readBoost] [--readBoostThresh=<rbt>] [--alleleFullAlign] [--copyFullAlign]
+  PING_run.R [--rawFastqDirectory=<fqd> --rawFastqDirectory=<i> --fastqPattern=<p> --threads=<t> --resultsDirectory=<r> --shortNameDelim=<d> --setupHetRatio=<shr> --finalHetRatio=<fhr> --setupMinDP=<smdp> --finalMinDP=<fmdp> --no_copy_readBoost --no_setup_readBoost --final_readBoost --readBoostThresh=<rbt> --alleleFullAlign --copyFullAlign]
   PING_run.R (-h | --help)
   PING_run.R --version
 
@@ -139,72 +139,72 @@ sampleList <- ping_copy.graph(sampleList=sampleList,threads=threads,resultsDirec
 #cat('\n\nZipping relevant results.')
 #zip(file.path(resultsDirectory,'copy_output.zip'),c(file.path(resultsDirectory,'snp_output'), file.path(resultsDirectory,'locusCountFrame.csv'),file.path(resultsDirectory,'kffCountFrame.csv'), file.path(resultsDirectory,'copyPlots')))
 #cat('\n\n----- Finished run, please find results at',paste0(resultsDirectory,'copy_output.zip'))
-# 
+#
 # ' 6.12 hours for 50 samples at 40 threads, 150bp, 50dp
 # '
 # sampleList <- ping_copy.manual_threshold(sampleList=sampleList,resultsDirectory=outDir$path,use.threshFile = T) # this function sets copy thresholds
 # sampleList <- ping_copy.load_copy_results( sampleList, outDir$path )
-# 
-# # Fix for poor 2DL2 
+#
+# # Fix for poor 2DL2
 # #sapply(sampleList, function(x) x$copyNumber[['KIR2DL2']] <- as.character(2-as.integer(x$copyNumber[['KIR2DL3']])))
-# 
+#
 # ## Seeing the following message when generating copy plots is normal
 # 'A line object has been specified, but lines is not in the mode
 # Adding lines to the mode...'
-# 
+#
 # ## use this section for notes / recording suspicious samples (has no impact on pipeline operation or results)
-# ' 
+# '
 # KIR3DP1 [example]
 #   IND00001 [example]
 # '
-# 
+#
 # PING2 alignments and allele calling ----------------------------------------------
 # Iter align workflow
 
-# 
+#
 # if(allele.fullAlign){
 #   as.list <- alleleSeq.list
 # }else{
 #   as.list <- compact.alleleSeq.list
 # }
-# 
+#
 # # Alignment and allele calling workflow
 # for(currentSample in sampleList){
-# 
+#
 #   currentSample <- alleleSetup.gc_matched_ref_alignment( currentSample, alleleSetupDirectory, as.list, threads)
-# 
+#
 #   if( currentSample[['ASSamPath']] == 'failed' ){
 #     next
 #   }
-# 
+#
 #   uniqueSamDT <- alleleSetup.process_samDT( currentSample$ASSamPath, delIndex.list, processSharedReads = setup.readBoost, readBoost.thresh )
 #   file.remove(currentSample$ASSamPath)
-# 
+#
 #   currentSample <- alleleSetup.prep_results_directory( currentSample, alignmentFileDirectory )
-# 
+#
 #   currentSample <- alleleSetup.call_setup_alleles( currentSample, uniqueSamDT, setup.knownSnpDFList, setup.hetRatio, setup.minDP )
 #   currentSample <- alleleSetup.write_sample_ref_info( currentSample, alleleSetupDirectory )
-# 
+#
 #   synSeq.key <- alleleSetup.readAnswerKey( currentSample$refInfoPath )
-# 
+#
 #   currentSample <- ping_iter.run_alignments(currentSample, threads)
 #   uniqueSamDT <- alleleSetup.process_samDT( currentSample$iterSamPathList[[1]], delIndex.list, processSharedReads = final.readBoost, readBoost.thresh )
 #   currentSample <- pingAllele.generate_snp_df( currentSample,uniqueSamDT,currentSample[['iterRefDirectory']],setup.knownSnpDFList,'final', final.hetRatio, final.minDP )
-# 
+#
 #   cat('\n\n\n----- Final allele calling -----')
 #   for( currentLocus in names( currentSample[['snpDFPathList']][['final']][['SNP']] )){
 #     cat('\n\t',currentLocus)
 #     currentSample <- pingAllele.call_final_alleles(currentSample, currentLocus, knownSnpDFList[[currentLocus]]$snpDF)
 #   }
-# 
+#
 #   currentSample <- pingAllele.save_call( currentSample, alleleDFPathList$iter$alleleCallPath )
 # }
-# 
+#
 # source('Resources/alleleFinalize_functions.R')
 # # ----- Formatting Results Genotypes (carry directly over to PING_run) -----
-# 
+#
 # cat('\n\n ----- FINALIZING GENOTYPES ----- ')
 # finalCallPath <- pingFinalize.format_calls( resultsDirectory )
 # cat('\nFinal calls written to:',finalCallPath)
-# 
-# 
+#
+#
