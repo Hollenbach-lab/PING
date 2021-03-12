@@ -1,7 +1,7 @@
 'PING_run.
 
 Usage:
-  PING_run.R [--rawFastqDirectory=<fqd>]
+  PING_run.R [--rawFastqDirectory=<fqd>] [--rawFastqDirectory=<i>] [--fastqPattern=<p>] [--threads=<t>] [--resultsDirectory=<r>] [--shortNameDelim=<d>] [--setupHetRatio=<shr>] [--finalHetRatio=<fhr>] [--setupMinDP=<smdp>] [--finalMinDP=<fmdp>] [--no_copy_readBoost] [--no_setup_readBoost] [--final_readBoost] [--readBoostThresh=<rbt>] [--alleleFullAlign] [--copyFullAlign]
   PING_run.R (-h | --help)
   PING_run.R --version
 
