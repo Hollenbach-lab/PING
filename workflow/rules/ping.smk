@@ -1,20 +1,22 @@
 rule cram2fastq:
     input:
         ref_fq="../data/GRCh38_full_analysis_set_plus_decoy_hla.fa",
-        cramf="../input/{sample}.cram",
+        cramf="../input/{sample}_kir.cram",
     output:
-        fq1="../input/{sample}/fastq_1.fq.gz",
-        fq2="../input/{sample}/fastq_2.fq.gz"
+        fq1="../input/{sample}/fastq_1.fastq.gz",
+        fq2="../input/{sample}/fastq_2.fastq.gz"
     threads: 12
     container:
         "docker://registry.code.roche.com/knoblauch.nicholas/ping/ping"
+    conda:
+        "../envs/ping.yaml"        
     shell:
        """samtools sort {input.cramf} --threads {threads} | samtools fastq --reference {input.ref_fq} -1 {output.fq1} -2 {output.fq2} --threads {threads}"""
 
 rule run_PING:
     input:
-        fq1="../input/{sample}/fastq_1.fq.gz",
-        fq2="../input/{sample}/fastq_2.fq.gz"
+        fq1="../input/{sample}/fastq_1.fastq.gz",
+        fq2="../input/{sample}/fastq_2.fastq.gz"
     output:
         "../output/{sample}.tar.gz"
     params:
@@ -33,6 +35,8 @@ rule run_PING:
         readBoost_thresh="2",
         allele_fullAlign="F",
         copy_fullAlign="F",
+    conda:
+        "../envs/ping.yaml"
     container:
         "docker://registry.code.roche.com/knoblauch.nicholas/ping/ping"
     threads:

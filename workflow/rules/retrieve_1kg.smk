@@ -21,7 +21,13 @@ rule retrieve_fastq:
 
 
 rule retrieve_cram:
+    input:
+      "../data/kir.bed"
     params:
         lambda wildcards: get_tgp_url(wildcards.sample)
     output:
-        cramf="../input/{sample}.cram"
+        cramf="../input/{sample}_kir.cram",
+    conda:
+        "../envs/ping.yaml"                
+    shell:
+        "samtools view -L {input} -o {output.cramf} {params}"

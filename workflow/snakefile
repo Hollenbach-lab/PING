@@ -1,7 +1,9 @@
 include: "rules/retrieve_1kg.smk"
 include: "rules/ping.smk"
 
-
+all_tgp=get_tgp_urls().keys()
+print(len(all_tgp))
 
 rule all:
-  "../output/HG00501.tar.gz"
+  input:
+      "../output/HG00501.tar.gz"
