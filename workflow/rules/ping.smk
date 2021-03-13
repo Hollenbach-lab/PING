@@ -9,7 +9,7 @@ rule cram2fastq:
     container:
         "docker://registry.code.roche.com/knoblauch.nicholas/ping/ping"
     conda:
-        "../envs/ping.yaml"        
+        "../../envs/ping.yaml"        
     shell:
        """samtools sort {input.cramf} --threads {threads} | samtools fastq --reference {input.ref_fq} -1 {output.fq1} -2 {output.fq2} --threads {threads}"""
 
@@ -36,7 +36,7 @@ rule run_PING:
         allele_fullAlign="F",
         copy_fullAlign="F",
     conda:
-        "../envs/ping.yaml"
+        "../../envs/ping.yaml"
     container:
         "docker://registry.code.roche.com/knoblauch.nicholas/ping/ping"
     threads:

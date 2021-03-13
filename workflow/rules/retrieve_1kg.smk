@@ -28,6 +28,6 @@ rule retrieve_cram:
     output:
         cramf="../input/{sample}_kir.cram",
     conda:
-        "../envs/ping.yaml"                
+        "../../envs/ping.yaml"                
     shell:
         "samtools view -L {input} -o {output.cramf} {params}"
