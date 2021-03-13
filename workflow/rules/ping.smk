@@ -1,3 +1,4 @@
+from datetime import timedelta
 rule cram2fastq:
     input:
         ref_fq="../data/GRCh38_full_analysis_set_plus_decoy_hla.fa",
@@ -18,7 +19,10 @@ rule run_PING:
         fq1="../input/{sample}/fastq_1.fastq.gz",
         fq2="../input/{sample}/fastq_2.fastq.gz"
     output:
-        "../output/{sample}.tar.gz"
+        "../output/{sample}.tar.gz",
+    resources:
+        mem_mb=33000,
+        time=timedelta(hours=3)
     params:
         workingDirectory="..",
         rawFastqDirectory="input/{sample}",
