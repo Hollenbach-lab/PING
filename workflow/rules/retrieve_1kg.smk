@@ -30,4 +30,4 @@ rule retrieve_cram:
     conda:
         "../../envs/ping.yaml"                
     shell:
-        "samtools view -L {input} -o {output.cramf} {params}"
+        "samtools view -M -L {input} -o {output.cramf} {params}"
