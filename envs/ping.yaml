@@ -5,16 +5,16 @@ channels:
   - conda-forge
   - defaults
 dependencies:
-  - _r-mutex=1.0.1=anacondar_1
-  - bcftools=1.11=he8d9d6d_0
-  - bowtie2=2.3.4.1=py36h470a237_1
-  - r=3.6.0=r36_0
-  - r-stringr=1.4.0=r36h6115d3f_0
-  - r-plotly=4.9.0=r36h6115d3f_0
-  - r-r.utils=2.8.0=r36h6115d3f_0
-  - r-base=3.6.3=h2b2b636_6
-  - r-data.table=1.12.2=r36h46e59ec_0
-  - r-gtools=3.8.1=r36h46e59ec_0
-  - r-zip=2.0.1=r36h46e59ec_0
-  - r-pryr=0.1.4=r36h466af19_0
+  - bcftools=1.11
+  - bedtools
+  - samtools
+  - bowtie2=2.3.4.1
+  - r=3.6.0
+  - r-stringr
+  - r-plotly
+  - r-r.utils
+  - r-data.table
+  - r-gtools
+  - r-zip
+  - r-pryr
 prefix: /Users/knoblaun/miniconda3/envs/ping
