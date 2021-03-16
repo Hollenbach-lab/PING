@@ -1,4 +1,5 @@
 from datetime import timedelta
+
 rule cram2fastq:
     input:
         ref_fq="../data/GRCh38_full_analysis_set_plus_decoy_hla.fa",
@@ -12,7 +13,7 @@ rule cram2fastq:
     conda:
         "../../envs/ping.yaml"        
     shell:
-       """samtools sort {input.cramf} --threads {threads} | samtools fastq --reference {input.ref_fq} -1 {output.fq1} -2 {output.fq2} --threads {threads}"""
+       """samtools sort -n {input.cramf} --threads {threads} | samtools fastq --reference {input.ref_fq} -1 {output.fq1} -2 {output.fq2} --threads {threads}"""
 
 rule run_PING:
     input:
@@ -22,7 +23,7 @@ rule run_PING:
         "../output/{sample}.tar.gz",
     resources:
         mem_mb=33000,
-        time=timedelta(hours=3)
+        time=str(timedelta(hours=3))
     params:
         workingDirectory="..",
         rawFastqDirectory="input/{sample}",
