@@ -1,9 +1,11 @@
+from datetime import timedelta
 include: "rules/retrieve_1kg.smk"
 include: "rules/ping.smk"
 
 all_tgp=get_tgp_urls().keys()
+some_tgp = list(all_tgp)[:85]
 print(len(all_tgp))
 
 rule all:
   input:
-      "../output/HG00501.tar.gz"
+      expand("../output/{smpl}.tar.gz",smpl=some_tgp)
