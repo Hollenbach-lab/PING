@@ -18,4 +18,5 @@ dependencies:
   - r-gtools
   - r-zip
   - r-pryr
+  - openjdk
 prefix: /Users/knoblaun/miniconda3/envs/ping
