@@ -1752,7 +1752,49 @@ pingAllele.addUnresSNPs <- function( currentSample, currentADSnpDF, currentSnpDF
   return(currentSample)
 }
 
-
+ping_allele <- function(sampleList){
+  
+  for( currentSample in sampleList ){
+    
+    currentSample <- alleleSetup.gc_matched_ref_alignment( currentSample, alleleSetupDirectory, as.list, threads)
+    
+    currentSample[['setCallList']] <- list()
+    uniqueSamDT <- alleleSetup.process_samDT( currentSample$ASSamPath, delIndex.list, processSharedReads = setup.readBoost, readBoost.thresh )
+    file.remove(currentSample$ASSamPath)
+    currentSample <- alleleSetup.prep_results_directory( currentSample, alignmentFileDirectory )
+    currentSample <- alleleSetup.call_setup_alleles( currentSample, uniqueSamDT, setup.knownSnpDFList, setup.hetRatio, setup.minDP, includeAmb = T )
+    currentSample <- alleleSetup.write_sample_ref_info( currentSample, alleleSetupDirectory, setup.knownSnpDFList, alleleSetupRef.df, addFullyDefined = F)
+    
+    synSeq.key <- alleleSetup.readAnswerKey( currentSample$refInfoPath )
+    currentSample <- ping_iter.run_alignments(currentSample, threads, all.align=T, synSeq.key)
+    uniqueSamDT <- alleleSetup.process_samDT( currentSample$iterSamPathList[[1]], delIndex.list, processSharedReads = T, 2 )
+    currentSample <- alleleSetup.call_setup_alleles( currentSample, uniqueSamDT, setup.knownSnpDFList, setup.hetRatio, setup.minDP, includeAmb=T, ambScore=F, allPosScore = F, homScoreBuffer = 1, addDiversity = F)
+    currentSample <- alleleSetup.call_setup_alleles( currentSample, uniqueSamDT, setup.knownSnpDFList, final.hetRatio, final.minDP, includeAmb=T, ambScore=T, allPosScore = F, onlyExonScore = T, homScoreBuffer = 1, addDiversity=T,combineTypings=T, skipSnpGen=T)
+    currentSample <- alleleSetup.write_sample_ref_info( currentSample, alleleSetupDirectory, setup.knownSnpDFList, alleleSetupRef.df, addFullyDefined = T)
+    
+    synSeq.key <- alleleSetup.readAnswerKey( currentSample$refInfoPath )
+    currentSample <- ping_iter.run_alignments(currentSample, threads, all.align=F, synSeq.key)
+    uniqueSamDT <- alleleSetup.process_samDT( currentSample$iterSamPathList[[1]], delIndex.list, processSharedReads = F, 2 )
+    currentSample <- alleleSetup.call_setup_alleles( currentSample, uniqueSamDT, setup.knownSnpDFList, setup.hetRatio, setup.minDP, includeAmb=T, ambScore=F, allPosScore = F, homScoreBuffer = 1, addDiversity = F, skipSet = F)
+    currentSample <- alleleSetup.call_setup_alleles( currentSample, uniqueSamDT, setup.knownSnpDFList, final.hetRatio, final.minDP, includeAmb=T, ambScore=T, allPosScore = F, onlyExonScore = T, homScoreBuffer = 1, addDiversity=F,combineTypings=T,skipSnpGen=T, skipSet=F)
+    currentSample <- alleleSetup.write_sample_ref_info( currentSample, alleleSetupDirectory, setup.knownSnpDFList, alleleSetupRef.df, addFullyDefined = T)
+    
+    synSeq.key <- alleleSetup.readAnswerKey( currentSample$refInfoPath )
+    currentSample <- ping_iter.run_alignments(currentSample, threads, all.align=F, synSeq.key)
+    uniqueSamDT <- alleleSetup.process_samDT( currentSample$iterSamPathList[[1]], delIndex.list, processSharedReads = F, 2 )
+    currentSample <- pingAllele.generate_snp_df( currentSample,uniqueSamDT,currentSample[['iterRefDirectory']],setup.knownSnpDFList,'final', final.hetRatio, final.minDP )
+    
+    cat('\n\n\n----- Final allele calling -----')
+    for( currentLocus in names( currentSample[['snpDFPathList']][['final']][['SNP']] )){
+      cat('\n\t',currentLocus)
+      currentSample <- pingAllele.call_final_alleles(currentSample, currentLocus, knownSnpDFList[[currentLocus]]$snpDF)
+    }
+    
+    currentSample <- pingAllele.save_call( currentSample, alleleDFPathList$iter$alleleCallPath )
+  }
+  
+  return(sampleList)
+}
 
 
 

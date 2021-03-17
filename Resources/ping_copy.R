@@ -143,6 +143,12 @@ ping_copy.graph <- function(sampleList=list(),
     cat(paste0('\nFound manualCopyThresholds.csv in ',threshPath,'. Loading these results.'))
     thresholdDF <- read.csv(threshPath, stringsAsFactors=F, check.names=F,row.names=1)
   }
+  
+  if( grepl('test_sequence_output',resultsDirectory,fixed=T) & grepl('IND00001', sampleList[[1]]$name, fixed=T) ){
+    cat('\nUsing example threshold data from Resources/gc_resources/manualCopyThresholds_example.csv')
+    thresholdDF <- read.csv('Resources/gc_resources/manualCopyThresholds_example.csv',stringsAsFactors = F, check.names=F,row.names=1)
+  }
+  
   write.csv(thresholdDF, file = threshPath)
   ## /Threshold df setup
   
