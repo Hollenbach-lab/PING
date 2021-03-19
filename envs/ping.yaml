@@ -19,4 +19,5 @@ dependencies:
   - r-zip
   - r-pryr
   - openjdk
+  - bazam
 prefix: /Users/knoblaun/miniconda3/envs/ping

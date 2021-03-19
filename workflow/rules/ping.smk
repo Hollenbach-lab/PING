@@ -1,34 +1,86 @@
-from datetime import timedelta
+rule index_cram:
+  """index the subset CRAM file"""
+    input:
+        "../input/{pref}/cram/{sample}_kir.cram"
+    output:
+        "../input/{pref}/cram/{sample}_kir.cram.crai"
+    conda:
+        "../../envs/ping.yaml"
+    resources:
+        mem_mb=2000,
+        time=str(timedelta(minutes=30))
+    threads:
+        2
+    shell:
+        """samtools index -@ {threads} {input}"""
+
+
+rule index_bam:
+  """index the subset BAM file"""
+    input:
+        "../input/{pref}/bam/{sample}_kir.bam"
+    output:
+        "../input/{pref}/bam/{sample}_kir.bam.bai"
+    conda:
+        "../../envs/ping.yaml"
+    resources:
+        mem_mb=2000,
+        time=str(timedelta(minutes=30))
+    threads:
+        2
+    shell:
+        """samtools index -@ {threads} {input}"""
+
+
 
 rule cram2fastq:
+    """convert a cram to fastq suitable for PING"""
     input:
         ref_fq="../data/GRCh38_full_analysis_set_plus_decoy_hla.fa",
-        cramf="../input/{sample}_kir.cram",
+        cramf="../input/{pref}/cram/{sample}_kir.cram",
+        crami="../input/{pref}/cram/{sample}_kir.cram.crai",
     output:
-        fq1="../input/{sample}/fastq_1.fastq.gz",
-        fq2="../input/{sample}/fastq_2.fastq.gz"
-    threads: 12
-    container:
-        "docker://registry.code.roche.com/knoblauch.nicholas/ping/ping"
+        fq1="../input/{pref}/fastq/{sample}_KIR_1.fastq.gz",
+        fq2="../input/{pref}/fastq/{sample}_KIR_2.fastq.gz"
+    threads: 8
     conda:
         "../../envs/ping.yaml"        
     shell:
-       """samtools sort -n {input.cramf} --threads {threads} | samtools fastq --reference {input.ref_fq} -1 {output.fq1} -2 {output.fq2} --threads {threads}"""
+        """bazam -Dsamjdk.reference_fasta={input.ref_fq} -Xmx4g  -bam {input.cramf} -r1 {output.fq1} -r2 {output.fq2}"""
+
+
+rule bam2fastq:
+    """convert a bam to fastq suitable for PING"""
+    input:
+        ref_fq="../data/GRCh38_full_analysis_set_plus_decoy_hla.fa",
+        cramf="../input/{pref}/bam/{sample}_kir.bam",
+        crami="../input/{pref}/bam/{sample}_kir.bam.bai",
+    output:
+        fq1="../input/{pref}/fastq/{sample}_KIR_1.fastq.gz",
+        fq2="../input/{pref}/fastq/{sample}_KIR_2.fastq.gz"
+    threads: 8
+    conda:
+        "../../envs/ping.yaml"        
+    shell:
+        """bazam -Dsamjdk.reference_fasta={input.ref_fq} -Xmx4g  -bam {input.cramf} -r1 {output.fq1} -r2 {output.fq2}"""
+
+
+
 
 rule run_PING:
+  """run PING"""
     input:
-        fq1="../input/{sample}/fastq_1.fastq.gz",
-        fq2="../input/{sample}/fastq_2.fastq.gz"
+        fq1="../input/{pref}/fastq/{sample}_KIR_1.fastq.gz",
+        fq2="../input/{pref}/fastq/{sample}_KIR_2.fastq.gz"
     output:
-        "../output/{sample}.tar.gz",
+        "../output/{pref}/{sample}.tar.gz",
     resources:
         mem_mb=33000,
         time=str(timedelta(hours=3))
     params:
         workingDirectory="..",
-        rawFastqDirectory="input/{sample}",
-        fastqPattern="fastq",
-        resultsDirectory="output/{sample}",
+        resultsDirectory="output/{pref}/{sample}",
+        samplename="{sample}",
         shortNameDelim="_",
         setup_hetRatio="0.25",
         final_hetRatio="0.25",
@@ -42,8 +94,8 @@ rule run_PING:
         copy_fullAlign="F",
     conda:
         "../../envs/ping.yaml"
-    container:
-        "docker://registry.code.roche.com/knoblauch.nicholas/ping/ping"
+    log:
+        "../output/{pref}/{sample}_log.txt"        
     threads:
         26
     script:

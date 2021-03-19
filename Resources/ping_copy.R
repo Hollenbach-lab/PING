@@ -507,42 +507,39 @@ ping_copy.manual_threshold <- function(sampleList=list(),resultsDirectory='',use
   return(sampleList)
 }
 
-ping_copy.load_copy_results <- function( sampleList, resultsDirectory ){
-  
-  cat('\n\n ----- Loading up results from ping_copy -----')
-  kffCountDFFile <- file.path(resultsDirectory, 'kffCountFrame.csv')
-  copyDFFile <- file.path(resultsDirectory, 'manualCopyNumberFrame.csv')
-  
-  if( all(file.exists(c(kffCountDFFile, copyDFFile))) ){
-    
-    cat(paste0('\n\nFound kffCountFrame.csv in ', resultsDirectory, '. Loading these results.'))
-    kffCountDF <- read.csv(kffCountDFFile, stringsAsFactors = F, check.names = F, row.names = 1 )
-    
-    cat(paste0('\n\nFound manualCopyNumberFrame.csv in ', resultsDirectory, '. Loading these results.'))
-    copyDF <- read.csv(copyDFFile , stringsAsFactors = F, check.names = F, row.names = 1)
-    
-  }else{
-    cat('\n',kffCountDFFile,'\n',copyDFFile,'\n')
-    stop('Copy results files absent in:',resultsDirectory)
-  }
-  
-  for( sampleID in names(sampleList) ){
-    currentSampleProbeList <- as.list( kffCountDF[sampleID,] )
-    currentSampleCopyList <- as.list( copyDF[sampleID,] )
-    
-    ## Consolidate probe ID's
-    probeIDVect <- unique(tstrsplit(names(currentSampleProbeList),'_rc')[[1]])
-    
-    ## Fill out the probe ID list
-    currentSampleProbeIDList <- list()
-    for(probeID in probeIDVect){
-      currentProbeVect <- grep(probeID,names(currentSampleProbeList),value=T,fixed=T)
-      currentSampleProbeIDList[[probeID]] <- sum(unlist(currentSampleProbeList[currentProbeVect]))
+ping_copy.load_copy_results <- function(sampleList, resultsDirectory) {
+    cat("\n\n ----- Loading up results from ping_copy -----")
+    kffCountDFFile <- file.path(resultsDirectory, "kffCountFrame.csv")
+    copyDFFile <- file.path(resultsDirectory, "manualCopyNumberFrame.csv")
+
+    if (all(file.exists(c(kffCountDFFile, copyDFFile)))) {
+        cat(paste0("\n\nFound kffCountFrame.csv in ", resultsDirectory, ". Loading these results."))
+        kffCountDF <- read.csv(kffCountDFFile, stringsAsFactors = F, check.names = F, row.names = 1)
+
+        cat(paste0("\n\nFound manualCopyNumberFrame.csv in ", resultsDirectory, ". Loading these results."))
+        copyDF <- read.csv(copyDFFile, stringsAsFactors = F, check.names = F, row.names = 1)
+    } else {
+        cat("\n", kffCountDFFile, "\n", copyDFFile, "\n")
+        stop("Copy results files absent in:", resultsDirectory)
     }
-    
-    sampleList[[sampleID]]$kffHits <- currentSampleProbeIDList
-    sampleList[[sampleID]]$copyNumber <- currentSampleCopyList
-  }
-  cat('\n\nFinished.')
-  return(sampleList)
+
+    for (sampleID in names(sampleList)) {
+        currentSampleProbeList <- as.list(kffCountDF[sampleID, ])
+        currentSampleCopyList <- as.list(copyDF[sampleID, ])
+
+        ## Consolidate probe ID's
+        probeIDVect <- unique(tstrsplit(names(currentSampleProbeList), "_rc")[[1]])
+
+        ## Fill out the probe ID list
+        currentSampleProbeIDList <- list()
+        for (probeID in probeIDVect) {
+            currentProbeVect <- grep(probeID, names(currentSampleProbeList), value = T, fixed = T)
+            currentSampleProbeIDList[[probeID]] <- sum(unlist(currentSampleProbeList[currentProbeVect]))
+        }
+
+        sampleList[[sampleID]]$kffHits <- currentSampleProbeIDList
+        sampleList[[sampleID]]$copyNumber <- currentSampleCopyList
+    }
+    cat("\n\nFinished.")
+    return(sampleList)
 }

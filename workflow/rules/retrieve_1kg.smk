@@ -19,32 +19,24 @@ def get_tgp_url(sample):
     return get_tgp_urls()[sample]
 
 
-def ftp2s3(sample):
-    ftp_url = urlparse(get_tgp_urls()[sample])
-    ftp_url_path = Path(ftp_url.path)
-    rel_p = ftp_url_path.relative_to('/vol1/run')
-    rel_pp= rel_p.parents[1]
-    new_rel_p=rel_p.relative_to(rel_pp)
-
-
-
-
 
 rule retrieve_fastq:
+  """Download GRCh38 from the 1000 genomes project"""
     output:
         "../data/GRCh38_full_analysis_set_plus_decoy_hla.fa"
     shell:
         """wget -O {output} ftp://ftp.1000genomes.ebi.ac.uk/vol1/ftp/technical/reference/GRCh38_reference_genome/GRCh38_full_analysis_set_plus_decoy_hla.fa"""
 
 
-
 rule retrieve_cram:
+    """Download the subset of the 1000 genomes CRAM file corresponding to the kir regions"""
     input:
-      "../data/kir.bed"
+        bedf="../data/kir_regions.bed",
+        ref_fq="../data/GRCh38_full_analysis_set_plus_decoy_hla.fa",
     params:
-        lambda wildcards: ftp2s3(wildcards.sample)
+        lambda wildcards: get_tgp_url(wildcards.sample)
     output:
-        cramf="../input/{sample}_kir.cram",
+        cramf="../input/tgp/cram/{sample}_kir.cram",
     conda:
         "../../envs/ping.yaml"
     resources:
@@ -53,4 +45,4 @@ rule retrieve_cram:
     threads:
         4
     shell:
-        "samtools view --threads {threads} -M -L {input} -o {output.cramf} {params}"
+        "samtools view --reference {input.ref_fq} --threads {threads} -M -L {input.bedf} -o {output.cramf} {params}"
