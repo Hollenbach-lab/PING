@@ -1,0 +1,23 @@
+name: ping
+channels:
+  - r
+  - bioconda
+  - conda-forge
+  - defaults
+dependencies:
+  - bcftools=1.11
+  - bedtools
+  - samtools
+  - bowtie2=2.3.4.1
+  - tbb=2020.2
+  - r=3.6.0
+  - r-stringr
+  - r-plotly
+  - r-r.utils
+  - r-data.table
+  - r-gtools
+  - r-zip
+  - r-pryr
+  - openjdk
+  - bazam
+prefix: /Users/knoblaun/miniconda3/envs/ping

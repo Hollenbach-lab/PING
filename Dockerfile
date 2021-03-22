@@ -1,37 +1,39 @@
+FROM condaforge/mambaforge:latest
+LABEL io.github.snakemake.containerized="true"
+LABEL io.github.snakemake.conda_env_hash="596f895364093d94dc95ab535d64a2d840d7fd9764851004ee19511b4d48f939"
 
-FROM rocker/r-base:3.6.3
+# Step 1: Retrieve conda environments
 
-WORKDIR /usr/home
+# Conda environment:
+#   source: ../envs/ping.yaml
+#   prefix: /conda-envs/9bde66ce6ea632074aec7d16e81308f2
+#   name: ping
+#   channels:
+#     - r
+#     - bioconda
+#     - conda-forge
+#     - defaults
+#   dependencies:
+#     - bcftools=1.11
+#     - bedtools
+#     - samtools
+#     - bowtie2=2.3.4.1
+#     - tbb=2020.2
+#     - r=3.6.0
+#     - r-stringr
+#     - r-plotly
+#     - r-r.utils
+#     - r-data.table
+#     - r-gtools
+#     - r-zip
+#     - r-pryr
+#     - openjdk
+#     - bazam
+#   prefix: /Users/knoblaun/miniconda3/envs/ping
+RUN mkdir -p /conda-envs/9bde66ce6ea632074aec7d16e81308f2
+COPY ../envs/ping.yaml /conda-envs/9bde66ce6ea632074aec7d16e81308f2/environment.yaml
 
-RUN apt-get update -qq && apt-get -y --no-install-recommends install \
-    gzip \
-    gdebi-core \
-    wget \
-    libtbb-dev \
-    libssl-dev \
-    libcurl4-openssl-dev \
-    samtools \
-    bcftools \
-    libxml2-dev \
-    pandoc
+# Step 2: Generate conda environments
 
-RUN wget https://sourceforge.net/projects/bowtie-bio/files/bowtie2/2.3.4.1/bowtie2-2.3.4.1-source.zip/download
-RUN unzip download
-RUN cd bowtie2-2.3.4.1 && make
-ENV PATH=$PATH:/usr/home/bowtie2-2.3.4.1
-RUN bowtie2 --help
-
-ENV CWD=/usr/home
-ENV RAW_FASTQ_DIR=test_sequence/
-RUN mkdir results/
-ENV RESULTS_DIR=results
-
-## copy files
-COPY Resources/ Resources/
-COPY test_sequence/ test_sequence/
-COPY PING_run.R PING_run.R
-COPY install_packages.R install_packages.R
-
-RUN Rscript install_packages.R
-
-CMD Rscript PING_run.R
+RUN mamba env create --prefix /conda-envs/9bde66ce6ea632074aec7d16e81308f2 --file /conda-envs/9bde66ce6ea632074aec7d16e81308f2/environment.yaml && \
+    mamba clean --all -y

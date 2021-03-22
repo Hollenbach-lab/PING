@@ -1,0 +1,14 @@
+image: docker:19.03.12
+
+services:
+  - docker:19.03.12-dind
+  
+before_script:
+  - mkdir -p $HOME/.docker && echo $DOCKER_AUTH_CONFIG > $HOME/.docker/config.json
+  - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+  
+ping:
+  script:
+    - docker build -t registry.code.roche.com/knoblauch.nicholas/ping/ping:latest .
+    - docker push  registry.code.roche.com/knoblauch.nicholas/ping/ping
+    

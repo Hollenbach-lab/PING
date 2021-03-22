@@ -1,0 +1,13 @@
+from datetime import timedelta
+include: "rules/retrieve_1kg.smk"
+include: "rules/ping.smk"
+
+all_tgp_samples=get_tgp_urls().keys() # get all the 1000 genome samples
+some_tgp_samples = list(all_tgp_samples)[:85] # get the first 85 1000 genome samples
+all_example_samples, = snakemake.io.glob_wildcards("../input/test_sequence/fastq/{sample}_KIR_1.fastq.gz") # get all the test sequence samples
+all_data_samples,  = snakemake.io.glob_wildcards("../input/data/bam/{sample}.bam") # get all the samples in the data directory
+rule all:
+  input:
+      expand("../output/test_sequence/{sample}.tar.gz",sample=all_example_samples), # run PING on each of the samples in 'test_sequence'
+      expand("../output/data/{sample}.tar.gz",sample=all_data_samples) # run PING on each of the samples in 'test_sequence'
+      #expand("../output/tgp/{smpl}.tar.gz",smpl=some_tgp_samples) #uncomment to run on 85 1000 genomes samples

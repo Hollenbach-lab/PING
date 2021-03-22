@@ -1,12 +1,41 @@
+'PING_run.
+
+Usage:
+  PING_run.R [--rawFastqDirectory=<fqd> --rawFastqDirectory=<i> --fastqPattern=<p> --threads=<t> --resultsDirectory=<r> --shortNameDelim=<d> --setupHetRatio=<shr> --finalHetRatio=<fhr> --setupMinDP=<smdp> --finalMinDP=<fmdp> --no_copy_readBoost --no_setup_readBoost --final_readBoost --readBoostThresh=<rbt> --alleleFullAlign --copyFullAlign]
+  PING_run.R (-h | --help)
+  PING_run.R --version
+
+Options:
+  -h --help     Show this screen.
+  --version     Show version.
+  --workingDirectory=<c> directory containing \'Resources\' in which to perform analysis [default: /opt/]
+  --rawFastqDirectory=<i>  can be set to raw sequence or extractedFastq directory [default: test_sequence/].
+  --fastqPattern=<p> # use \'_KIR_\' to find already extracted files, otherwise use \'fastq\' or whatever fits your data [default: fastq]
+  --threads=<t> threads [default: 26]
+  --resultsDirectory=<r> master results directory (all pipeline output will be recorded here) [default: 3_test_sequence_results/]
+  --shortNameDelim=<d>  can set a delimiter to shorten sample IDs (ID will be characters before delim) [default: _]
+  --setupHetRatio=<shr> setup het ratio [default: 0.25]
+  --finalHetRatio=<fhr> final het ratio [default: 0.25]
+  --setupMinDP=<smdp> setup minimum DP [default:  8]
+  --finalMinDP=<fmdp> final minimum DP [default: 10]
+  --no_copy_readBoost do not set copy.readBoost
+  --no_setup_readBoost do not set setup.readBoost
+  --final_readBoost set final.readBoost
+  --readBoostThresh=<rbt> readBoost threshold [default: 6]
+  --alleleFullAlign do full alignment of alleles
+  --copyFullAlign do full alignment of copy
+' -> doc
+
+library(docopt)
 
 #setwd('/home/wmarin/PING/') #Set this to your own PING2 working directory
-cwd <- Sys.getenv("CWD", unset='~/PING')
-#setwd(cwd) #Set this to your own PING working directory
+arguments <- docopt(doc, version = 'PING 2.0-alpha')
+
 
 # ---- DEPENDENCIES ----
-' if any dependencies are missing, install with
-install.packages("plotly",dependencies = T)
-'
+#' if any dependencies are missing, install with
+#install.packages("plotly",dependencies = T)
+#'
 library(data.table)
 library(stringr)
 library(methods)
@@ -16,22 +45,46 @@ library(R.utils)
 library(gtools)
 library(zip)
 
-# Initialization variables ------------------------------------------------
-rawFastqDirectory <- Sys.getenv("RAW_FASTQ_DIR", unset='~/PING/test_sequence/') # can be set to raw sequence or extractedFastq directory
-fastqPattern <- Sys.getenv("FASTQ_PATTERN", unset='fastq') # use '_KIR_' to find already extracted files, otherwise use 'fastq' or whatever fits your data
-threads <- Sys.getenv("THREADS", unset=4)
-resultsDirectory <- Sys.getenv("OUTDIR", unset='~/3_test_sequence_results/') # Set the master results directory (all pipeline output will be recorded here)
-shortNameDelim <- Sys.getenv("SHORTNAMEDELIM", unset='_') # can set a delimiter to shorten sample ID's (ID will be characters before delim)
-setup.hetRatio <- Sys.getenv("SETUP_HETRATIO", unset=0.25)
-final.hetRatio <- Sys.getenv("FINAL_HETRATIO", unset=0.25)
-setup.minDP <- Sys.getenv("SETUP_MINDP", unset=8)
-final.minDP <- Sys.getenv("FINAL_MINDP", unset=10)
-copy.readBoost <- Sys.getenv("COPY_READBOOST", unset=T)
-setup.readBoost <- Sys.getenv("SETUP_READBOOST", unset=T)
-final.readBoost <- Sys.getenv("FINAL_READBOOST", unset=F)
-readBoost.thresh <- Sys.getenv("READBOOST_THRESH", unset=2)
-allele.fullAlign <- Sys.getenv("ALLELE_FULLALIGN", unset=F)
-copy.fullAlign <- Sys.getenv("COPY_FULLALIGN", unset=F)
+                                        # Initialization
+## cwd <- arguments$ Sys.getenv("CWD", unset='~/PING')
+# setwd(cwd) #Set this to your own PING working directory
+
+workingDirectory <- arguments$workingDirectory
+#resourcesPref <- arguments$resourcesPref
+rawFastqDirectory <- arguments$rawFastqDirectory
+fastqPattern <- arguments$fastqPattern
+threads <- as.integer(arguments$threads)
+resultsDirectory <- arguments$resultsDirectory
+shortNameDelim <- arguments$shortNameDelim
+setup.hetRatio <- as.numeric(arguments$setupHetRatio)
+final.hetRatio <- as.numeric(arguments$finalHetRatio)
+setup.minDP <- as.numeric(arguments$setupMinDP)
+final.minDP <- as.numeric(arguments$finalMinDP)
+copy.readBoost <- !(arguments$no_copy_readBoost)
+setup.readBoost <- !(arguments$no_setup_readBoost)
+final.readBoost <- (arguments$final_readBoost)
+readBoost.thresh <- as.numeric(arguments$readBoostThresh)
+allele.fullAlign <- arguments$alleleFullAlign
+copy.fullAlign <- arguments$copyFullAlign
+
+setwd(workingDirectory)
+
+
+## rawFastqDirectory <- Sys.getenv("RAW_FASTQ_DIR", unset='~/PING/test_sequence/') # can be set to raw sequence or extractedFastq directory
+## fastqPattern <- Sys.getenv("FASTQ_PATTERN", unset='fastq') # use '_KIR_' to find already extracted files, otherwise use 'fastq' or whatever fits your data
+## threads <- Sys.getenv("THREADS", unset=4)
+## resultsDirectory <- Sys.getenv("OUTDIR", unset='~/3_test_sequence_results/') # Set the master results directory (all pipeline output will be recorded here)
+## shortNameDelim <- Sys.getenv("SHORTNAMEDELIM", unset='_') # can set a delimiter to shorten sample ID's (ID will be characters before delim)
+## setup.hetRatio <- Sys.getenv("SETUP_HETRATIO", unset=0.25)
+## final.hetRatio <- Sys.getenv("FINAL_HETRATIO", unset=0.25)
+## setup.minDP <- Sys.getenv("SETUP_MINDP", unset=8)
+## final.minDP <- Sys.getenv("FINAL_MINDP", unset=10)
+## copy.readBoost <- Sys.getenv("COPY_READBOOST", unset=T)
+## setup.readBoost <- Sys.getenv("SETUP_READBOOST", unset=T)
+## final.readBoost <- Sys.getenv("FINAL_READBOOST", unset=F)
+## readBoost.thresh <- Sys.getenv("READBOOST_THRESH", unset=2)
+## allele.fullAlign <- Sys.getenv("ALLELE_FULLALIGN", unset=F)
+## copy.fullAlign <- Sys.getenv("COPY_FULLALIGN", unset=F)
 
 # Initialization variables ------------------------------------------------
 # rawFastqDirectory <- '~/test_sample/' # can be set to raw sequence or extractedFastq directory
@@ -86,72 +139,72 @@ sampleList <- ping_copy.graph(sampleList=sampleList,threads=threads,resultsDirec
 #cat('\n\nZipping relevant results.')
 #zip(file.path(resultsDirectory,'copy_output.zip'),c(file.path(resultsDirectory,'snp_output'), file.path(resultsDirectory,'locusCountFrame.csv'),file.path(resultsDirectory,'kffCountFrame.csv'), file.path(resultsDirectory,'copyPlots')))
 #cat('\n\n----- Finished run, please find results at',paste0(resultsDirectory,'copy_output.zip'))
-# 
+#
 # ' 6.12 hours for 50 samples at 40 threads, 150bp, 50dp
 # '
 # sampleList <- ping_copy.manual_threshold(sampleList=sampleList,resultsDirectory=outDir$path,use.threshFile = T) # this function sets copy thresholds
 # sampleList <- ping_copy.load_copy_results( sampleList, outDir$path )
-# 
-# # Fix for poor 2DL2 
+#
+# # Fix for poor 2DL2
 # #sapply(sampleList, function(x) x$copyNumber[['KIR2DL2']] <- as.character(2-as.integer(x$copyNumber[['KIR2DL3']])))
-# 
+#
 # ## Seeing the following message when generating copy plots is normal
 # 'A line object has been specified, but lines is not in the mode
 # Adding lines to the mode...'
-# 
+#
 # ## use this section for notes / recording suspicious samples (has no impact on pipeline operation or results)
-# ' 
+# '
 # KIR3DP1 [example]
 #   IND00001 [example]
 # '
-# 
+#
 # PING2 alignments and allele calling ----------------------------------------------
 # Iter align workflow
 
-# 
+#
 # if(allele.fullAlign){
 #   as.list <- alleleSeq.list
 # }else{
 #   as.list <- compact.alleleSeq.list
 # }
-# 
+#
 # # Alignment and allele calling workflow
 # for(currentSample in sampleList){
-# 
+#
 #   currentSample <- alleleSetup.gc_matched_ref_alignment( currentSample, alleleSetupDirectory, as.list, threads)
-# 
+#
 #   if( currentSample[['ASSamPath']] == 'failed' ){
 #     next
 #   }
-# 
+#
 #   uniqueSamDT <- alleleSetup.process_samDT( currentSample$ASSamPath, delIndex.list, processSharedReads = setup.readBoost, readBoost.thresh )
 #   file.remove(currentSample$ASSamPath)
-# 
+#
 #   currentSample <- alleleSetup.prep_results_directory( currentSample, alignmentFileDirectory )
-# 
+#
 #   currentSample <- alleleSetup.call_setup_alleles( currentSample, uniqueSamDT, setup.knownSnpDFList, setup.hetRatio, setup.minDP )
 #   currentSample <- alleleSetup.write_sample_ref_info( currentSample, alleleSetupDirectory )
-# 
+#
 #   synSeq.key <- alleleSetup.readAnswerKey( currentSample$refInfoPath )
-# 
+#
 #   currentSample <- ping_iter.run_alignments(currentSample, threads)
 #   uniqueSamDT <- alleleSetup.process_samDT( currentSample$iterSamPathList[[1]], delIndex.list, processSharedReads = final.readBoost, readBoost.thresh )
 #   currentSample <- pingAllele.generate_snp_df( currentSample,uniqueSamDT,currentSample[['iterRefDirectory']],setup.knownSnpDFList,'final', final.hetRatio, final.minDP )
-# 
+#
 #   cat('\n\n\n----- Final allele calling -----')
 #   for( currentLocus in names( currentSample[['snpDFPathList']][['final']][['SNP']] )){
 #     cat('\n\t',currentLocus)
 #     currentSample <- pingAllele.call_final_alleles(currentSample, currentLocus, knownSnpDFList[[currentLocus]]$snpDF)
 #   }
-# 
+#
 #   currentSample <- pingAllele.save_call( currentSample, alleleDFPathList$iter$alleleCallPath )
 # }
-# 
+#
 # source('Resources/alleleFinalize_functions.R')
 # # ----- Formatting Results Genotypes (carry directly over to PING_run) -----
-# 
+#
 # cat('\n\n ----- FINALIZING GENOTYPES ----- ')
 # finalCallPath <- pingFinalize.format_calls( resultsDirectory )
 # cat('\nFinal calls written to:',finalCallPath)
-# 
-# 
+#
+#
