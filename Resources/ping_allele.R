@@ -211,7 +211,7 @@ allele.read_bed_w_del_index <- function(bedFile, locusRefList){
         featPosVect <- featPosVect[ -featObject$featDelIndex ]
       }
     }
-
+    
     
     #cat('\n',alleleName,'-',featName,'-',featLength,'-',length(posVect),'-',length(featPosVect))
     
@@ -337,9 +337,9 @@ allele.iter_alignments_to_snp_dfs <- function(currentSample, locusRefList, refer
                             row.names = 1)
       
       exon.DP4.DF <- read.csv(sampleSnpDFList[[currentLocus]]$exonDP4$csvPath, 
-                             stringsAsFactors = F, 
-                             check.names = F, 
-                             row.names = 1)
+                              stringsAsFactors = F, 
+                              check.names = F, 
+                              row.names = 1)
       
       currentRow <- paste0(refIter,'_SNP1')
       if(!currentRow %in% rownames(exonSnpDF)){
@@ -356,20 +356,20 @@ allele.iter_alignments_to_snp_dfs <- function(currentSample, locusRefList, refer
       
       if( any(exonIndelBoolVect) ){
         lapply(exonIndelRepList, function(x){
-        snp1List <- x$SNP1
-        snp2List <- x$SNP2
-        
-        combNames <- unique(names(snp1List), names(snp2List))
-        
-        # Remove INDEL positions from intron datatable
-        exonDT <<- exonDT[ !feat %in% combNames ]
-        
-        # Write INDEL positions to SNP DF
-        exonSnpDF[paste0(refIter,'_SNP1'),names(snp1List)] <<- unlist(snp1List)
-        exonSnpDF[paste0(refIter,'_SNP2'),names(snp2List)] <<- unlist(snp2List)
-        
-        return(NULL)
-      })
+          snp1List <- x$SNP1
+          snp2List <- x$SNP2
+          
+          combNames <- unique(names(snp1List), names(snp2List))
+          
+          # Remove INDEL positions from intron datatable
+          exonDT <<- exonDT[ !feat %in% combNames ]
+          
+          # Write INDEL positions to SNP DF
+          exonSnpDF[paste0(refIter,'_SNP1'),names(snp1List)] <<- unlist(snp1List)
+          exonSnpDF[paste0(refIter,'_SNP2'),names(snp2List)] <<- unlist(snp2List)
+          
+          return(NULL)
+        })
       }
       
       exonSNPs.mat <- unlist( sapply( unique(exonDT$feat), function(x) {
@@ -406,33 +406,33 @@ allele.iter_alignments_to_snp_dfs <- function(currentSample, locusRefList, refer
       
       cat('\tINTRONs')
       intronDT <- vcfDT[ Locus == currentLocus ][ featLab %in% otherFeatNameVect ]
-       
+      
       # Split up SNPs from INDELs
       intronDTList <- general.VCF_sep_INDEL(intronDT)
       intronDT <- intronDTList$nodelDT
       intronIndelDT <- intronDTList$indelDT
       
       intronIndelBoolVect <- !sapply(intronIndelDT$genoVect, function(x) all(x == 1))
-       
+      
       # Write intron INDEL table
       if( any(intronIndelBoolVect) ){
         cat('\tINDELs')
         intronIndelDT <- intronIndelDT[intronIndelBoolVect,]
         intronIndelDT$refIter <- refIter
-
+        
         intronIndelRepList <- lapply(1:nrow(intronIndelDT), function(i){
           x <- intronIndelDT[i,]
           allele.formatIndelSnps(x$REF, x$SNP1, x$SNP2, x$featLab, x$featCoord)
         })
-
+        
         indelPath <- file.path(currentSample$iterRefDirectory, paste0(currentLocus,'_intronINDELs.tsv'))
-
+        
         if(refIter == 'iter_1' | !file.exists(indelPath)){
           appendBool <- FALSE
         }else{
           appendBool <- TRUE
         }
-
+        
         write.table(intronIndelDT[,c('CHROM','POS','ID',
                                      'REF','ALT','QUAL',
                                      'FILTER','INFO','FORMAT',
@@ -442,60 +442,60 @@ allele.iter_alignments_to_snp_dfs <- function(currentSample, locusRefList, refer
                     file=indelPath, sep='\t', quote = F,
                     row.names = F, append=appendBool, col.names = !appendBool)
       }
-       
-       
+      
+      
       intronSnpDF <- read.csv(sampleSnpDFList[[currentLocus]]$intronSNPs$csvPath,
                               stringsAsFactors = F,
                               check.names = F,
                               row.names = 1)
-
+      
       intron.DP4.DF <- read.csv(sampleSnpDFList[[currentLocus]]$intronDP4$csvPath,
-                              stringsAsFactors = F,
-                              check.names = F,
-                              row.names = 1)
-
+                                stringsAsFactors = F,
+                                check.names = F,
+                                row.names = 1)
+      
       currentRow <- paste0(refIter,'_SNP1')
       if(!currentRow %in% rownames(intronSnpDF)){
         intronSnpDF[nrow(intronSnpDF)+1,] <- NA
         rownames(intronSnpDF)[nrow(intronSnpDF)] <- paste0(refIter,'_SNP1')
         intronSnpDF[nrow(intronSnpDF)+1,] <- NA
         rownames(intronSnpDF)[nrow(intronSnpDF)] <- paste0(refIter,'_SNP2')
-
+        
         intron.DP4.DF[nrow(intron.DP4.DF)+1,] <- NA
         rownames(intron.DP4.DF)[nrow(intron.DP4.DF)] <- paste0(refIter,'_SNP1')
         intron.DP4.DF[nrow(intron.DP4.DF)+1,] <- NA
         rownames(intron.DP4.DF)[nrow(intron.DP4.DF)] <- paste0(refIter,'_SNP2')
       }
-
+      
       if( any(intronIndelBoolVect) ){
         lapply(intronIndelRepList, function(x){
-        snp1List <- x$SNP1
-        snp2List <- x$SNP2
-
-        x.feat <- unique( tstrsplit(names(snp2List),'_',fixed=T)[[1]] )
-        if(x.feat == '3UTR'){
-          x.1.pos <- tstrsplit(names(snp1List),'_',fixed=T)[[2]]
-          x.2.pos <- tstrsplit(names(snp2List),'_',fixed=T)[[2]]
-
-          # Skip INDEL processing that happens at the end of 3'UTR
-          if( any( as.numeric( unique(c(x.1.pos, x.2.pos)) ) > 950 ) ) {
-            return(NULL)
+          snp1List <- x$SNP1
+          snp2List <- x$SNP2
+          
+          x.feat <- unique( tstrsplit(names(snp2List),'_',fixed=T)[[1]] )
+          if(x.feat == '3UTR'){
+            x.1.pos <- tstrsplit(names(snp1List),'_',fixed=T)[[2]]
+            x.2.pos <- tstrsplit(names(snp2List),'_',fixed=T)[[2]]
+            
+            # Skip INDEL processing that happens at the end of 3'UTR
+            if( any( as.numeric( unique(c(x.1.pos, x.2.pos)) ) > 950 ) ) {
+              return(NULL)
+            }
           }
-        }
-
-        combNames <- unique(names(snp1List), names(snp2List))
-
-        # Remove INDEL positions from intron datatable
-        intronDT <<- intronDT[ !feat %in% combNames ]
-
-        # Write INDEL positions to SNP DF
-        intronSnpDF[paste0(refIter,'_SNP1'),names(snp1List)] <<- unlist(snp1List)
-        intronSnpDF[paste0(refIter,'_SNP2'),names(snp2List)] <<- unlist(snp2List)
-
-        return(NULL)
-      })
+          
+          combNames <- unique(names(snp1List), names(snp2List))
+          
+          # Remove INDEL positions from intron datatable
+          intronDT <<- intronDT[ !feat %in% combNames ]
+          
+          # Write INDEL positions to SNP DF
+          intronSnpDF[paste0(refIter,'_SNP1'),names(snp1List)] <<- unlist(snp1List)
+          intronSnpDF[paste0(refIter,'_SNP2'),names(snp2List)] <<- unlist(snp2List)
+          
+          return(NULL)
+        })
       }
-
+      
       
       intronSNPs.mat <- unlist( sapply( unique(intronDT$feat), function(x) {
         snpVect <- unique( intronDT[feat == x,c(SNP1,SNP2)] ) 
@@ -515,13 +515,13 @@ allele.iter_alignments_to_snp_dfs <- function(currentSample, locusRefList, refer
       # Write the intron SNPs to the dataframe
       #intronSnpDF[paste0(refIter,'_SNP1'), unlist(intronDT$feat)] <- unlist(intronDT$SNP1)
       #intronSnpDF[paste0(refIter,'_SNP2'), unlist(intronDT$feat)] <- unlist(intronDT$SNP2)
-
+      
       # # Write the intron DP4 to the dataframe
       # intron.DP4.DF[paste0(refIter,'_SNP1'), unlist(intronDT$feat)] <- unlist(intronDT$SNP1.DP4)
       # intron.DP4.DF[paste0(refIter,'_SNP2'), unlist(intronDT$feat)] <- unlist(intronDT$SNP2.DP4)
       # 
       intronSnpDF <- new.allele.process_del_index(intronSnpDF, bedDelIndex, unique(intronDT$CHROM), snp1Row, snp2Row)
-       
+      
       write.csv(intronSnpDF, sampleSnpDFList[[currentLocus]]$intronSNPs$csvPath)
       write.csv(intron.DP4.DF, sampleSnpDFList[[currentLocus]]$intronDP4$csvPath)
     }
@@ -533,7 +533,7 @@ allele.iter_alignments_to_snp_dfs <- function(currentSample, locusRefList, refer
 }
 
 allele.iter_combine_KIR2DL23 <- function( currentSample, knownSnpDFList, alleleFileDirectory, snpDFList ){
-
+  
   snpFilePath <- file.path(alleleFileDirectory,'KIR2DL23_exonSNPs.csv')
   
   # Create the KIR2DL23 snp file if it does not exist
@@ -544,7 +544,7 @@ allele.iter_combine_KIR2DL23 <- function( currentSample, knownSnpDFList, alleleF
     rownames(KIR2DL23SnpDF)[1] <- 'coord'
     
     write.csv(x = KIR2DL23SnpDF, file = snpFilePath )
-  
+    
   }
   
   KIR2DL23SnpDF <- read.csv(snpFilePath, 
@@ -555,7 +555,7 @@ allele.iter_combine_KIR2DL23 <- function( currentSample, knownSnpDFList, alleleF
   row1 <- paste0(currentSample$name,'_SNP1')
   row2 <- paste0(currentSample$name,'_SNP2')
   rowVect <- c(row1, row2)
-
+  
   if( !row1 %in% rownames(KIR2DL23SnpDF) ){
     KIR2DL23SnpDF[nrow(KIR2DL23SnpDF)+1,] <- NA
     rownames(KIR2DL23SnpDF)[nrow(KIR2DL23SnpDF)] <- row1
@@ -571,10 +571,10 @@ allele.iter_combine_KIR2DL23 <- function( currentSample, knownSnpDFList, alleleF
   
   # Read in the KIR2DL2 exon SNPs
   KIR2DL2SnpDF <- read.csv(KIR2DL2SnpDFPath,
-                                stringsAsFactors = F,
-                                check.names = F,
-                                row.names = 1)
-    
+                           stringsAsFactors = F,
+                           check.names = F,
+                           row.names = 1)
+  
   # Read in the KIR2DL2 exon SNPs
   KIR2DL3SnpDF <- read.csv(KIR2DL3SnpDFPath,
                            stringsAsFactors = F,
@@ -633,7 +633,7 @@ allele.iter_combine_KIR2DL23 <- function( currentSample, knownSnpDFList, alleleF
     }
     
     nonNAIndex <- !is.na(KIR2DL2SnpDF[rowVect,oldColID])
-      
+    
     if( any( nonNAIndex ) ){
       nonNAL23Index <- !is.na(KIR2DL23SnpDF[rowVect,colID])
       
@@ -926,7 +926,7 @@ general.vcfDT_set_SNPs <- function(snp1, snp2, genoVect){
   }
   
   snpVect <- rawSnpVect[ genoVect[[1]] ]
-
+  
   return( list( snpVect[1], snpVect[2] ) )
 }
 
@@ -969,7 +969,7 @@ general.del_insert <- function(noDelStr,delIndexVect){
 general.read_VCF <- function(vcfFile){
   
   #vcfDT <- fread(vcfFile)
-
+  
   vcfDT <- tryCatch({
     fread(vcfFile)
   },
@@ -1030,7 +1030,7 @@ allele.combine_iter_snps <- function(currentSample, snpDFList, dp4SnpRatio=5){
       cat('\n----- skipping locus -----\n')
       next
     }
-      
+    
     cat('',currentLocus)
     masterExonSnpDFPath <- snpDFList[[currentLocus]]$exonSNPs$csvPath
     masterIntronSnpDFPath <- snpDFList[[currentLocus]]$intronSNPs$csvPath
@@ -1041,14 +1041,14 @@ allele.combine_iter_snps <- function(currentSample, snpDFList, dp4SnpRatio=5){
     
     # Intron Processing
     sampleIntronSnpDF <- read.csv(sampleIntronSnpDFPath,
-                                stringsAsFactors = F,
-                                check.names = F,
-                                row.names = 1)
+                                  stringsAsFactors = F,
+                                  check.names = F,
+                                  row.names = 1)
     
     masterIntronSnpDF <- read.csv(masterIntronSnpDFPath,
-                                stringsAsFactors = F,
-                                check.names = F,
-                                row.names = 1)
+                                  stringsAsFactors = F,
+                                  check.names = F,
+                                  row.names = 1)
     
     snp1Row <- paste0(currentSample$name,'_SNP1')
     snp2Row <- paste0(currentSample$name,'_SNP2')
@@ -1112,10 +1112,10 @@ allele.combine_iter_snps <- function(currentSample, snpDFList, dp4SnpRatio=5){
       #uniqueSnpVect <- unique(snpVect)
       
       #if( length(dp4Vect) > 0 && length( uniqueSnpVect ) > 1 ){
-        #maxDP4 <- max( dp4Vect )
-        #dp4Thresh <- as.integer( maxDP4*dp4SnpRatio )
+      #maxDP4 <- max( dp4Vect )
+      #dp4Thresh <- as.integer( maxDP4*dp4SnpRatio )
       #  dp4Thresh <- dp4SnpRatio
-        
+      
       #  snpVect <- unique( snpVect[ dp4Vect >= dp4Thresh ] )
       #}else{
       #snpVect <- uniqueSnpVect
@@ -1172,8 +1172,8 @@ allele.create_allele_resources <- function(locusRefList, alleleFileDirectory){
     
     output.alleleSnpDFList[[currentLocus]] <- list('csvPath' = file.path(alleleFileDirectory, paste0(currentLocus,'_alleleSNPs.csv')),
                                                    'snpDF' = locusSnpDF)
-      
-      
+    
+    
     write.csv(x = locusSnpDF, file = output.alleleSnpDFList[[currentLocus]]$csvPath )
   }
   
@@ -1201,7 +1201,7 @@ allele.save_new_snps <- function(newSnpLocus, newSnpMat, knownSnpDF, alleleFileD
   
   # Save each new SNP
   for( newSnp in rownames(newSnpIndMat) ){
-  
+    
     snpRow <- newSnpIndMat[newSnp,1]
     snpPos <- nonAdCols[newSnpIndMat[newSnp,2]]
     snpNuc <- sampleSnpDF[newSnp,snpPos]
@@ -1381,8 +1381,8 @@ allele.call_allele <- function(currentSample, currentLocus, alleleFileDirectory,
   
   if( !hetBool & !homBool ){
     cat('\nNo SNPs found, returning NULL call (check copy results to verify).')
-   
-     if( workflow == 'iter' ){
+    
+    if( workflow == 'iter' ){
       currentSample[['iterAlleleCallDF']]['allele_call',currentLocus] <- paste0(currentLocus,'*NULL')
       currentSample[['iterAlleleCallDF']]['mismatch_score',currentLocus] <- 1
       currentSample[['iterAlleleCallDF']]['new_snps',currentLocus] <- 0
@@ -1574,7 +1574,7 @@ allele.add_hom_score <- function( allele1, allele2, distance, homScoreList ){
 }
 
 allele.pair_score_calc <- function( allele1, allele2, distance, adSnpDT, sampleSnpDT, adCols ){
-
+  
   scoreList <- sapply(adCols, function(curPos){
     
     pos1 <- adSnpDT[ c(allele1, allele2), ..curPos][1,]
@@ -1600,7 +1600,7 @@ allele.pair_score_calc <- function( allele1, allele2, distance, adSnpDT, sampleS
   })
   
   distanceInt <- sum(scoreList)
-
+  
   return( distanceInt + distance )
 }
 
@@ -1698,11 +1698,11 @@ allele.format_call <- function( bestMatchAlleleVect, knownSnpDF, hetBool, exclud
       
       firstMatchVect <- names( which( apply( knownSnpDF[excludedAlleleVect,], 1, function(x) { all( x == knownSnpDF[splitAlleleVect[1],] ) } ) ) )
       firstMatchVect <- unique( c( kir.allele_resolution(splitAlleleVect[1], 5), 
-                           unique( unlist( sapply( firstMatchVect, kir.allele_resolution, 5 ), use.names=F ) ) ) )
+                                   unique( unlist( sapply( firstMatchVect, kir.allele_resolution, 5 ), use.names=F ) ) ) )
       
       secondMatchVect <- names( which( apply( knownSnpDF[excludedAlleleVect,], 1, function(x) { all( x == knownSnpDF[splitAlleleVect[2],] ) } ) ) )
       secondMatchVect <- unique( c( kir.allele_resolution(splitAlleleVect[2], 5), 
-                            unique( unlist( sapply( secondMatchVect, kir.allele_resolution, 5 ), use.names=F ) ) ) )
+                                    unique( unlist( sapply( secondMatchVect, kir.allele_resolution, 5 ), use.names=F ) ) ) )
       
       matchMat <- expand.grid(firstMatchVect,secondMatchVect)
       hetAlleleVect <- c( hetAlleleVect, apply( matchMat, 1, paste0, collapse='+' ) )
@@ -1711,7 +1711,7 @@ allele.format_call <- function( bestMatchAlleleVect, knownSnpDF, hetBool, exclud
     output.alleleVect <- hetAlleleVect
     
   }
-
+  
   return( output.alleleVect )  
 }
 
@@ -1789,7 +1789,7 @@ allele.filter_alignments_to_snp_dfs <- function(currentSample, locusRefList, min
   for( currentLocus in names(currentSample$filterVCFList) ){
     
     cat('\n',currentLocus)
-
+    
     vcfPath <- currentSample$filterVCFList[[currentLocus]]
     bedPath <- currentSample$filterBEDList[[currentLocus]]
     
@@ -1884,16 +1884,16 @@ allele.filter_alignments_to_snp_dfs <- function(currentSample, locusRefList, min
       appendBool <- FALSE
       
       write.table(exonIndelDT[,c('CHROM','POS','ID',
-                                   'REF','ALT','QUAL',
-                                   'FILTER','INFO','FORMAT',
-                                   'GENO','DP','SNP1',
-                                   'SNP2','feat','featLab',
-                                   'featCoord','Locus')], 
+                                 'REF','ALT','QUAL',
+                                 'FILTER','INFO','FORMAT',
+                                 'GENO','DP','SNP1',
+                                 'SNP2','feat','featLab',
+                                 'featCoord','Locus')], 
                   file=indelPath, sep='\t', quote = F, 
                   row.names = F, append=appendBool, col.names = !appendBool)
     }
     
-
+    
     exonSnpDF <- read.csv(filterSnpDFList[[currentLocus]]$exonSNPs$csvPath, 
                           stringsAsFactors = F, 
                           check.names = F, 
@@ -1975,9 +1975,9 @@ allele.filter_alignments_to_snp_dfs <- function(currentSample, locusRefList, min
     }
     
     intronSnpDF <- read.csv(filterSnpDFList[[currentLocus]]$intronSNPs$csvPath, 
-                          stringsAsFactors = F, 
-                          check.names = F, 
-                          row.names = 1)
+                            stringsAsFactors = F, 
+                            check.names = F, 
+                            row.names = 1)
     
     snp1Row <- paste0(currentSample$name,'_SNP1')
     snp2Row <- paste0(currentSample$name,'_SNP2')
@@ -2045,18 +2045,18 @@ allele.convert_filter_bed <- function(bedPath, currentLocus, filterRefFastaList,
   
   ## Read the reference fasta file
   fastaList <- general.read_fasta(fastaPath)
-    
+  
   con  <- file(bedPath, open = "r")
-    
+  
   # Process each line of the bed file
   while (length(oneLine <- readLines(con, n = 1)) > 0) {
-      
+    
     if(grepl('\t',oneLine)){
       lineVect <- strsplit(oneLine, '\t')[[1]]
     }else{
       lineVect <- strsplit(oneLine, ' ')[[1]]
     }
-      
+    
     # Name the attributes
     lineVect <- lineVect[ nchar(lineVect) > 0 ]
     names(lineVect) <- c('alleleName','startPos','endPos','featName')[1:length(lineVect)]
@@ -2072,31 +2072,31 @@ allele.convert_filter_bed <- function(bedPath, currentLocus, filterRefFastaList,
     matchedAlleleList <- sapply(locusRefList[[realLocus]]$alleleBedList, function(x){
       x[[ lineVect[[ 'featName' ]] ]]$featSeq == featSeq
     })
-      
+    
     matchedAlleleVect <- names( which( matchedAlleleList ) )
-      
+    
     # If there are matches alleles, then move on to further processiong
     if( length(matchedAlleleVect) > 0 ){
       
       # pull out the first matched allele (they should all be the same for the current feature so the exact allele doesnt matter)
       matchedAllele <- matchedAlleleVect[1]
-        
+      
       featObject <- locusRefList[[realLocus]]$alleleBedList[[matchedAllele]][[ lineVect[[ 'featName' ]] ]]
       
       snpVect <- featObject$snpVect
-        
+      
       if(length(featObject$featDelIndex) > 0){
         snpVect <- snpVect[ -featObject$featDelIndex ]
       }
-        
+      
       posVect <- as.character( (as.numeric(lineVect[[ 'startPos' ]])+1): as.numeric(lineVect[[ 'endPos' ]]) )
       
       output.bedList[[ lineVect[[ 'alleleName' ]] ]][ posVect ] <- names(snpVect)
-        
-    }
       
-  }
+    }
     
+  }
+  
   close(con)
   
   return(output.bedList)
@@ -2378,8 +2378,3 @@ filterRefFastaList <- list(
   'KIR2DL3'='Resources/genotype_resources/filters/KIR2DL23/2DL3long.fas',
   'KIR2DL1'='Resources/genotype_resources/filters/KIR2DL1/2DL1AClong.fas'
 )
-
-
-
-
-

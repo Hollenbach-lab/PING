@@ -42,7 +42,7 @@ subset_kir_results*
 kff_threshold*
 validation_test*
 old_stuff*
-
+test_sequence_output*
 # =========================
 # Operating System Files
 # =========================

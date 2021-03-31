@@ -2,7 +2,7 @@ library(data.table)
 library(stringr)
 library(methods)
 
-synSeqAnswerKey <- '/home/LAB_PROJECTS/PING2_PAPER/figure_scripts/synSeq_data_run3/synSeq.info.txt'
+#synSeqAnswerKey <- '/home/LAB_PROJECTS/PING2_PAPER/figure_scripts/synSeq_data_run3/synSeq.info.txt'
 # Reads in answer key (synSeq.info.txt)
 synSeq.readAnswerKey <- function(keyFile){
   
@@ -472,7 +472,7 @@ sampleObj.iterVCFGen <- function(currentSample, samtools, bcftools, threads, del
     ## Run the samtools BAM sort command
     cat('\n\n',samtools,optionsCommand)
     output.sampleAlign <- system2(samtools, optionsCommand, stdout=T, stderr=T)
-  
+    
     check.system2_output(output.sampleAlign, 'samtools bam sort failed')
     
     fastaPath <- normalizePath(file.path(iterDir,'alleleReference.fasta'), mustWork=T)
@@ -510,7 +510,7 @@ sampleObj.iterVCFGen <- function(currentSample, samtools, bcftools, threads, del
 
 ## Samtools sam to bam conversion
 iterAlign.sam_to_bam <- function(samtools, samPath, bamPath, threads){
-
+  
   sam_b <- '-b'
   #sam_q <- '-q 10'
   sam_q <- '-q 0'
@@ -532,7 +532,7 @@ iterAlign.sam_to_bam <- function(samtools, samPath, bamPath, threads){
 }
 
 # bowtie2-align
-sampleObj.iterBowtie2Align <- function(currentSample, bowtie2, threads, deleteSam=F, forceRun=F){
+sampleObj.iterBowtie2Align <- function(currentSample, bowtie2, threads, deleteSam=F, all.align=F, forceRun=F){
   
   if(currentSample$iterRefDirectory == 'failed'){
     return(currentSample)
@@ -573,6 +573,9 @@ sampleObj.iterBowtie2Align <- function(currentSample, bowtie2, threads, deleteSa
     bt2_I <- "-I 75"
     bt2_X <- "-X 1500"
     bt2_noUnal <- '--no-unal'
+    if( all.align ){
+      bt2_a <- '-a'
+    }
     
     bt2_x <- paste0("-x ", currentSample$iterIndexPathList[[currentIter]])
     bt2_1 <- paste0('-1 ',currentSample$kirfastq1path)
@@ -583,7 +586,11 @@ sampleObj.iterBowtie2Align <- function(currentSample, bowtie2, threads, deleteSa
     bt2_al_conc <- paste0("--al-conc-gz ", fastqBase, "_%.fastq.gz")
     bt2_un <- "--un dump.me"
     
-    optionsCommand <- c(bt2_p, bt2_5, bt2_3, bt2_i, bt2_min_score, bt2_I, bt2_X, bt2_x, bt2_1, bt2_2, bt2_noUnal, bt2_stream, bt2_al_conc, bt2_un)
+    if( all.align ){
+      optionsCommand <- c(bt2_p, bt2_5, bt2_3, bt2_i, bt2_min_score, bt2_I, bt2_X, bt2_x, bt2_1, bt2_2, bt2_noUnal, bt2_stream, bt2_al_conc, bt2_un, bt2_a)
+    }else{
+      optionsCommand <- c(bt2_p, bt2_5, bt2_3, bt2_i, bt2_min_score, bt2_I, bt2_X, bt2_x, bt2_1, bt2_2, bt2_noUnal, bt2_stream, bt2_al_conc, bt2_un)
+    }
     
     ## Run the bowtie2 alignment command
     cat('\n\n',bowtie2,optionsCommand)
@@ -736,7 +743,7 @@ filterAlign.refConversion <- function(locusRefList){
   filterDirectory <- file.path('Resources/genotype_resources/filters/', 'KIR2DL23')
   kirBedPath <- file.path(filterDirectory, '2DL3longtail.bed.new')
   bedCon = file(kirBedPath, "w")
-
+  
   for(i in 1:nrow(bedMat)){
     general.write_bed(bedCon, names(currentRefAllele), bedMat[i,1], bedMat[i,2], rownames(bedMat)[i])
   }
@@ -796,7 +803,7 @@ sampleObj.filterAlign.KIR3DL3 <- function(currentSample, bowtie2, samtools, bcft
   bt2_sam <- paste0('-S ', file.path(tempDir, paste0(currentSample$name,'.temp')))
   
   optionsCommand <- c(bt2_threads, bt2_5, bt2_3, bt2_L, bt2_i, bt2_score_min, bt2_I, bt2_X, bt2_index, bt2_sequence_1,
-                     bt2_sequence_2, bt2_al_conc, bt2_sam)
+                      bt2_sequence_2, bt2_al_conc, bt2_sam)
   
   ## Run the bowtie2 alignment command
   cat('\n\n',bowtie2,optionsCommand)
@@ -873,7 +880,7 @@ sampleObj.filterAlign.KIR3DL3 <- function(currentSample, bowtie2, samtools, bcft
   vcfPath <- file.path(currentSample$filterRefDirectory,paste0(currentSample$name,'_KIR3DL3.vcf'))
   bcf_out <- paste0("-o ", vcfPath)
   
-
+  
   optionsCommand <- c('mpileup', st_m, st_F, st_u, st_f, st_in, st_l, st_break, bcftools, 'call', bcf_multi_al, bcf_O, bcf_out)
   
   ## Run the samtools | bcftools command
@@ -2448,7 +2455,7 @@ sampleObj.filterAlign.KIR2DL23 <- function(currentSample, bowtie2, samtools, bcf
   
   currentSample[['filterVCFList']][['KIR2DL2']] <- vcfPath
   currentSample[['filterBEDList']][['KIR2DL2']] <- bedPath
- 
+  
   # 2DL23 VCF gen ----- 
   # SAM to BAM conversion
   samPath <- file.path(tempDir, paste0(currentSample$name,'_2DL23.sam'))
@@ -2629,7 +2636,7 @@ sampleObj.filterAlign.KIR2DL1 <- function(currentSample, bowtie2, samtools, bcft
     
     check.system2_output(output.sampleAlign, 'bowtie2 filter iter3 alignment failed')
     message(paste0(output.sampleAlign, collapse='\n'))
-
+    
   }else{
     
     if( as.numeric(currentSample$kffHits$`*KIR2DL1*4and7`) >= 10 | as.numeric(currentSample$kffHits$`*KIR2DL1*4710b`) >= 10 ){

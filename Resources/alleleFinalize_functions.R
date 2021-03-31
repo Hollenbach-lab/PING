@@ -6,16 +6,16 @@ pingFinalize.combineL23 <- function( iterCall.df ){
     L3.call <- iterCall.df[x,'KIR2DL3']
     
     L2.call.bool <- !is.na(L2.call) & L2.call != 'failed'
-    L2.call.unresolved <- grepl('unresolved',L2.call)
+    L2.call.unresolved <- grepl('$',L2.call,fixed=T)
     
     L3.call.bool <- !is.na(L3.call) & L3.call != 'failed'
-    L3.call.unresolved <- grepl('unresolved',L3.call)
+    L3.call.unresolved <- grepl('$',L3.call,fixed=T)
     
     if( L2.call.unresolved ){
-      L2.call <- paste0('KIR2DL2*',L2.call)
+      L2.call <- paste0('KIR2DL2*unresolved')
     }
     if( L3.call.unresolved ){
-      L3.call <- paste0('KIR2DL3*',L3.call)
+      L3.call <- paste0('KIR2DL3*unresolved')
     }
     
     if( L2.call.bool & L3.call.bool ){
@@ -77,16 +77,16 @@ pingFinalize.combineS35 <- function( iterCall.df, copyCall.df ){
     S5.copy <- as.integer( copyCall.df[x,'KIR2DS5'] )
     
     S3.call.bool <- !is.na(S3.call) & S3.call != 'failed'
-    S3.call.unresolved <- grepl('unresolved',S3.call)
+    S3.call.unresolved <- grepl('$',S3.call,fixed=T)
     
     S5.call.bool <- !is.na(S5.call) & S5.call != 'failed'
-    S5.call.unresolved <- grepl('unresolved',S5.call)
+    S5.call.unresolved <- grepl('$',S5.call,fixed=T)
     
     if( S3.call.unresolved ){
-      S3.call <- paste0('KIR2DS3*',S3.call)
+      S3.call <- paste0('KIR2DS3*unresolved')
     }
     if( S5.call.unresolved ){
-      S5.call <- paste0('KIR2DS5*',S5.call)
+      S5.call <- paste0('KIR2DS5*unresolved')
     }
     
     if( S3.call.bool ){
@@ -201,16 +201,16 @@ pingFinalize.combineL1S1 <- function( iterCall.df, copyCall.df ){
     L1.copy <- as.integer( copyCall.df[x,'KIR3DL1'] )
     
     S1.call.bool <- !is.na(S1.call) & S1.call != 'failed'
-    S1.call.unresolved <- grepl('unresolved',S1.call)
+    S1.call.unresolved <- grepl('$',S1.call,fixed=T)
     
     L1.call.bool <- !is.na(L1.call) & L1.call != 'failed'
-    L1.call.unresolved <- grepl('unresolved',L1.call)
+    L1.call.unresolved <- grepl('$',L1.call,fixed=T)
     
     if( S1.call.unresolved ){
-      S1.call <- paste0('KIR3DS1*',S1.call)
+      S1.call <- paste0('KIR3DS1*unresolved')
     }
     if( L1.call.unresolved ){
-      L1.call <- paste0('KIR3DL1*',L1.call)
+      L1.call <- paste0('KIR3DL1*unresolved')
     }
     
     if( S1.call.bool ){
@@ -313,10 +313,10 @@ pingFinalize.otherLoci <- function( iterCall.df, copyCall.df ){
       locus.copy <- as.integer( copyCall.df[x,currentLocus] )
       
       locus.call.bool <- !is.na(locus.call) & locus.call != 'failed'
-      locus.call.unresolved <- grepl('unresolved',locus.call)
+      locus.call.unresolved <- grepl('$',locus.call,fixed=T)
       
       if( locus.call.unresolved ){
-        locus.call <- paste0(currentLocus,'*',locus.call)
+        locus.call <- paste0(currentLocus,'*unresolved')
       }
       
       if( locus.call.bool ){
@@ -382,5 +382,5 @@ pingFinalize.format_calls <- function( resultsDirectory ){
   iterCall.df <- iterCall.df[,mod.locusVect]
   
   write.csv( iterCall.df, file.path( resultsDirectory, 'finalAlleleCalls.csv') )
-  return( file.path( resultsDirectory, 'finalAlleleCalls.csv') )
+  return( paste0( resultsDirectory, 'finalAlleleCalls.csv') )
 }

@@ -3463,7 +3463,137 @@ rfAllPathList[['KIR3DP1']] <- rfKIR3DP1path
 rfAllPathList[['KIR3DL2']] <- rfKIR3DL2path
 ### /Initialize
 
+ping_copy.autoSetCopy_wgs <- function( sampleList, resultsDirectory, minDP ){
+  
+  named.uniquePos.list <- run.read_list('Resources/gc_resources/uniquePos.list.txt')
+  lowVar.pos.list <- run.read_list('Resources/gc_resources/cleanedPosList.txt')
+  autoThresh.df <- read.table('Resources/gc_resources/autoCopyRatios.tsv',sep = '\t',check.names = F, stringsAsFactors = F, row.names = 1)
+  ratio.df <- read.csv( file.path( resultsDirectory, 'locusRatioFrame.csv' ), row.names = 1, check.names=F, stringsAsFactors = F )
+  snpOutput.dir <- file.path(resultsDirectory,'snp_output')
+  manualCopyPath <- file.path(resultsDirectory,'manualCopyNumberFrame.csv')
+  
+  copyNumberDF <- data.frame(ratio.df)
+  copyNumberDF[,] <- 0
+  
+  for( currentSample in sampleList ){
+    cat('\n\n',currentSample$name)
+    currentSample <- autoCopy.set_ratios( currentSample, minDP, ratio.df, snpOutput.dir, named.uniquePos.list, lowVar.pos.list )
+    currentSample <- autoCopy.set_copy( currentSample, autoThresh.df )
+    copyNumberDF[currentSample$name,] <- currentSample$copyNumber
+    write.csv(copyNumberDF, file = manualCopyPath)
+  }
+  
+  return(sampleList)
+}
 
+autoCopy.set_ratios <- function( currentSample, minDP, ratio.df, snpOutput.dir, named.uniquePos.list, lowVar.pos.list ){
+  cat('\n\tAuto-setting copy for:')
+  
+  snpDepth.locusVect <- c('KIR2DL2','KIR2DL3','KIR3DL1','KIR2DS1','KIR2DS2','KIR2DS5')
+  readDepth.locusVect <- c('KIR2DL4','KIR2DL5','KIR2DS3','KIR2DS4','KIR3DL2','KIR3DP1','KIR3DS1','KIR2DP1')
+  other.locusVect <- c('KIR2DL1')
+  
+  current.sampleID <- currentSample$name
+  current.locus <- 'KIR3DL3'
+  dp.path <- normalizePath( file.path(snpOutput.dir,paste0('copy_',current.locus,'_',current.sampleID,'_DP.csv')) )
+  passed.3DL3.bool <- file.exists(dp.path)
+  current.dpDF <- read.csv(dp.path, check.names=F,row.names = 1, stringsAsFactors = F)
+  current.dpVect <- apply(current.dpDF, 2, sum)
+  median.3DL3 <- median( current.dpVect[ named.uniquePos.list[[current.locus]] ] )
+  passed.3DL3.bool <- passed.3DL3.bool & (median.3DL3 >= minDP)
+  
+  ratio.list <- list()
+  for( current.locus in names(named.uniquePos.list) ){
+    cat('',current.locus)
+    if( current.locus == 'KIR3DL3' ){
+      next
+    }
+    
+    if( !passed.3DL3.bool ){
+      ratio.list[[current.locus]] <- 0
+      next
+    }
+    
+    if( current.locus %in% snpDepth.locusVect ){
+      
+      dp.path <- normalizePath( file.path(snpOutput.dir,paste0('copy_',current.locus,'_',current.sampleID,'_DP.csv')) )
+      
+      if( !file.exists(dp.path) ){
+        ratio.list[[current.locus]] <- 0
+        next
+      }
+      
+      current.dpDF <- read.csv(dp.path, check.names=F,row.names = 1, stringsAsFactors = F)
+      current.dpVect <- apply(current.dpDF, 2, sum)
+      
+      current.ratio <- median( as.integer( current.dpVect[ lowVar.pos.list[[current.locus]] ] ) ) / median.3DL3
+      ratio.list[[current.locus]] <- current.ratio*2
+    }
+    
+    if( current.locus %in% readDepth.locusVect ){
+      current.ratio <- ratio.df[current.sampleID, current.locus]
+      ratio.list[[current.locus]] <- current.ratio*2
+    }
+    
+    if( current.locus %in% other.locusVect ){
+      ratio.list[[current.locus]] <- 0
+    }
+  }
+  
+  currentSample[['copyRatioList']] <- ratio.list
+  return( currentSample )
+}
+
+autoCopy.set_copy <- function( currentSample, autoThresh.df ){
+  ratio.list <- currentSample[['copyRatioList']]
+  
+  present.KIR2DL2 <- ratio.list[['KIR2DL2']] >= 0.2
+  present.KIR2DL3 <- ratio.list[['KIR2DL3']] >= 0.2
+  if( present.KIR2DL2 & !present.KIR2DL3 ){
+    copy.KIR2DL2 <- 2
+    copy.KIR2DL3 <- 0
+  }else if( present.KIR2DL3 & !present.KIR2DL2 ){
+    copy.KIR2DL2 <- 0
+    copy.KIR2DL3 <- 2
+  }else{
+    copy.KIR2DL2 <- 1
+    copy.KIR2DL3 <- 1
+  }
+  
+  copy.KIR2DP1 <- sum( ratio.list[['KIR2DP1']] >= as.numeric( na.omit( unlist( autoThresh.df['KIR2DP1',]) ) ) )
+  copy.KIR2DL1 <- copy.KIR2DP1
+  copy.KIR2DS1 <- sum( ratio.list[['KIR2DS1']] >= as.numeric( na.omit( unlist( autoThresh.df['KIR2DS1',]) ) ) )
+  copy.KIR2DS2 <- sum( ratio.list[['KIR2DS2']] >= as.numeric( na.omit( unlist( autoThresh.df['KIR2DS2',]) ) ) )
+  copy.KIR2DS3 <- sum( ratio.list[['KIR2DS3']] >= as.numeric( na.omit( unlist( autoThresh.df['KIR2DS3',]) ) ) )
+  copy.KIR2DS4 <- sum( ratio.list[['KIR2DS4']] >= as.numeric( na.omit( unlist( autoThresh.df['KIR2DS4',]) ) ) )
+  copy.KIR2DS5 <- sum( ratio.list[['KIR2DS5']] >= as.numeric( na.omit( unlist( autoThresh.df['KIR2DS5',]) ) ) )
+  copy.KIR2DL4 <- sum( ratio.list[['KIR2DL4']] >= as.numeric( na.omit( unlist( autoThresh.df['KIR2DL4',]) ) ) )
+  copy.KIR2DL5 <- sum( ratio.list[['KIR2DL5']] >= as.numeric( na.omit( unlist( autoThresh.df['KIR2DL5',]) ) ) )
+  copy.KIR3DL1 <- sum( ratio.list[['KIR3DL1']] >= as.numeric( na.omit( unlist( autoThresh.df['KIR3DL1',]) ) ) )
+  copy.KIR3DL2 <- sum( ratio.list[['KIR3DL2']] >= as.numeric( na.omit( unlist( autoThresh.df['KIR3DL2',]) ) ) )
+  copy.KIR3DS1 <- sum( ratio.list[['KIR3DS1']] >= as.numeric( na.omit( unlist( autoThresh.df['KIR3DS1',]) ) ) )
+  copy.KIR3DP1 <- sum( ratio.list[['KIR3DP1']] >= as.numeric( na.omit( unlist( autoThresh.df['KIR3DP1',]) ) ) )
+  
+  currentSample$copyNumber[['KIR3DL3']] <- 2
+  currentSample$copyNumber[['KIR2DP1']] <- copy.KIR2DP1
+  currentSample$copyNumber[['KIR2DL1']] <- copy.KIR2DL1
+  currentSample$copyNumber[['KIR2DL2']] <- copy.KIR2DL2
+  currentSample$copyNumber[['KIR2DL3']] <- copy.KIR2DL3
+  currentSample$copyNumber[['KIR2DL4']] <- copy.KIR2DL4
+  currentSample$copyNumber[['KIR2DL5']] <- copy.KIR2DL5
+  currentSample$copyNumber[['KIR2DS1']] <- copy.KIR2DS1
+  currentSample$copyNumber[['KIR2DS2']] <- copy.KIR2DS2
+  currentSample$copyNumber[['KIR2DS3']] <- copy.KIR2DS3
+  currentSample$copyNumber[['KIR2DS4']] <- copy.KIR2DS4
+  currentSample$copyNumber[['KIR2DS5']] <- copy.KIR2DS5
+  currentSample$copyNumber[['KIR3DL1']] <- copy.KIR3DL1
+  currentSample$copyNumber[['KIR3DL2']] <- copy.KIR3DL2
+  currentSample$copyNumber[['KIR3DS1']] <- copy.KIR3DS1
+  currentSample$copyNumber[['KIR3DP1']] <- copy.KIR3DP1
+  
+  return(currentSample)
+  
+}
 
 
 

@@ -80,8 +80,8 @@ new.initLocusRef.extend_5UTR <- function( filled.snpDFList, UTRextList ){
     utr5.replacement.colVect <- unlist( sapply(utr5.colVect, function(x) {
       xVect <- strsplit(x,'_',fixed=T)[[1]]
       xPos <- as.integer(xVect[2]) + utr5.addition.length
-     return( paste0(xVect[1],'_',xPos) )
-      }) )
+      return( paste0(xVect[1],'_',xPos) )
+    }) )
     
     colnames(snpDF)[utr5.indexVect] <- utr5.replacement.colVect
     
@@ -213,21 +213,11 @@ filled.snpDFList <- new.initLocusRef.extend_3UTR( filled.snpDFList, UTRextList )
 locusRefList <- new.initLocusRef.snpDFtoLocusRefAlleleSeq( filled.snpDFList, locusRefList )
 locusRefList <- new.initLocusRef.snpDFtoLocusRefBed( filled.snpDFList, locusRefList, kirLocusFeatureNameList )
 
-# ----- IPD-KIR update workflow -----
-# 1. Copy gene alignments from https://www.ebi.ac.uk/ipd/kir/align.html with 'full genomic', 'show all bases' and 'show all alleles' checked
-#   1.1 Copied alignments should be pasted into Resources/ipdkir_resources/copied_msf/[gene]_raw.msf
-# 2. Run the following lines
-#locusRefList <- general.initialize_locus_ref_object()
-#locusRefList <- initLocusRef.read_raw_msf(locusRefList, copiedMsfDirectory)
-#locusRefList <- initLocusRef.create_bed(locusRefList, referenceResourceDirectory, kirLocusFeatureNameList, writeBed=F)
-#knownSnpDFList <- allele.create_allele_resources(locusRefList, alleleFileDirectory)
-# 3. copy csv files from alleleFileDirectory to Resources/genotype_resources/SNP_files/
-# 4. source('Resources/genotype_alignment_functions.R')
-# 5. copy csv files from alleleFileDirectory to Resources/genotyep_resources/extended_SNP_files
-# This process is perverse. 
-# DONE
-
 # ----- Generating reference object list for each locus -----
+#old.locusRefList <- general.initialize_locus_ref_object()
+#old.locusRefList <- initLocusRef.read_raw_msf(old.locusRefList, copiedMsfDirectory)
+#old.locusRefList <- initLocusRef.create_bed(old.locusRefList, referenceResourceDirectory, kirLocusFeatureNameList, writeBed=F)
+
 # Read in reference allele dataframe
 referenceAlleleDF <- read.csv('Resources/genotype_resources/master_haplo_iteration_testing_v10.csv',row.names=1,stringsAsFactors = F)
 
@@ -401,7 +391,7 @@ filter_contam_snps <- function(currentSample, current.locus, sampleSnpDF,PctFilt
         if( any(is_nuc(sampleSnpDF[,'E4_202'])) ) { 
           cat('\n\t\tRemoving E4_202')
           sampleSnpDF[,'E4_202'] <- NA 
-          }
+        }
         
         if( any(is_nuc(sampleSnpDF[,'E4_261'])) ) {
           
@@ -923,7 +913,7 @@ allele.custom_2DL1_allele_filter <- function(currentSample,
 # ----- Container functions to coordinate FILTER and ITER alignments
 
 # function to run the ITER alignments
-ping_iter.run_alignments <- function( currentSample, threads ){
+ping_iter.run_alignments <- function( currentSample, threads, all.align=F, synSeq.key){
   
   cat('\nLoading ref DF')
   currentSample <- sampleObj.loadRefDF(currentSample, referenceAlleleDF) # Subset reference allele dataframe by present loci, save to sample object
@@ -933,7 +923,7 @@ ping_iter.run_alignments <- function( currentSample, threads ){
   
   currentSample <- sampleObj.iterBowtie2Index(currentSample, bowtie2Build, threads) # Converts fasta file from previous line into a bowtie2 index
   
-  currentSample <- sampleObj.iterBowtie2Align(currentSample, bowtie2, threads, deleteSam=F) # Align sample to bowtie2 index
+  currentSample <- sampleObj.iterBowtie2Align(currentSample, bowtie2, threads, deleteSam=F, all.align=all.align) # Align sample to bowtie2 index
   
   #currentSample <- sampleObj.iterVCFGen(currentSample, samtools, bcftools, threads) # Convert SAM file into VCF
   
@@ -1089,4 +1079,3 @@ ping_filter.allele <- function( currentSample ){
   
   return(currentSample)
 }
-

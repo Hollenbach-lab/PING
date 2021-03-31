@@ -45,6 +45,9 @@ if(!file.exists(alleleSetupDirectory)){
   dir.create(alleleSetupDirectory)
 }
 
+KIR2DL4.10A.vect <- rownames(setup.knownSnpDFList$KIR2DL4)[ setup.knownSnpDFList$KIR2DL4[,'E7_105',drop=F] == 'A' ]
+KIR2DL4.9A.vect <- rownames(setup.knownSnpDFList$KIR2DL4)[ setup.knownSnpDFList$KIR2DL4[,'E7_105',drop=F] != 'A' ]
+
 
 # ----- PING allele setup -----
 alleleSetup.write_fasta <- function( alleleSeq.list, fastaPath){
@@ -105,7 +108,7 @@ alleleSetup.bt2_align <- function( currentSample, alleleSetupDirectory, bowtie2,
     return(currentSample)
   }
   currentSample[['ASSamPath']] <- file.path(alleleSetupDirectory,paste0(currentSample$name,'.sam'))
-
+  
   ### 1. Align KIR extracted reads to haplo-reference
   #bt2_p <- paste0("-p", threads)
   #bt2_5 <- "-5 3"
@@ -781,60 +784,118 @@ alleleSetup.format_call <- function( bestMatchAlleleVect, excludedAlleleList, he
   return( output.alleleVect )
 }
 
-alleleSetup.call_setup_alleles <- function( currentSample, uniqueSamDT, setup.knownSnpDFList, hetRatio, setup.minDP ){
+
+alleleSetup.call_setup_alleles <- function( currentSample, uniqueSamDT, setup.knownSnpDFList, hetRatio, setup.minDP, ambScore=T, allPosScore=F, onlyExonScore=F, homScoreBuffer=4, includeAmb=F, addDiversity=F, combineTypings=F, skipSnpGen=F, skipSet=F){
   
   '
   pingAllele.generate_snp_df could be sped up by only processing AD SNP positions, would save time and storage without impacting results
   '
-  currentSample <- pingAllele.generate_snp_df( currentSample, uniqueSamDT, currentSample[['iterRefDirectory']], setup.knownSnpDFList, 'setup', hetRatio, setup.minDP )
+  if( !skipSnpGen ){
+    currentSample <- pingAllele.generate_snp_df( currentSample, uniqueSamDT, currentSample[['iterRefDirectory']], setup.knownSnpDFList, 'setup', hetRatio, setup.minDP )
+  }
+  
   
   # ----- CALL ALLELES -----
   presentLociVect <- names(currentSample$copyNumber)[currentSample$copyNumber > 0]
   currentAlleleCall.list <- list()
+  currentScore.list <- list()
+  setCall.list <- currentSample[['setCallList']]
+  
   cat('\nProcessing:')
   for(currentLocus in presentLociVect){
     cat('\n\n\t',currentLocus)
     
     currentLocusSnpDF <- setup.knownSnpDFList[[currentLocus]]
-    currentADSnpDF <- make_unique_pos_frame( currentLocusSnpDF )
+    
+    if( currentLocus %in% names(currentSample[['setCallList']]) & !skipSet ){
+      #currentLocusSnpDF <- currentLocusSnpDF[ currentSample[['setCallList' ]], ]
+      
+      currentAlleleCall.list[[currentLocus]] <- currentSample[['setCallList']][[currentLocus]]
+      currentScore.list[[currentLocus]] <- 0
+      next
+    }
+    
+    if( allPosScore ){
+      currentADSnpDF <- currentLocusSnpDF
+      callRes <- 7
+    }else if(onlyExonScore){
+      exonNameVect <- grep('E',kirLocusFeatureNameList[[currentLocus]],value=T)
+      exonNameVect <- grep('PE',exonNameVect,value=T,invert = T)
+      sampleCols <- tstrsplit(colnames(currentLocusSnpDF),'_',fixed=T)[[1]] 
+      sampleCols <- colnames(currentLocusSnpDF)[ sampleCols %in% exonNameVect ]
+      currentADSnpDF <- currentLocusSnpDF[,sampleCols]
+      callRes <- 5
+    }else{
+      currentADSnpDF <- make_unique_pos_frame( currentLocusSnpDF )
+      callRes <- 7
+    }
     
     # rawSnpTbl <- alleleSetup.generate_rawSnpTbl( currentLocus , currentLocusSnpDF, currentADSnpDF, uniqueSamDT, setup.minDP )
     # currentSnpDF <- alleleSetup.generate_snpDF( rawSnpTbl )
     
-    currentSnpDF <- read.csv(file.path(currentSample$snpDFPathList[['setup']][['SNP']][[currentLocus]]),
-                             check.names=F,stringsAsFactors = F,row.names=1,header = T,colClasses = c("character"))
+    currentSnpDF <- tryCatch(
+      {
+        read.csv(file.path(currentSample$snpDFPathList[['setup']][['SNP']][[currentLocus]]),
+                                 check.names=F,stringsAsFactors = F,row.names=1,header = T,colClasses = c("character"))
+      },
+      error=function(cond) {
+        # Choose a return value in case of error
+        return(NA)
+      }
+    )
     
+    if( class(currentSnpDF) != 'data.frame' ){
+      message(paste("Allele calling error for:", currentLocus))
+      message("Error with reading in SNP data. Setting gene copy to 0 for allele calling.")
+      currentSample$copyNumber[[currentLocus]] <- 0
+      next
+    }
     
     #nonADCol.vect <- colnames(currentSnpDF)[!(colnames(currentSnpDF) %in% colnames(currentADSnpDF))]
     
     #dropCol.vect <- names( which( apply( currentSnpDF[,nonADCol.vect], 2, function(x) num_unique_nuc(x) > 1) ) )
     keepCol.vect <- colnames(currentSnpDF)[(colnames(currentSnpDF) %in% colnames(currentADSnpDF))]
-    currentSnpDF <- currentSnpDF[,keepCol.vect]
+    
+    if( length(keepCol.vect) < 2 ){
+      cat('\n\t\tFewer than 2 positions for calling, setting call to all alleles for this locus')
+      currentAlleleCall.list[[currentLocus]] <- rownames( setup.knownSnpDFList[[currentLocus]] )
+      currentScore.list[[currentLocus]] <- ncol(currentADSnpDF)
+      next
+    }
+    
+    currentSnpDF <- currentSnpDF[,keepCol.vect,drop=F]
     
     totalCols <- ncol(currentADSnpDF)
     presentCols <- sum( colnames(currentADSnpDF) %in% colnames(currentSnpDF) )
     posPerc <- paste0( round( presentCols / totalCols, 3)*100,'%')
     
-    cat('\n\t\tCalling on',posPerc,'of AD positions')
+    if( allPosScore ){
+      cat('\n\t\tCalling on',posPerc,'of all positions')
+    }else if( onlyExonScore ){
+      cat('\n\t\tCalling on',posPerc,'of exon positions')
+    }else{
+      cat('\n\t\tCalling on',posPerc,'of AD positions')
+    }
     
-    callList <- alleleSetup.call_allele( currentSample, currentLocus, currentSnpDF, currentADSnpDF, homScoreBuffer=4, kirRes=7, ambScore=T )
+    callList <- alleleSetup.call_allele( currentSample, currentLocus, currentSnpDF, currentADSnpDF, homScoreBuffer=homScoreBuffer, kirRes=callRes, ambScore=ambScore )
     
-    # if(callList$scoreInt > 100){
-    #   cat('\n\t\tRetrying without ambiguity scoring.')
-    #   secondCallList <- alleleSetup.call_allele( currentSample, currentLocus, currentSnpDF, currentADSnpDF, homScoreBuffer=2, kirRes=7, ambScore=F )
-    # 
-    #   firstCallScore <- callList$scoreInt
-    #   secondCallScore <- secondCallList$scoreInt
-    # 
-    #   if( secondCallScore < firstCallScore ){
-    #     cat('\n\t\tUsing second call.')
-    #     callList <- secondCallList
-    #   }else{
-    #     cat('\n\t\tUsing first call.')
-    #   }
-    # }
+    if( onlyExonScore ){
+      out.upres.vect <- c()
+      for( allelePair in callList$alleleVect ){
+        compAllele.vect <- strsplit( allelePair, '+' ,fixed=T)[[1]]
+        compAllele.vect <- as.vector( sapply(compAllele.vect, function(x) general.kir_upres(x,setup.knownSnpDFList)[[1]]  ) )
+        out.upres.vect <- c(out.upres.vect, paste0(compAllele.vect, collapse='+'))
+      }
+      callList$alleleVect <- out.upres.vect
+    }
     
-    currentAlleleCall.list[[currentLocus]] <- callList$alleleVect
+    if( combineTypings ){
+      currentAlleleCall.list[[currentLocus]] <- unique( c(currentSample$setupAlleleList[[currentLocus]], callList$alleleVect) )
+      currentScore.list[[currentLocus]] <- callList$scoreInt
+    }else{
+      currentAlleleCall.list[[currentLocus]] <- callList$alleleVect
+      currentScore.list[[currentLocus]] <- callList$scoreInt
+    }
   }
   
   # ----- REF ALLELE SELECTION -----
@@ -842,71 +903,443 @@ alleleSetup.call_setup_alleles <- function( currentSample, uniqueSamDT, setup.kn
   Reference alleles are chosen based on which ambiguity has the most defined positions
   '
   
-  cat('\n\nReducing genotype ambiguity by selecting most defined sequences')
-  nonAmbAlleleCall.list <- sapply( names(currentAlleleCall.list), function(x){
-    alleleCallVect <- currentAlleleCall.list[[x]]
+  lockedLocus.vect <- intersect( names( which( currentScore.list == 0 ) ), names( which( sapply(currentAlleleCall.list, length ) == 1) ) )
+  if( length(lockedLocus.vect) > 0 ){
+    addLocus.vect <- setdiff( lockedLocus.vect, names(setCall.list) )
     
-    if(length(alleleCallVect) == 1){
-      return(alleleCallVect)
+    for( locus in addLocus.vect ){
+      setCall.list[[locus]] <- currentAlleleCall.list[[locus]]
     }
+  }
+  
+  setCall.locusVect <- intersect( names(setCall.list), names(currentAlleleCall.list) )
+  for( locus in setCall.locusVect ){
     
-    alleleCallList <- strsplit(alleleCallVect, '+', fixed=T)
+    currentCall.alleleVect <- currentAlleleCall.list[[locus]]
+    setCall.alleleVect <- setCall.list[[locus]]
     
-    nonAmbSumVect <- sapply( alleleCallList, function(y){
-      sum( sapply( y, function(z){
-        sum( setup.knownSnpDFList[[x]][z,] != '*' )
-      }) )
-    })
+    if( ! (all(currentCall.alleleVect %in% setCall.alleleVect) & all(setCall.alleleVect %in% currentCall.alleleVect)) ){
+      
+      if( length(currentCall.alleleVect) == 1){
+        cat('\n\n-- Adding',paste0(setCall.alleleVect,collapse=' '),'to',paste0(currentCall.alleleVect,collapse=' '),'---')
+        
+        currentCall.alleleVect <- unique( unlist( strsplit( currentCall.alleleVect, '+', fixed=T) ) )
+        setCall.alleleVect <- unique( unlist( strsplit( setCall.alleleVect, '+', fixed=T) ) )
+        
+        currentAlleleCall.list[[locus]] <- paste0( unique(c(setCall.alleleVect,currentCall.alleleVect)), collapse='+' )
+        setCall.list[[locus]] <- paste0( unique(c(setCall.alleleVect,currentCall.alleleVect)), collapse='+' )
+      }
+      # else{
+      #   cat('\n\n-- Replacing',paste0(currentCall.alleleVect,collapse=' '),'with',paste0(setCall.alleleVect,collapse=' '),'---')
+      #   currentAlleleCall.list[[locus]] <- setCall.list[[locus]]
+      # }
+    }
+  }
+  
+  # lockedLocus.vect <- names( which( currentScore.list == 0 ) )
+  # if( length(lockedLocus.vect) > 0 ){
+  #   
+  #   for( locus in lockedLocus.vect){
+  #     
+  #     if( !(locus %in% names(setCall.list)) ){
+  #       setCall.list[[locus]] <- currentAlleleCall.list[[locus]]
+  #     }else{
+  #       
+  #       setCall.vect <- setCall.list[[locus]] 
+  #       currentCall.vect <- currentAlleleCall.list[[locus]]
+  #       
+  #       if( length(setCall.vect) > length(currentCall.vect) ){
+  #         setCall.list[[locus]] <- currentCall.vect
+  #       }
+  #     }
+  #   }
+  # }
+  
+  if( includeAmb ){
+    cat('\nIncluding all genotype ambiguity in reference.')
+    nonAmbAlleleCall.list <- currentAlleleCall.list
+  }else{
+    nonAmbAlleleCall.list <- alleleSetup.most_defined_typing( currentAlleleCall.list )
+  }
+  
+  if( addDiversity ){
     
-    selectedCall <- which( nonAmbSumVect == max( nonAmbSumVect ) )[1]
-    return( alleleCallVect[selectedCall] )
-  })
+    addDiversityLoci.vect <- names( which( currentScore.list > 0 ) )
+    cat('\nAdding diverse allele set to:')
+    for( addLocus in addDiversityLoci.vect ){
+      cat('',addLocus)
+      nonAmbAlleleCall.list[[addLocus]] <- paste0( alleleSetupRef.df[addLocus,], collapse='+' )
+    }
+  }
+  # cat('\n\nReducing genotype ambiguity by selecting most defined sequences')
+  # nonAmbAlleleCall.list <- sapply( names(currentAlleleCall.list), function(x){
+  #   alleleCallVect <- currentAlleleCall.list[[x]]
+  #   
+  #   if(length(alleleCallVect) == 1){
+  #     return(alleleCallVect)
+  #   }
+  #   
+  #   alleleCallList <- strsplit(alleleCallVect, '+', fixed=T)
+  #   
+  #   nonAmbSumVect <- sapply( alleleCallList, function(y){
+  #     sum( sapply( y, function(z){
+  #       sum( setup.knownSnpDFList[[x]][z,] != '*' )
+  #     }) )
+  #   })
+  #   
+  #   selectedCall <- which( nonAmbSumVect == max( nonAmbSumVect ) )[1]
+  #   return( alleleCallVect[selectedCall] )
+  # })
+  
   
   if( 'KIR2DL1' %in% names(nonAmbAlleleCall.list) ){
     pos4710 <- as.integer( currentSample$kffHits[['*KIR2DL1*4710b']] ) > 10
     pos47 <- as.integer( currentSample$kffHits[['*KIR2DL1*4and7']] ) > 10
     pos7 <- as.integer( currentSample$kffHits[['*KIR2DL1*7only']] ) > 10
+    pos003 <- as.integer( currentSample$kffHits[['*KIR2DL1*003']] ) > 10
+    
+    calledAlleleVect <- unique( unlist( strsplit( nonAmbAlleleCall.list[['KIR2DL1']], '+', fixed=T) ) )
     
     if( pos4710 & !pos47 & !pos7 ){
       addAllele <- 'KIR2DL1*010'
+      cat('\n\nAdjusting KIR2DL1 call to include',addAllele,'based on KFF')
     }else if( pos4710 & pos47 & !pos7 ){
       addAllele <- 'KIR2DL1*0040101'
+      cat('\n\nAdjusting KIR2DL1 call to include',addAllele,'based on KFF')
     }else if( pos4710 & pos47 & pos7 ){
       addAllele <- 'KIR2DL1*007'
+      cat('\n\nAdjusting KIR2DL1 call to include',addAllele,'based on KFF')
     }else if( pos4710 | pos47 | pos7 ){
       addAllele <- 'KIR2DL1*0040101'
+      cat('\n\nAdjusting KIR2DL1 call to include',addAllele,'based on KFF')
     }else{
-      addAllele <- ''
+      addAllele <- integer(0)
     }
     
-    if(nchar(addAllele) > 0){
-      if( !grepl( kir.allele_resolution(addAllele,5), nonAmbAlleleCall.list[['KIR2DL1']], fixed=T) ){
+    calledAlleleVect <- c(calledAlleleVect, addAllele)
+    addAllele <- integer(0)
+    
+    if( pos003 ){
+      probeSeq <- probeDF['*KIR2DL1*003','Sequence']
+      hitAllele.vect <- names(alleleSeq.list)[ grepl(probeSeq,alleleSeq.list,fixed = T) ]
+      if( !any( calledAlleleVect %in% hitAllele.vect ) ){
+        addAllele <- 'KIR2DL1*0030201'
         cat('\n\nAdjusting KIR2DL1 call to include',addAllele,'based on KFF')
-        nonAmbAlleleCall.list[['KIR2DL1']] <- paste0(nonAmbAlleleCall.list[['KIR2DL1']],'+',addAllele)
+        calledAlleleVect <- c(calledAlleleVect,addAllele)
+        addAllele <- integer(0)
       }
     }
     
+    nonAmbAlleleCall.list[['KIR2DL1']] <- paste0(calledAlleleVect,collapse='+')
+    
   }
   
-  #if( 'KIR2DL4' %in% names(nonAmbAlleleCall.list) ){
-  #  pos10A <- as.integer( currentSample$kffHits[['*KIR2DL4*10A64']] ) > 10
-  #  pos9A <- as.integer( currentSample$kffHits[['*KIR2DL4*9A64']] ) > 10
-  #}
+  if( 'KIR2DL2' %in% names(nonAmbAlleleCall.list) ){
+    posE5292T <- as.integer( currentSample$kffHits[['*KIR2DL2*E5292T']] ) > 10
+    pos00103 <- as.integer( currentSample$kffHits[['*KIR2DL2*00103']] ) > 10
+    pos004 <- as.integer( currentSample$kffHits[['*KIR2DL2*004']] ) > 10
+    
+    calledAlleleVect <- unique( unlist( strsplit( nonAmbAlleleCall.list[['KIR2DL2']], '+', fixed=T) ) )
+    
+    if( posE5292T ){
+      probeSeq <- probeDF['*KIR2DL2*E5292T','Sequence']
+      hitAllele.vect <- names(alleleSeq.list)[ grepl(probeSeq,alleleSeq.list,fixed = T) ]
+      if( !any( calledAlleleVect %in% hitAllele.vect ) ){
+        addAllele <- hitAllele.vect[1]
+        cat('\n\nAdjusting KIR2DL2 call to include',addAllele,'based on KFF')
+        calledAlleleVect <- c(calledAlleleVect,addAllele)
+        addAllele <- integer(0)
+      }
+    }
+    
+    if( pos00103 ){
+      probeSeq <- probeDF['*KIR2DL2*00103','Sequence']
+      hitAllele.vect <- names(alleleSeq.list)[ grepl(probeSeq,alleleSeq.list,fixed = T) ]
+      if( !any( calledAlleleVect %in% hitAllele.vect ) ){
+        addAllele <- hitAllele.vect[1]
+        cat('\n\nAdjusting KIR2DL2 call to include',addAllele,'based on KFF')
+        calledAlleleVect <- c(calledAlleleVect,addAllele)
+        addAllele <- integer(0)
+      }
+    }else{
+      probeSeq <- probeDF['*KIR2DL2*00103','Sequence']
+      hitAllele.vect <- names(alleleSeq.list)[ grepl(probeSeq,alleleSeq.list,fixed = T) ]
+      
+      if( any( calledAlleleVect %in% hitAllele.vect ) ){
+        removeAllele <- "KIR2DL2*00103"
+        cat('\n\nAdjusting KIR2DL2 call to exclude',removeAllele,'based on KFF')
+        calledAlleleVect <- setdiff( calledAlleleVect, removeAllele )
+        
+        if( length(calledAlleleVect) == 0 ){
+          calledAlleleVect <- 'KIR2DL2*0010101'
+        }
+      }
+    }
+    
+    if( pos004 ){
+      probeSeq <- probeDF['*KIR2DL2*004','Sequence']
+      hitAllele.vect <- names(alleleSeq.list)[ grepl(probeSeq,alleleSeq.list,fixed = T) ]
+      if( !any( calledAlleleVect %in% hitAllele.vect ) ){
+        addAllele <- hitAllele.vect[1]
+        cat('\n\nAdjusting KIR2DL2 call to include',addAllele,'based on KFF')
+        calledAlleleVect <- c(calledAlleleVect,addAllele)
+        addAllele <- integer(0)
+      }
+    }
+    
+    nonAmbAlleleCall.list[['KIR2DL2']] <- paste0(calledAlleleVect,collapse='+')
+    
+  }
   
+  if( 'KIR2DL4' %in% names(nonAmbAlleleCall.list) ){
+    pos10A <- as.integer( currentSample$kffHits[['*KIR2DL4*10A64']] ) > 10
+    pos9A <- as.integer( currentSample$kffHits[['*KIR2DL4*9A64']] ) > 10
+    
+    calledAlleleVect <- unique( unlist( strsplit( nonAmbAlleleCall.list[['KIR2DL4']], '+', fixed=T) ) )
+    
+    if( pos10A & pos9A ){
+      addAllele.10A <- 'KIR2DL4*0010201'
+      addAllele.9A <- 'KIR2DL4*0080101'
+      removeAllele <- ''
+    }else if( pos10A & !pos9A ){
+      addAllele.10A <- 'KIR2DL4*0010201'
+      addAllele.9A <- ''
+      removeAllele <- ''#calledAlleleVect[ calledAlleleVect %in% KIR2DL4.9A.vect ]
+      if(length(removeAllele) == 0) removeAllele <- ''
+    }else if( !pos10A & pos9A ){
+      addAllele.10A <- ''
+      addAllele.9A <- 'KIR2DL4*0080101'
+      removeAllele <- ''#calledAlleleVect[ calledAlleleVect %in% KIR2DL4.10A.vect ]
+      if(length(removeAllele) == 0) removeAllele <- ''
+    }else{
+      addAllele.10A <- ''
+      addAllele.9A <- ''
+      removeAllele <- ''
+    }
+    
+    probeSeq <- probeDF['*KIR2DL4*10A64','Sequence']
+    KIR2DL4.10A.vect <- names(alleleSeq.list)[ grepl(probeSeq,alleleSeq.list,fixed = T) ]
+    
+    probeSeq <- probeDF['*KIR2DL4*9A64','Sequence']
+    KIR2DL4.9A.vect <- names(alleleSeq.list)[ grepl(probeSeq,alleleSeq.list,fixed = T) ]
+    
+    if( addAllele.10A != '' & !any(calledAlleleVect %in% KIR2DL4.10A.vect) ){
+      cat('\n\nAdjusting KIR2DL4 call to include',addAllele.10A,'based on KFF')
+      calledAlleleVect <- c(calledAlleleVect, addAllele.10A)
+    }
+    
+    if( addAllele.9A != '' & !any(calledAlleleVect %in% KIR2DL4.9A.vect) ){
+      cat('\n\nAdjusting KIR2DL4 call to include',addAllele.9A,'based on KFF')
+      calledAlleleVect <- c(calledAlleleVect, addAllele.9A)
+    }
+    
+    if( nchar(removeAllele[1]) != 0 ){
+      cat('\n\nAdjusting KIR2DL4 call to remove',paste(removeAllele,collapse=' '),'based on KFF')
+      calledAlleleVect <- calledAlleleVect[ !calledAlleleVect %in% removeAllele ]
+    }
+    
+    if( length(calledAlleleVect) == 0 ){
+      stop('HELP, removed all KIR2DL4 reference alleles when performing KFF modifications.')
+    }
+    
+    nonAmbAlleleCall.list[['KIR2DL4']] <- paste0(calledAlleleVect,collapse='+')
+  }
+  
+  if( 'KIR2DS1' %in% names(nonAmbAlleleCall.list) ){
+    pos001 <- as.integer( currentSample$kffHits[['*KIR2DS1*001']] ) > 10
+    pos00202.00302 <- as.integer( currentSample$kffHits[['*KIR2DS1*00202^00302']] ) > 10
+    pos005 <- as.integer(currentSample$kffHits[['*KIR2DS1*005']]) > 10
+    pos003 <- as.integer(currentSample$kffHits[['*KIR2DS1*00301']]) > 10
+    pos006 <- as.integer(currentSample$kffHits[['*KIR2DS1*006']]) > 10
+    pos004.008 <- as.integer(currentSample$kffHits[['*KIR2DS1*004^008']]) > 10
+    pos009 <- as.integer(currentSample$kffHits[['*KIR2DS1*009']]) > 10
+    #pos010 <- as.integer(currentSample$kffHits[['*KIR2DS1*010']]) > 10
+    #pos011 <- as.integer(currentSample$kffHits[['*KIR2DS1*011']]) > 10
+    
+    calledAlleleVect <- unique( unlist( strsplit( nonAmbAlleleCall.list[['KIR2DS1']], '+', fixed=T) ) )
+    
+    if( pos001 ){
+      probeSeq <- probeDF['*KIR2DS1*001','Sequence']
+      hitAllele.vect <- names(alleleSeq.list)[ grepl(probeSeq,alleleSeq.list,fixed = T) ]
+      if( !any( calledAlleleVect %in% hitAllele.vect ) ){
+        addAllele <- hitAllele.vect[1]
+        cat('\n\nAdjusting KIR2DS1 call to include',addAllele,'based on KFF')
+        calledAlleleVect <- c(calledAlleleVect,addAllele)
+        addAllele <- integer(0)
+      }
+    }
+    
+    
+    if( pos00202.00302 ){
+      probeSeq <- probeDF['*KIR2DS1*00202^00302','Sequence']
+      hitAllele.vect <- names(alleleSeq.list)[ grepl(probeSeq,alleleSeq.list,fixed = T) ]
+      if( !any( calledAlleleVect %in% hitAllele.vect ) ){
+        addAllele <- hitAllele.vect[1]
+        cat('\n\nAdjusting KIR2DS1 call to include',addAllele,'based on KFF')
+        calledAlleleVect <- c(calledAlleleVect,addAllele)
+        addAllele <- integer(0)
+      }
+    }
+    
+    if( pos005 ){
+      probeSeq <- probeDF['*KIR2DS1*005','Sequence']
+      hitAllele.vect <- names(alleleSeq.list)[ grepl(probeSeq,alleleSeq.list,fixed = T) ]
+      if( !any( calledAlleleVect %in% hitAllele.vect ) ){
+        addAllele <- hitAllele.vect[1]
+        cat('\n\nAdjusting KIR2DS1 call to include',addAllele,'based on KFF')
+        calledAlleleVect <- c(calledAlleleVect,addAllele)
+        addAllele <- integer(0)
+      }
+    }
+    
+    if( pos003 ){
+      probeSeq <- probeDF['*KIR2DS1*00301','Sequence']
+      hitAllele.vect <- names(alleleSeq.list)[ grepl(probeSeq,alleleSeq.list,fixed = T) ]
+      if( !any( calledAlleleVect %in% hitAllele.vect ) ){
+        addAllele <- hitAllele.vect[1]
+        cat('\n\nAdjusting KIR2DS1 call to include',addAllele,'based on KFF')
+        calledAlleleVect <- c(calledAlleleVect,addAllele)
+        addAllele <- integer(0)
+      }
+    }
+    
+    if( pos006 ){
+      probeSeq <- probeDF['*KIR2DS1*006','Sequence']
+      hitAllele.vect <- names(alleleSeq.list)[ grepl(probeSeq,alleleSeq.list,fixed = T) ]
+      if( !any( calledAlleleVect %in% hitAllele.vect ) ){
+        addAllele <- hitAllele.vect[1]
+        cat('\n\nAdjusting KIR2DS1 call to include',addAllele,'based on KFF')
+        calledAlleleVect <- c(calledAlleleVect,addAllele)
+        addAllele <- integer(0)
+      }
+    }
+    
+    if( pos004.008 ){
+      probeSeq <- probeDF['*KIR2DS1*004^008','Sequence']
+      hitAllele.vect <- names(alleleSeq.list)[ grepl(probeSeq,alleleSeq.list,fixed = T) ]
+      if( !any( calledAlleleVect %in% hitAllele.vect ) ){
+        addAllele <- hitAllele.vect[1]
+        cat('\n\nAdjusting KIR2DS1 call to include',addAllele,'based on KFF')
+        calledAlleleVect <- c(calledAlleleVect,addAllele)
+        addAllele <- integer(0)
+      }
+    }
+    
+    if( pos009 ){
+      probeSeq <- probeDF['*KIR2DS1*009','Sequence']
+      hitAllele.vect <- names(alleleSeq.list)[ grepl(probeSeq,alleleSeq.list,fixed = T) ]
+      if( !any( calledAlleleVect %in% hitAllele.vect ) ){
+        addAllele <- hitAllele.vect[1]
+        cat('\n\nAdjusting KIR2DS1 call to include',addAllele,'based on KFF')
+        calledAlleleVect <- c(calledAlleleVect,addAllele)
+        addAllele <- integer(0)
+      }
+    }
+    
+    # if( pos010 ){
+    #   probeSeq <- probeDF['*KIR2DS1*010','Sequence']
+    #   hitAllele.vect <- names(alleleSeq.list)[ grepl(probeSeq,alleleSeq.list,fixed = T) ]
+    #   if( !any( calledAlleleVect %in% hitAllele.vect ) ){
+    #     addAllele.010 <- hitAllele.vect[1]
+    #   }else{
+    #     addAllele.010 <- integer(0)
+    #   }
+    # }else{
+    #   addAllele.010 <- integer(0)
+    # }
+    
+    nonAmbAlleleCall.list[['KIR2DS1']] <- paste0(calledAlleleVect,collapse='+')
+    
+    
+  }
+  
+  if( 'KIR3DP1' %in% names(nonAmbAlleleCall.list) ){
+    
+    pos3DP1del <- as.integer( currentSample$kffHits[['*KIR3DP1*E2del']] ) > 10
+    neg3DP1del <- as.integer( currentSample$kffHits[['*KIR3DP1*E2nodel']] ) > 10
+    
+    calledAlleleVect <- unique( unlist( strsplit( nonAmbAlleleCall.list[['KIR3DP1']], '+', fixed=T) ) )
+    
+    if( pos3DP1del ){
+      probeSeq <- probeDF['*KIR3DP1*E2del','Sequence']
+      hitAllele.vect <- names(alleleSeq.list)[ grepl(probeSeq,alleleSeq.list,fixed = T) ]
+      
+      if( !any( calledAlleleVect %in% hitAllele.vect ) ){
+        addAllele <- 'KIR3DP1*0030101'
+        cat('\n\nAdjusting KIR3DP1 call to include',addAllele,'based on KFF')
+        calledAlleleVect <- c(calledAlleleVect,addAllele)
+        addAllele <- integer(0)
+      }
+    }
+    
+    if( neg3DP1del ){
+      probeSeq <- probeDF['*KIR3DP1*E2nodel','Sequence']
+      hitAllele.vect <- names(alleleSeq.list)[ grepl(probeSeq,alleleSeq.list,fixed = T) ]
+      
+      if( !any( calledAlleleVect %in% hitAllele.vect ) ){
+        addAllele <- 'KIR3DP1*0090101'
+        cat('\n\nAdjusting KIR3DP1 call to include',addAllele,'based on KFF')
+        calledAlleleVect <- c(calledAlleleVect,addAllele)
+        addAllele <- integer(0)
+      }
+    }
+    
+    nonAmbAlleleCall.list[['KIR3DP1']] <- paste0(calledAlleleVect,collapse='+')
+  }
+  
+  if( 'KIR3DS1' %in% names(nonAmbAlleleCall.list) ){
+    pos049 <- as.integer( currentSample$kffHits[['*KIR3DS1*049']] ) > 10
+    
+    calledAlleleVect <- unique( unlist( strsplit( nonAmbAlleleCall.list[['KIR3DS1']], '+', fixed=T) ) )
+    
+    if( !any(grepl( 'KIR3DS1*01301', calledAlleleVect, fixed=T)) ){
+      cat('\n\nAdjusting KIR3DS1 call to include KIR3DS1*0130101')
+      calledAlleleVect <- c(calledAlleleVect, 'KIR3DS1*0130101')
+    }
+    
+    if( pos049 ){
+      probeSeq <- probeDF['*KIR3DS1*049','Sequence']
+      hitAllele.vect <- names(alleleSeq.list)[ grepl(probeSeq,alleleSeq.list,fixed = T) ]
+      if( !any( calledAlleleVect %in% hitAllele.vect ) ){
+        addAllele <- hitAllele.vect[1]
+        cat('\n\nAdjusting KIR3DS1 call to include',addAllele,'based on KFF')
+        calledAlleleVect <- c(calledAlleleVect,addAllele)
+        addAllele <- integer(0)
+      }
+    }
+    
+    nonAmbAlleleCall.list[['KIR3DS1']] <- paste0(calledAlleleVect,collapse='+')
+  }
+  
+  currentSample[['setCallList']] <- setCall.list
   currentSample[['setupAlleleList']] <- nonAmbAlleleCall.list
   return(currentSample)
 }
 
 
 # ----- REF INFO WRITING FUNCTIONS -----
-alleleSetup.write_sample_ref_info <- function( currentSample, alleleSetupDirectory ){
+alleleSetup.write_sample_ref_info <- function( currentSample, alleleSetupDirectory, setup.knownSnpDFList, referenceAlleleDF, addFullyDefined=F){
   
   refInfoPath <- file.path(alleleSetupDirectory,paste0(currentSample$name,'.refInfo.txt'))
   currentSample[['refInfoPath']] <- alleleSetup.initialize_info_file( refInfoPath )
   
-  formattedAlleleCall.vect <- unlist( sapply( currentSample$setupAlleleList, function(x) unlist( tstrsplit(x, '+', fixed=T )) ) )
+  formattedAlleleCall.vect <- as.vector( unlist( sapply( currentSample$setupAlleleList, function(x) unlist( tstrsplit(x, '+', fixed=T )) ) ) )
   
+  formattedAlleleCall.vect <- formattedAlleleCall.vect[ !is.na( formattedAlleleCall.vect ) ]
   formattedAlleleCall.vect <- unique( formattedAlleleCall.vect )
+  
+  lociVect <- names(currentSample$setupAlleleList)
+  
+  if( addFullyDefined ){
+    for(locus in lociVect){
+      locus.alleleVect <- grep( locus, formattedAlleleCall.vect, value=T, fixed=T)
+      locus.undefinedRegion.boolVect <- apply( setup.knownSnpDFList[[locus]][locus.alleleVect,], 1, function(x) any( !is_nuc(x) ) )
+      
+      if( all(locus.undefinedRegion.boolVect) ){
+        formattedAlleleCall.vect <- c( formattedAlleleCall.vect, referenceAlleleDF[locus,1] )
+      }
+    }
+  }
   
   alleleSetup.write_info( currentSample$name, formattedAlleleCall.vect, currentSample$refInfoPath)
   return(currentSample)
@@ -922,7 +1355,6 @@ alleleSetup.initialize_info_file <- function(refInfoPath){
   cat(textStr, file=refInfoPath)
   return(normalizePath(refInfoPath,mustWork = T))
 }
-
 
 # ----- Final geno determination functions -----
 samFormat.processCigarStr <- function( cigarStr, readSeq ){
@@ -1003,9 +1435,6 @@ pingAllele.generate_snp_df <- function( currentSample, uniqueSamDT, output.dir, 
   cat('\n\nSetting read start positions.')
   uniqueSamDT$startPos <- as.integer( apply( uniqueSamDT, 1, function(x) names( x$readTable )[1] ) )
   
-  cat('\n\nSetting read end positions.')
-  uniqueSamDT$endPos <- as.integer( apply( uniqueSamDT, 1, function(x) names(x$readTable)[length(names(x$readTable))] ) )
-  
   cat('\nSorting read table by locus and alignment coordinates.')
   uniqueSamDT <- uniqueSamDT[order(locus, startPos)]
   
@@ -1018,8 +1447,6 @@ pingAllele.generate_snp_df <- function( currentSample, uniqueSamDT, output.dir, 
     locusSnpDF <- setup.knownSnpDFList[[currentLocus]]
     locusSamDT <- uniqueSamDT[locus == currentLocus]
     currentDepthDF <- as.data.frame( matrix(data=0,nrow=6,ncol=ncol(locusSnpDF)) )
-    
-    locusSamDT <- locusSamDT[locusSamDT$endPos < ncol( locusSnpDF ),]
     
     namedReadVect <- unlist( locusSamDT$readTable )
     
@@ -1040,7 +1467,7 @@ pingAllele.generate_snp_df <- function( currentSample, uniqueSamDT, output.dir, 
     # Then process all other nucleotides and deletion positions
     uniqueNucVect <- intersect( unique(namedReadVect.noIns), names(nucListConv) )
     for( nuc in uniqueNucVect ){
-      #cat('',nuc)
+      #   cat('',nuc)
       nucIndex <- which( namedReadVect.noIns == nuc, useNames=F )
       nucTab <- table( as.integer(names(nucIndex)) )
       currentDepthDF[ nucListConv[[nuc]], as.integer(names(nucTab)) ] <- as.vector( nucTab )
@@ -1055,13 +1482,13 @@ pingAllele.generate_snp_df <- function( currentSample, uniqueSamDT, output.dir, 
     write.csv(currentDepthDF, file.path(output.dir,paste0(workflow,'_',currentLocus,'_',currentSample$name,'_DP.csv')))
     currentSample[['snpDFPathList']][[workflow]][['DP']][[currentLocus]] <- file.path(output.dir,paste0(workflow,'_',currentLocus,'_',currentSample$name,'_DP.csv'))
     #cat('\n\t\tCompleted depth file generation')
-
+    
     currentSnpDF <- as.data.frame( matrix('',nrow=3,ncol=ncol(currentDepthDF)),stringsAsFactors=F)
     passedMinDP.index <- apply(currentDepthDF,2,sum)>=minDP
-
+    
     currentSnpDF <- currentSnpDF[,passedMinDP.index]
     currentDepthDF <- currentDepthDF[,passedMinDP.index]
-
+    
     currentSnpDF[,] <- apply( currentDepthDF, 2, function(x){
       snpIndex <- which( ( x / max(x) ) > hetRatio )
       snpVect <- names(nucListConvWIns)[snpIndex]
@@ -1069,20 +1496,73 @@ pingAllele.generate_snp_df <- function( currentSample, uniqueSamDT, output.dir, 
       returnVect <- c(snpVect,addVect)
       return(returnVect[1:3])
     })
-
+    
     colnames(currentSnpDF) <- colnames(currentDepthDF)
     rownames(currentSnpDF) <- c('SNP_1','SNP_2','SNP_3')
-
+    
     write.csv(currentSnpDF, file.path(output.dir,paste0(workflow,'_',currentLocus,'_',currentSample$name,'_SNP.csv')))
     #cat('\n\t\tCompleted SNP file generation')
     currentSample[['snpDFPathList']][[workflow]][['SNP']][[currentLocus]] <- file.path(output.dir,paste0(workflow,'_',currentLocus,'_',currentSample$name,'_SNP.csv'))
   }
+  
+  # if( 'KIR2DS3' %in% names( currentSample[['snpDFPathList']][[workflow]][['SNP']] ) & 'KIR2DS5' %in% names( currentSample[['snpDFPathList']][[workflow]][['SNP']] ) & workflow == 'final'){
+  #   cat('','KIR2DS35')
+  #   exonNameVect.2DS3 <- grep('E',kirLocusFeatureNameList[['KIR2DS3']],value=T)
+  #   exonNameVect.2DS3 <- grep('PE',exonNameVect.2DS3,value=T,invert = T)
+  #   
+  #   currentSnpDF.2DS3 <- read.csv(file.path(currentSample[['snpDFPathList']][['final']][['SNP']][['KIR2DS3']]),
+  #                                 check.names=F,stringsAsFactors = F,row.names=1,header = T,colClasses = c("character"))
+  #   
+  #   exonNameVect.2DS5 <- grep('E',kirLocusFeatureNameList[['KIR2DS5']],value=T)
+  #   exonNameVect.2DS5 <- grep('PE',exonNameVect.2DS5,value=T,invert = T)
+  #   
+  #   currentSnpDF.2DS5 <- read.csv(file.path(currentSample[['snpDFPathList']][['final']][['SNP']][['KIR2DS5']]),
+  #                                 check.names=F,stringsAsFactors = F,row.names=1,header = T,colClasses = c("character"))
+  #   
+  #   
+  #   sampleCols.2DS3 <- tstrsplit(colnames(currentSnpDF.2DS3),'_',fixed=T)[[1]] 
+  #   sampleCols.2DS3 <- colnames(currentSnpDF.2DS3)[ sampleCols.2DS3 %in% exonNameVect.2DS3 ]
+  #   currentSnpDF.2DS3 <- currentSnpDF.2DS3[,sampleCols.2DS3]
+  #   
+  #   sampleCols.2DS5 <- tstrsplit(colnames(currentSnpDF.2DS5),'_',fixed=T)[[1]] 
+  #   sampleCols.2DS5 <- colnames(currentSnpDF.2DS5)[ sampleCols.2DS5 %in% exonNameVect.2DS5 ]
+  #   currentSnpDF.2DS5 <- currentSnpDF.2DS5[,sampleCols.2DS5]
+  #   
+  #   sampleCols.2DS35 <- unique(sampleCols.2DS3,sampleCols.2DS5)
+  #   currentSnpDF.2DS35 <- as.data.frame( matrix('',nrow=3,ncol=length(sampleCols.2DS35)),stringsAsFactors=F)
+  #   colnames(currentSnpDF.2DS35) <- sampleCols.2DS35
+  #   
+  #   for( col.2DS35 in sampleCols.2DS35 ){
+  #     if( col.2DS35 %in% sampleCols.2DS3 & col.2DS35 %in% sampleCols.2DS5 ){
+  #       nuc.S3 <- currentSnpDF.2DS3[is_nuc( currentSnpDF.2DS3[,col.2DS35] ), col.2DS35]
+  #       nuc.S5 <- currentSnpDF.2DS5[is_nuc( currentSnpDF.2DS5[,col.2DS35] ), col.2DS35]
+  #       
+  #       nuc.S35 <- unique(c(nuc.S3, nuc.S5))
+  #     }else if( col.2DS35 %in% sampleCols.2DS3 ){
+  #       nuc.S35 <- unique( currentSnpDF.2DS3[is_nuc( currentSnpDF.2DS3[,col.2DS35] ), col.2DS35] )
+  #     }else if( col.2DS35 %in% sampleCols.2DS5 ){
+  #       nuc.S35 <- unique( currentSnpDF.2DS5[is_nuc( currentSnpDF.2DS3[,col.2DS35] ), col.2DS35] )
+  #     }else{
+  #       nuc.S35 <- integer(0)
+  #     }
+  #     
+  #     addVect <- rep('N',max((3-length(nuc.S35)),0))
+  #     currentSnpDF.2DS35[,col.2DS35] <- c(nuc.S35 ,addVect)
+  #   }
+  #   
+  #   rownames(currentSnpDF.2DS35) <- c('SNP_1','SNP_2','SNP_3')
+  #   
+  #   write.csv(currentSnpDF.2DS35, file.path(output.dir,paste0(workflow,'_','KIR2DS35','_',currentSample$name,'_SNP.csv')))
+  #   #cat('\n\t\tCompleted SNP file generation')
+  #   currentSample[['snpDFPathList']][[workflow]][['SNP']][['KIR2DS35']] <- file.path(output.dir,paste0(workflow,'_','KIR2DS35','_',currentSample$name,'_SNP.csv'))
+  # }
+  # 
   return(currentSample)
 }
 
 pingAllele.call_final_alleles <- function( currentSample, currentLocus, refSnpDF ){
+  #refSnpDF <- knownSnpDFList[[currentLocus]]$snpDF
   currentADSnpDF <- refSnpDF
-  
   
   exonNameVect <- grep('E',kirLocusFeatureNameList[[currentLocus]],value=T)
   exonNameVect <- grep('PE',exonNameVect,value=T,invert = T)
@@ -1090,16 +1570,18 @@ pingAllele.call_final_alleles <- function( currentSample, currentLocus, refSnpDF
   currentSnpDF <- read.csv(file.path(currentSample[['snpDFPathList']][['final']][['SNP']][[currentLocus]]),
                            check.names=F,stringsAsFactors = F,row.names=1,header = T,colClasses = c("character"))
   
-  sampleCols <- tstrsplit(colnames(currentSnpDF),'_',fixed=T)[[1]] 
-  sampleCols <- colnames(currentSnpDF)[ sampleCols %in% exonNameVect ]
-  currentSnpDF <- currentSnpDF[,sampleCols]
-  
-  totalCols <- tstrsplit(colnames(currentADSnpDF),'_',fixed=T)[[1]]
-  totalCols <- colnames(currentADSnpDF)[ totalCols %in% exonNameVect ]
-  
-  exonPosPerc <- paste0( round( length(sampleCols) / length(totalCols), 3)*100,'%')
-  
-  cat('\n\t\tCalling on',exonPosPerc,'of exon positions')
+  if( currentLocus != 'KIR2DS35' ){
+    sampleCols <- tstrsplit(colnames(currentSnpDF),'_',fixed=T)[[1]] 
+    sampleCols <- colnames(currentSnpDF)[ sampleCols %in% exonNameVect ]
+    currentSnpDF <- currentSnpDF[,sampleCols]
+    
+    totalCols <- tstrsplit(colnames(currentADSnpDF),'_',fixed=T)[[1]]
+    totalCols <- colnames(currentADSnpDF)[ totalCols %in% exonNameVect ]
+    
+    exonPosPerc <- paste0( round( length(sampleCols) / length(totalCols), 3)*100,'%')
+    
+    cat('\n\t\tCalling on',exonPosPerc,'of exon positions')
+  }
   
   #currentSample[['callList']][[currentLocus]] <- alleleSetup.call_allele( currentSample, currentLocus, currentSnpDF, currentADSnpDF, homScoreBuffer=1, kirRes=5, ambScore=F )
   
@@ -1114,6 +1596,12 @@ pingAllele.call_final_alleles <- function( currentSample, currentLocus, refSnpDF
     return(list('alleleVect'='failed','scoreInt'=0))
   })
   
+  #unresLocus.vect <- which( sapply( currentSample[['callList']], function(x) x$scoreInt > 0 ) )
+  
+  if( currentSample[['callList']][[currentLocus]]$scoreInt > 0 ){
+    currentSample <- pingAllele.addUnresSNPs( currentSample, currentADSnpDF, currentSnpDF, currentLocus )
+  }
+  
   return(currentSample)
 }
 
@@ -1126,16 +1614,17 @@ pingAllele.save_call <- function( currentSample, acDFPath ){
   #}
   
   cat('\n\nSaving allele calls to',acDFPath)
-  acDF <- read.table(acDFPath, check.names = F, stringsAsFactors = F, sep=',')
+  acDF <- read.table(acDFPath, check.names = F, stringsAsFactors = F, sep=',',colClasses = 'character',comment.char='')
   acDF[currentSample$name,] <- NA
   
   for( currentLocus in names( currentSample$callList ) ){
     alleleCall <- paste(currentSample$callList[[currentLocus]]$alleleVect, collapse=' ')
     callScore <- currentSample$callList[[currentLocus]]$scoreInt
     
-    if( callScore > 0 ){
-      alleleCall <- 'unresolved_mismatch'
-    }
+    #if( callScore > 0 ){
+    #  
+    #  alleleCall <- 'unresolved_mismatch'
+    #}
     
     acDF[currentSample$name,currentLocus] <- alleleCall
   }
@@ -1155,4 +1644,168 @@ alleleSetup.prep_results_directory <- function(currentSample, alignmentFileDirec
   currentSample[['iterRefDirectory']] <- currentSampleResultsDirectory
   
   return(currentSample)
+}
+
+general.kir_upres <- function( alleleType, setup.knownSnpDFList ){
+  locus <- strsplit(alleleType,'*',fixed=T)[[1]][1]
+  
+  if(locus == 'KIR2DL5A' | locus == 'KIR2DL5B'){
+    locus <- 'KIR2DL5'
+  }
+  
+  return( grep( alleleType, rownames(  setup.knownSnpDFList[[locus]]), fixed=T, value=T) )
+}
+
+alleleSetup.most_defined_typing <- function( currentAlleleCall.list ){
+  
+  cat('\n\nReducing genotype ambiguity by selecting most defined sequences')
+  nonAmbAlleleCall.list <- sapply( names(currentAlleleCall.list), function(x){
+    alleleCallVect <- currentAlleleCall.list[[x]]
+    
+    if(length(alleleCallVect) == 1){
+      return(alleleCallVect)
+    }
+    
+    alleleCallList <- strsplit(alleleCallVect, '+', fixed=T)
+    
+    nonAmbSumVect <- sapply( alleleCallList, function(y){
+      sum( sapply( y, function(z){
+        sum( setup.knownSnpDFList[[x]][z,] != '*' )
+      }) )
+    })
+    
+    selectedCall <- which( nonAmbSumVect == max( nonAmbSumVect ) )[1]
+    return( alleleCallVect[selectedCall] )
+  })
+  
+  return(nonAmbAlleleCall.list)
+}
+
+alleleSetup.finalize_set_calls <- function( currentSample ){
+  setCall.list <- currentSample$setCallList
+  setupCall.list <- currentSample$setupAlleleList
+  
+  outCall.list <- list()
+  
+  if(length(setCall.list) > 0){
+    
+    setCall.list <- alleleSetup.most_defined_typing(setCall.list)
+    setLocus.vect <- intersect( names(setCall.list), names(setupCall.list) )
+    
+    for( currentLocus in setLocus.vect ){
+      outCall.list[[currentLocus]] <- setCall.list[[currentLocus]]
+    }
+  }
+  
+  unsetLocus.vect <- setdiff( names(setupCall.list), names(setCall.list) )
+  
+  for( currentLocus in unsetLocus.vect ){
+    outCall.list[[currentLocus]] <- setupCall.list[[currentLocus]]
+  }
+  
+  currentSample[['setupAlleleList']] <- outCall.list
+  return(currentSample)
+}
+
+pingAllele.addUnresSNPs <- function( currentSample, currentADSnpDF, currentSnpDF, currentLocus ){
+  rawAllele.vect <- currentSample[['callList']][[currentLocus]]$alleleVect
+  
+  out.modAllele.vect <- c()
+  for( rawGenoCall in rawAllele.vect ){
+    
+    alleleVect <- strsplit(rawGenoCall, '+', fixed=T)[[1]]
+    alleleVect <- unique( unlist( sapply(alleleVect, function(x) grep( x, rownames(currentADSnpDF), fixed=T, value=T)[1] ) ) )
+    
+    colID.vect <- colnames(currentSnpDF)
+    unresolvedAllele.list <- list()
+    for( allele in alleleVect ){
+      unresolvedAllele.list[[allele]] <- integer(0)
+    }
+    
+    for( colID in colID.vect ){
+      snpVect <- currentSnpDF[,colID]
+      snpVect <- snpVect[ is_nuc( snpVect ) ]
+      
+      refSnpVect <- unique( currentADSnpDF[alleleVect, colID] )
+      
+      if( !all(snpVect %in% refSnpVect) ){
+        #cat('',colID)
+        
+        diffSnp <- setdiff( snpVect, refSnpVect )
+        addSnp <- paste0(colID,'.',diffSnp)
+        unresolvedAllele.list <- lapply( unresolvedAllele.list, function(x) c(x,addSnp))
+      }
+      
+      if( !all(refSnpVect %in% snpVect) ){
+        #cat('\n',colID)
+        mismatchAllele.vect <- alleleVect[ !(currentADSnpDF[alleleVect, colID, drop=T] %in% snpVect) ]
+        for( mismatchAllele in mismatchAllele.vect ){
+          diffSnp <- currentADSnpDF[mismatchAllele,colID,drop=T]
+          addSnp <- paste0(colID,'.',diffSnp)
+          unresolvedAllele.list[[mismatchAllele]] <- c(unresolvedAllele.list[[mismatchAllele]], addSnp)
+        }
+      }
+    }
+    
+    unresolvedAllele.list <- lapply( unresolvedAllele.list, paste0, collapse='^' )
+    
+    unresAllele.vect <- c()
+    for( alleleID in names(unresolvedAllele.list) ){
+      if( nchar( unresolvedAllele.list[[alleleID]] ) == 0 ){
+        unresAllele.vect <- c(unresAllele.vect, alleleID)
+      }else{
+        unresAllele.vect <- c(unresAllele.vect, paste0(alleleID,'$',unresolvedAllele.list[[alleleID]]) )
+      }
+    }
+    
+    unresGenoCall <- paste0( unresAllele.vect, collapse='+' )
+    out.modAllele.vect <- c(out.modAllele.vect, unresGenoCall)
+  }
+  
+  currentSample[['callList']][[currentLocus]]$alleleVect <- out.modAllele.vect
+  return(currentSample)
+}
+
+ping_allele <- function(sampleList){
+  
+  for( currentSample in sampleList ){
+    
+    currentSample <- alleleSetup.gc_matched_ref_alignment( currentSample, alleleSetupDirectory, as.list, threads)
+    
+    currentSample[['setCallList']] <- list()
+    uniqueSamDT <- alleleSetup.process_samDT( currentSample$ASSamPath, delIndex.list, processSharedReads = setup.readBoost, readBoost.thresh )
+    file.remove(currentSample$ASSamPath)
+    currentSample <- alleleSetup.prep_results_directory( currentSample, alignmentFileDirectory )
+    currentSample <- alleleSetup.call_setup_alleles( currentSample, uniqueSamDT, setup.knownSnpDFList, setup.hetRatio, setup.minDP, includeAmb = T )
+    currentSample <- alleleSetup.write_sample_ref_info( currentSample, alleleSetupDirectory, setup.knownSnpDFList, alleleSetupRef.df, addFullyDefined = F)
+    
+    synSeq.key <- alleleSetup.readAnswerKey( currentSample$refInfoPath )
+    currentSample <- ping_iter.run_alignments(currentSample, threads, all.align=T, synSeq.key)
+    uniqueSamDT <- alleleSetup.process_samDT( currentSample$iterSamPathList[[1]], delIndex.list, processSharedReads = T, 2 )
+    currentSample <- alleleSetup.call_setup_alleles( currentSample, uniqueSamDT, setup.knownSnpDFList, setup.hetRatio, setup.minDP, includeAmb=T, ambScore=F, allPosScore = F, homScoreBuffer = 1, addDiversity = F)
+    currentSample <- alleleSetup.call_setup_alleles( currentSample, uniqueSamDT, setup.knownSnpDFList, final.hetRatio, final.minDP, includeAmb=T, ambScore=T, allPosScore = F, onlyExonScore = T, homScoreBuffer = 1, addDiversity=T,combineTypings=T, skipSnpGen=T)
+    currentSample <- alleleSetup.write_sample_ref_info( currentSample, alleleSetupDirectory, setup.knownSnpDFList, alleleSetupRef.df, addFullyDefined = T)
+    
+    synSeq.key <- alleleSetup.readAnswerKey( currentSample$refInfoPath )
+    currentSample <- ping_iter.run_alignments(currentSample, threads, all.align=F, synSeq.key)
+    uniqueSamDT <- alleleSetup.process_samDT( currentSample$iterSamPathList[[1]], delIndex.list, processSharedReads = F, 2 )
+    currentSample <- alleleSetup.call_setup_alleles( currentSample, uniqueSamDT, setup.knownSnpDFList, setup.hetRatio, setup.minDP, includeAmb=T, ambScore=F, allPosScore = F, homScoreBuffer = 1, addDiversity = F, skipSet = F)
+    currentSample <- alleleSetup.call_setup_alleles( currentSample, uniqueSamDT, setup.knownSnpDFList, final.hetRatio, final.minDP, includeAmb=T, ambScore=T, allPosScore = F, onlyExonScore = T, homScoreBuffer = 1, addDiversity=F,combineTypings=T,skipSnpGen=T, skipSet=F)
+    currentSample <- alleleSetup.write_sample_ref_info( currentSample, alleleSetupDirectory, setup.knownSnpDFList, alleleSetupRef.df, addFullyDefined = T)
+    
+    synSeq.key <- alleleSetup.readAnswerKey( currentSample$refInfoPath )
+    currentSample <- ping_iter.run_alignments(currentSample, threads, all.align=F, synSeq.key)
+    uniqueSamDT <- alleleSetup.process_samDT( currentSample$iterSamPathList[[1]], delIndex.list, processSharedReads = F, 2 )
+    currentSample <- pingAllele.generate_snp_df( currentSample,uniqueSamDT,currentSample[['iterRefDirectory']],setup.knownSnpDFList,'final', final.hetRatio, final.minDP )
+    
+    cat('\n\n\n----- Final allele calling -----')
+    for( currentLocus in names( currentSample[['snpDFPathList']][['final']][['SNP']] )){
+      cat('\n\t',currentLocus)
+      currentSample <- pingAllele.call_final_alleles(currentSample, currentLocus, knownSnpDFList[[currentLocus]]$snpDF)
+    }
+    
+    currentSample <- pingAllele.save_call( currentSample, alleleDFPathList$iter$alleleCallPath )
+  }
+  
+  return(sampleList)
 }

@@ -1,9 +1,9 @@
 
 ## Creating the results direcotry object class
 pathObj <- setRefClass("pathObj",
-                      fields=list(name='character',
-                                  path='character',
-                                  subDir='list'))
+                       fields=list(name='character',
+                                   path='character',
+                                   subDir='list'))
 
 pathObj$methods(
   dirGen= function(){
@@ -464,12 +464,3 @@ initLocusRef.create_bed <- function(locusRefList, referenceResourceDirectory, ki
   cat('\n\nProcessing complete.')
   return(locusRefList)
 }
-
-
-
-
-
-
-
-
-

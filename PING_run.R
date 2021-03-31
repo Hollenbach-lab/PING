@@ -44,7 +44,7 @@ library(plotly)
 library(R.utils)
 library(gtools)
 library(zip)
-
+#library(rstudioapi)
                                         # Initialization
 ## cwd <- arguments$ Sys.getenv("CWD", unset='~/PING')
 # setwd(cwd) #Set this to your own PING working directory
@@ -86,16 +86,20 @@ setwd(workingDirectory)
 ## allele.fullAlign <- Sys.getenv("ALLELE_FULLALIGN", unset=F)
 ## copy.fullAlign <- Sys.getenv("COPY_FULLALIGN", unset=F)
 
-# Initialization variables ------------------------------------------------
-# rawFastqDirectory <- '~/test_sample/' # can be set to raw sequence or extractedFastq directory
-# fastqPattern <- 'fastq' # use '_KIR_' to find already extracted files, otherwise use 'fastq' or whatever fits your data
-# threads <- 64
-# resultsDirectory <- '3_test_sequence_results_3/' # Set the master results directory (all pipeline output will be recorded here)
-# shortNameDelim <- '_' # can set a delimiter to shorten sample ID's (ID will be characters before delim)
+# library(rstudioapi)
+# setwd( dirname( getActiveDocumentContext()$path ) )
+# # RSTUDIO / RSCRIPT Initialization variables ------------------------------------------------
+# rawFastqDirectory <- 'input/test_sequence/fastq/' # can be set to raw sequence or extractedFastq directory
+# fastqPattern <- '_KIR_' # use '_KIR_' to find already extracted files, otherwise use 'fastq' or whatever fits your data
+# threads <- 24
+# resultsDirectory <- 'test_sequence_output/' # Set the master results directory (all pipeline output will be recorded here)
+# shortNameDelim <- '' # can set a delimiter to shorten sample ID's (ID will be characters before delim, ID's must be unique or else there will be an error)
+# setup.minDP <- 8
+# final.minDP <- 20
+# 
+# # Run mode variables ------------------------------------------------
 # setup.hetRatio <- 0.25
 # final.hetRatio <- 0.25
-# setup.minDP <- 8
-# final.minDP <- 10
 # copy.readBoost <- T
 # setup.readBoost <- T
 # final.readBoost <- F
@@ -128,13 +132,15 @@ outDir.extFqDir <- pathObj(name='extractedFqDir',path=extractedFastqDirectory)
 outDir.extFqDir$dirGen()
 
 # Run PING2 extractor
-sampleList <- extractor.run(sampleList,threads,outDir.extFqDir$path,forceRun=T) # set forceRun=T if you want to force alignments
+sampleList <- extractor.run(sampleList,threads,outDir.extFqDir$path,forceRun=F) # set forceRun=T if you want to force alignments
 
 # PING2 gene content and copy number --------------------------------------
 source('Resources/genotype_alignment_functions.R') # do not change
 source('Resources/alleleSetup_functions.R')
 cat('\n\n----- Moving to PING gene content and copy determination -----')
-sampleList <- ping_copy.graph(sampleList=sampleList,threads=threads,resultsDirectory=outDir$path,forceRun=F,onlyKFF=F,fullAlign = copy.fullAlign, hetRatio=setup.hetRatio, minDP = setup.minDP) # set forceRun=T if you want to force alignments
+sampleList <- ping_copy.graph(sampleList=sampleList,threads=threads,resultsDirectory=outDir$path,forceRun=T,onlyKFF=F,fullAlign = copy.fullAlign, hetRatio=setup.hetRatio, minDP = setup.minDP) # set forceRun=T if you want to force alignments
+
+sampleList <- ping_copy.autoSetCopy_wgs( sampleList, resultsDirectory, setup.minDP )
 
 #cat('\n\nZipping relevant results.')
 #zip(file.path(resultsDirectory,'copy_output.zip'),c(file.path(resultsDirectory,'snp_output'), file.path(resultsDirectory,'locusCountFrame.csv'),file.path(resultsDirectory,'kffCountFrame.csv'), file.path(resultsDirectory,'copyPlots')))
@@ -143,7 +149,7 @@ sampleList <- ping_copy.graph(sampleList=sampleList,threads=threads,resultsDirec
 # ' 6.12 hours for 50 samples at 40 threads, 150bp, 50dp
 # '
 # sampleList <- ping_copy.manual_threshold(sampleList=sampleList,resultsDirectory=outDir$path,use.threshFile = T) # this function sets copy thresholds
-# sampleList <- ping_copy.load_copy_results( sampleList, outDir$path )
+sampleList <- ping_copy.load_copy_results( sampleList, outDir$path )
 #
 # # Fix for poor 2DL2
 # #sapply(sampleList, function(x) x$copyNumber[['KIR2DL2']] <- as.character(2-as.integer(x$copyNumber[['KIR2DL3']])))
@@ -158,53 +164,26 @@ sampleList <- ping_copy.graph(sampleList=sampleList,threads=threads,resultsDirec
 #   IND00001 [example]
 # '
 #
-# PING2 alignments and allele calling ----------------------------------------------
-# Iter align workflow
 
-#
-# if(allele.fullAlign){
-#   as.list <- alleleSeq.list
-# }else{
-#   as.list <- compact.alleleSeq.list
-# }
-#
-# # Alignment and allele calling workflow
-# for(currentSample in sampleList){
-#
-#   currentSample <- alleleSetup.gc_matched_ref_alignment( currentSample, alleleSetupDirectory, as.list, threads)
-#
-#   if( currentSample[['ASSamPath']] == 'failed' ){
-#     next
-#   }
-#
-#   uniqueSamDT <- alleleSetup.process_samDT( currentSample$ASSamPath, delIndex.list, processSharedReads = setup.readBoost, readBoost.thresh )
-#   file.remove(currentSample$ASSamPath)
-#
-#   currentSample <- alleleSetup.prep_results_directory( currentSample, alignmentFileDirectory )
-#
-#   currentSample <- alleleSetup.call_setup_alleles( currentSample, uniqueSamDT, setup.knownSnpDFList, setup.hetRatio, setup.minDP )
-#   currentSample <- alleleSetup.write_sample_ref_info( currentSample, alleleSetupDirectory )
-#
-#   synSeq.key <- alleleSetup.readAnswerKey( currentSample$refInfoPath )
-#
-#   currentSample <- ping_iter.run_alignments(currentSample, threads)
-#   uniqueSamDT <- alleleSetup.process_samDT( currentSample$iterSamPathList[[1]], delIndex.list, processSharedReads = final.readBoost, readBoost.thresh )
-#   currentSample <- pingAllele.generate_snp_df( currentSample,uniqueSamDT,currentSample[['iterRefDirectory']],setup.knownSnpDFList,'final', final.hetRatio, final.minDP )
-#
-#   cat('\n\n\n----- Final allele calling -----')
-#   for( currentLocus in names( currentSample[['snpDFPathList']][['final']][['SNP']] )){
-#     cat('\n\t',currentLocus)
-#     currentSample <- pingAllele.call_final_alleles(currentSample, currentLocus, knownSnpDFList[[currentLocus]]$snpDF)
-#   }
-#
-#   currentSample <- pingAllele.save_call( currentSample, alleleDFPathList$iter$alleleCallPath )
-# }
-#
-# source('Resources/alleleFinalize_functions.R')
-# # ----- Formatting Results Genotypes (carry directly over to PING_run) -----
-#
-# cat('\n\n ----- FINALIZING GENOTYPES ----- ')
-# finalCallPath <- pingFinalize.format_calls( resultsDirectory )
-# cat('\nFinal calls written to:',finalCallPath)
-#
-#
+## PING2 alignments and allele calling ----------------------------------------------
+
+if(allele.fullAlign){
+  as.list <- alleleSeq.list
+}else{
+  as.list <- compact.alleleSeq.list
+}
+
+probelistFile='probelist_2021_01_24.csv'
+gcResourceDirectory <- normalizePath('Resources/gc_resources', mustWork = T)
+cat('\n\nReading in the KFF probelist file: ', file.path(gcResourceDirectory, probelistFile))
+probeDF <- read.csv(file.path(gcResourceDirectory, probelistFile), stringsAsFactors = F, check.names = F)
+row.names(probeDF) <- probeDF$Name
+
+# Alignment and allele calling workflow
+sampleList <- ping_allele(sampleList)
+
+# ----- Formatting Results Genotypes -----
+source('Resources/alleleFinalize_functions.R')
+cat('\n\n ----- FINALIZING GENOTYPES ----- ')
+finalCallPath <- pingFinalize.format_calls( resultsDirectory )
+cat('\nFinal calls written to:',finalCallPath)
