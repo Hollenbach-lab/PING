@@ -3479,7 +3479,7 @@ ping_copy.autoSetCopy_wgs <- function( sampleList, resultsDirectory, minDP ){
     cat('\n\n',currentSample$name)
     currentSample <- autoCopy.set_ratios( currentSample, minDP, ratio.df, snpOutput.dir, named.uniquePos.list, lowVar.pos.list )
     currentSample <- autoCopy.set_copy( currentSample, autoThresh.df )
-    copyNumberDF[currentSample$name,] <- currentSample$copyNumber
+    copyNumberDF[currentSample$name,names(currentSample$copyNumber)] <- currentSample$copyNumber
     write.csv(copyNumberDF, file = manualCopyPath)
   }
   

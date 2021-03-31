@@ -44,6 +44,7 @@ validation_test*
 old_stuff*
 test_sequence_output*
 output*
+workflow/.snakemake*
 # =========================
 # Operating System Files
 # =========================

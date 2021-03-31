@@ -96,6 +96,31 @@ source('Resources/genotype_alignment_functions.R') # do not change
 source('Resources/alleleSetup_functions.R')
 cat('\n\n----- Moving to PING gene content and copy determination -----')
 sampleList <- ping_copy.graph(sampleList=sampleList,threads=threads,resultsDirectory=outDir$path,forceRun=TRUE,onlyKFF=F,fullAlign = copy.fullAlign, hetRatio=setup.hetRatio, minDP = setup.minDP) # set forceRun=T if you want to force alignments
+sampleList <- ping_copy.autoSetCopy_wgs( sampleList, resultsDirectory, setup.minDP )
+
+## PING2 alignments and allele calling ----------------------------------------------
+
+if(allele.fullAlign){
+  as.list <- alleleSeq.list
+}else{
+  as.list <- compact.alleleSeq.list
+}
+
+probelistFile='probelist_2021_01_24.csv'
+gcResourceDirectory <- normalizePath('Resources/gc_resources', mustWork = T)
+cat('\n\nReading in the KFF probelist file: ', file.path(gcResourceDirectory, probelistFile))
+probeDF <- read.csv(file.path(gcResourceDirectory, probelistFile), stringsAsFactors = F, check.names = F)
+row.names(probeDF) <- probeDF$Name
+
+# Alignment and allele calling workflow
+sampleList <- ping_allele(sampleList)
+
+# ----- Formatting Results Genotypes -----
+source('Resources/alleleFinalize_functions.R')
+cat('\n\n ----- FINALIZING GENOTYPES ----- ')
+finalCallPath <- pingFinalize.format_calls( resultsDirectory )
+cat('\nFinal calls written to:',finalCallPath)
+
 out_d <- normalizePath(outDir$path)
 setwd(owd)
 tar(output_f,out_d , compression = 'gzip', tar="tar")
