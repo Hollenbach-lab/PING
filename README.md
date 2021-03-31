@@ -37,7 +37,7 @@ mamba create -c conda-forge -c bioconda -n snakemake snakemake
 
 
 ```shell
-git clone https://github.com/wesleymarin/PING.git --single-branch snakemake 
+git clone https://github.com/wesleymarin/PING.git --single-branch --branch reborn_docker_copyOnly
 ```
 
 ### 4. Run the test example
