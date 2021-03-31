@@ -1435,6 +1435,9 @@ pingAllele.generate_snp_df <- function( currentSample, uniqueSamDT, output.dir, 
   cat('\n\nSetting read start positions.')
   uniqueSamDT$startPos <- as.integer( apply( uniqueSamDT, 1, function(x) names( x$readTable )[1] ) )
   
+  cat('\n\nSetting read end positions.')
+  uniqueSamDT$endPos <- as.integer( apply( uniqueSamDT, 1, function(x) names(x$readTable)[length(names(x$readTable))] ) )
+  
   cat('\nSorting read table by locus and alignment coordinates.')
   uniqueSamDT <- uniqueSamDT[order(locus, startPos)]
   
@@ -1447,6 +1450,8 @@ pingAllele.generate_snp_df <- function( currentSample, uniqueSamDT, output.dir, 
     locusSnpDF <- setup.knownSnpDFList[[currentLocus]]
     locusSamDT <- uniqueSamDT[locus == currentLocus]
     currentDepthDF <- as.data.frame( matrix(data=0,nrow=6,ncol=ncol(locusSnpDF)) )
+    
+    locusSamDT <- locusSamDT[locusSamDT$endPos < ncol( locusSnpDF ),]
     
     namedReadVect <- unlist( locusSamDT$readTable )
     
@@ -1467,7 +1472,7 @@ pingAllele.generate_snp_df <- function( currentSample, uniqueSamDT, output.dir, 
     # Then process all other nucleotides and deletion positions
     uniqueNucVect <- intersect( unique(namedReadVect.noIns), names(nucListConv) )
     for( nuc in uniqueNucVect ){
-      #   cat('',nuc)
+      #cat('',nuc)
       nucIndex <- which( namedReadVect.noIns == nuc, useNames=F )
       nucTab <- table( as.integer(names(nucIndex)) )
       currentDepthDF[ nucListConv[[nuc]], as.integer(names(nucTab)) ] <- as.vector( nucTab )
@@ -1504,61 +1509,9 @@ pingAllele.generate_snp_df <- function( currentSample, uniqueSamDT, output.dir, 
     #cat('\n\t\tCompleted SNP file generation')
     currentSample[['snpDFPathList']][[workflow]][['SNP']][[currentLocus]] <- file.path(output.dir,paste0(workflow,'_',currentLocus,'_',currentSample$name,'_SNP.csv'))
   }
-  
-  # if( 'KIR2DS3' %in% names( currentSample[['snpDFPathList']][[workflow]][['SNP']] ) & 'KIR2DS5' %in% names( currentSample[['snpDFPathList']][[workflow]][['SNP']] ) & workflow == 'final'){
-  #   cat('','KIR2DS35')
-  #   exonNameVect.2DS3 <- grep('E',kirLocusFeatureNameList[['KIR2DS3']],value=T)
-  #   exonNameVect.2DS3 <- grep('PE',exonNameVect.2DS3,value=T,invert = T)
-  #   
-  #   currentSnpDF.2DS3 <- read.csv(file.path(currentSample[['snpDFPathList']][['final']][['SNP']][['KIR2DS3']]),
-  #                                 check.names=F,stringsAsFactors = F,row.names=1,header = T,colClasses = c("character"))
-  #   
-  #   exonNameVect.2DS5 <- grep('E',kirLocusFeatureNameList[['KIR2DS5']],value=T)
-  #   exonNameVect.2DS5 <- grep('PE',exonNameVect.2DS5,value=T,invert = T)
-  #   
-  #   currentSnpDF.2DS5 <- read.csv(file.path(currentSample[['snpDFPathList']][['final']][['SNP']][['KIR2DS5']]),
-  #                                 check.names=F,stringsAsFactors = F,row.names=1,header = T,colClasses = c("character"))
-  #   
-  #   
-  #   sampleCols.2DS3 <- tstrsplit(colnames(currentSnpDF.2DS3),'_',fixed=T)[[1]] 
-  #   sampleCols.2DS3 <- colnames(currentSnpDF.2DS3)[ sampleCols.2DS3 %in% exonNameVect.2DS3 ]
-  #   currentSnpDF.2DS3 <- currentSnpDF.2DS3[,sampleCols.2DS3]
-  #   
-  #   sampleCols.2DS5 <- tstrsplit(colnames(currentSnpDF.2DS5),'_',fixed=T)[[1]] 
-  #   sampleCols.2DS5 <- colnames(currentSnpDF.2DS5)[ sampleCols.2DS5 %in% exonNameVect.2DS5 ]
-  #   currentSnpDF.2DS5 <- currentSnpDF.2DS5[,sampleCols.2DS5]
-  #   
-  #   sampleCols.2DS35 <- unique(sampleCols.2DS3,sampleCols.2DS5)
-  #   currentSnpDF.2DS35 <- as.data.frame( matrix('',nrow=3,ncol=length(sampleCols.2DS35)),stringsAsFactors=F)
-  #   colnames(currentSnpDF.2DS35) <- sampleCols.2DS35
-  #   
-  #   for( col.2DS35 in sampleCols.2DS35 ){
-  #     if( col.2DS35 %in% sampleCols.2DS3 & col.2DS35 %in% sampleCols.2DS5 ){
-  #       nuc.S3 <- currentSnpDF.2DS3[is_nuc( currentSnpDF.2DS3[,col.2DS35] ), col.2DS35]
-  #       nuc.S5 <- currentSnpDF.2DS5[is_nuc( currentSnpDF.2DS5[,col.2DS35] ), col.2DS35]
-  #       
-  #       nuc.S35 <- unique(c(nuc.S3, nuc.S5))
-  #     }else if( col.2DS35 %in% sampleCols.2DS3 ){
-  #       nuc.S35 <- unique( currentSnpDF.2DS3[is_nuc( currentSnpDF.2DS3[,col.2DS35] ), col.2DS35] )
-  #     }else if( col.2DS35 %in% sampleCols.2DS5 ){
-  #       nuc.S35 <- unique( currentSnpDF.2DS5[is_nuc( currentSnpDF.2DS3[,col.2DS35] ), col.2DS35] )
-  #     }else{
-  #       nuc.S35 <- integer(0)
-  #     }
-  #     
-  #     addVect <- rep('N',max((3-length(nuc.S35)),0))
-  #     currentSnpDF.2DS35[,col.2DS35] <- c(nuc.S35 ,addVect)
-  #   }
-  #   
-  #   rownames(currentSnpDF.2DS35) <- c('SNP_1','SNP_2','SNP_3')
-  #   
-  #   write.csv(currentSnpDF.2DS35, file.path(output.dir,paste0(workflow,'_','KIR2DS35','_',currentSample$name,'_SNP.csv')))
-  #   #cat('\n\t\tCompleted SNP file generation')
-  #   currentSample[['snpDFPathList']][[workflow]][['SNP']][['KIR2DS35']] <- file.path(output.dir,paste0(workflow,'_','KIR2DS35','_',currentSample$name,'_SNP.csv'))
-  # }
-  # 
   return(currentSample)
 }
+
 
 pingAllele.call_final_alleles <- function( currentSample, currentLocus, refSnpDF ){
   #refSnpDF <- knownSnpDFList[[currentLocus]]$snpDF
