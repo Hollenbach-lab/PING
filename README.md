@@ -71,6 +71,15 @@ The default input settings (lines 33-39) are setup to run on this data without m
 
 The copy thresholding functionality will not work well for such a small cohort, but we included preset thresholds for the example dataset.
 
+## Running your own data
+Update line 33 `rawFastqDirectory <- 'test_sequence/'` to point to your own data directory.
+
+Update line 34 `fastqPattern <- 'fastq'` to match your data naming if necessary. For example, if your sequencing data is named [SAMPLE_ID]\_R1_fq.gz, you would change line 34 to `fastqPattern <- 'fq'`.
+
+Change line 84 option `use.threshFile=T` to `use.threshFile=F`, this will cause PING to prompt for copy number thresholding. If using Rstudio, copy number plots will be displayed in the 'Plots' panel, these plots can also be found in \[resultsDirectory\]/copyPlots/\[GENE\]\_copy\_number\_plot.html as html files to be opened with a web browser. 
+
+It is recommended to only run the script to this line first if you are using your own data, then set the copy number thresholds, then run the rest of the script. 
+
 ## PING output
 Copy number output can be found at `[resultsDirectory]/manualCopyNumberFrame.csv`
 
