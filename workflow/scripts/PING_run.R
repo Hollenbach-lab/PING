@@ -65,7 +65,8 @@ sample <- setRefClass("sample",
 
 
 sessionInfo()
-setDTthreads(threads)
+setDTthreads(threads,throttle=16)
+cat('\nhello')
                                         # Preparation -------------------------------------------------------------
 outDir <- pathObj(name='output_directory',path=resultsDirectory)
 outDir$dirGen()

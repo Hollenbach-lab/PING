@@ -25,6 +25,8 @@ if(!file.exists(alignmentFileDirectory)){
 # Read in reference allele 5'UTR and 3'UTR extensions
 UTRextList <- general.read_fasta('Resources/genotype_resources/KIR_UTR_ext.fasta')
 snpDFDirectory <- file.path('Resources/genotype_resources/SNP_files/')
+## Initializes a locus reference object, which stores reference allele information
+
 new.initLocusRef.read_snp_df <- function(locusRefList, snpDFDirectory, kirLocusVect = kir.locus.vect){
   
   knownSnpDFList <- list()
@@ -205,13 +207,19 @@ new.initLocusRef.snpDFtoLocusRefBed <- function( filled.snpDFList, locusRefList,
 } 
 
 
-locusRefList <- general.initialize_locus_ref_object()
-filled.snpDFList <- new.initLocusRef.read_snp_df( locusRefList, snpDFDirectory )
-filled.snpDFList <- new.initLocusRef.extend_5UTR( filled.snpDFList, UTRextList )
-filled.snpDFList <- new.initLocusRef.extend_3UTR( filled.snpDFList, UTRextList )
-#locusRefList <- new.initLocusRef.convertSnpDFtoLocusRefObject( filled.snpDFList, locusRefList )
-locusRefList <- new.initLocusRef.snpDFtoLocusRefAlleleSeq( filled.snpDFList, locusRefList )
-locusRefList <- new.initLocusRef.snpDFtoLocusRefBed( filled.snpDFList, locusRefList, kirLocusFeatureNameList )
+#locusRefList <- general.initialize_locus_ref_object()
+#filled.snpDFList <- new.initLocusRef.read_snp_df( locusRefList, snpDFDirectory )
+#filled.snpDFList <- new.initLocusRef.extend_5UTR( filled.snpDFList, UTRextList )
+#filled.snpDFList <- new.initLocusRef.extend_3UTR( filled.snpDFList, UTRextList )
+###locusRefList <- new.initLocusRef.convertSnpDFtoLocusRefObject( filled.snpDFList, locusRefList )
+#locusRefList <- new.initLocusRef.snpDFtoLocusRefAlleleSeq( filled.snpDFList, locusRefList )
+#locusRefList <- new.initLocusRef.snpDFtoLocusRefBed( filled.snpDFList, locusRefList, kirLocusFeatureNameList )
+
+#saveRDS(filled.snpDFList, file='Resources/filled.snpDFList.rds')
+#saveRDS(locusRefList, file='Resources/locusRefList.rds')
+
+filled.snpDFList <- readRDS('Resources/filled.snpDFList.rds')
+locusRefList <- readRDS('Resources/locusRefList.rds')
 
 # ----- Generating reference object list for each locus -----
 #old.locusRefList <- general.initialize_locus_ref_object()

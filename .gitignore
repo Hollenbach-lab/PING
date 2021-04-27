@@ -4,7 +4,7 @@
 .Ruserdata
 PING2.Rproj
 
-*.txt
+#*.txt
 *.html
 *.css
 
@@ -24,6 +24,7 @@ $RECYCLE.BIN/
 *.msm
 *.msp
 
+input/tgp*
 filled_*
 danillo*
 allele_threshold*
@@ -45,6 +46,8 @@ old_stuff*
 test_sequence_output*
 output*
 workflow/.snakemake*
+workflow/*cram*
+data/GR*
 # =========================
 # Operating System Files
 # =========================

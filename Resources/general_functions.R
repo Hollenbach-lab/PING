@@ -277,29 +277,6 @@ general.paired_sample_objects <- function(rawFastqDirectory,fastqPattern,results
   return(output.sampleList)
 }
 
-## Initializes a locus reference object, which stores reference allele information
-general.initialize_locus_ref_object <- function(kirLocusVect = kir.locus.vect){
-  
-  ## Creating the sample object class
-  locusRef <- setRefClass("locusRef",
-                          fields=list(name='character',
-                                      rawPath='character',
-                                      formattedPath='character',
-                                      filledPath='character',
-                                      alleleBedList='list',
-                                      alleleStrList='list'))
-  
-  ## Initialize locus ref list
-  locusRefList <- list()
-  
-  ## Add locus names to ref list
-  for(kirLocus in kirLocusVect){
-    locusRefList[[kirLocus]] <- locusRef(name=kirLocus)
-  }
-  
-  return(locusRefList)
-}
-
 ## Read MSF files from copied_msf directory into a list of locus reference objects
 initLocusRef.read_raw_msf <- function(locusRefList, copiedMsfDirectory, kirLocusVect = kir.locus.vect){
   
@@ -462,5 +439,27 @@ initLocusRef.create_bed <- function(locusRefList, referenceResourceDirectory, ki
     close(con)
   }
   cat('\n\nProcessing complete.')
+  return(locusRefList)
+}
+
+general.initialize_locus_ref_object <- function(kirLocusVect = kir.locus.vect){
+  
+  ## Creating the sample object class
+  locusRef <- setRefClass("locusRef",
+                          fields=list(name='character',
+                                      rawPath='character',
+                                      formattedPath='character',
+                                      filledPath='character',
+                                      alleleBedList='list',
+                                      alleleStrList='list'))
+  
+  ## Initialize locus ref list
+  locusRefList <- list()
+  
+  ## Add locus names to ref list
+  for(kirLocus in kirLocusVect){
+    locusRefList[[kirLocus]] <- locusRef(name=kirLocus)
+  }
+  
   return(locusRefList)
 }
