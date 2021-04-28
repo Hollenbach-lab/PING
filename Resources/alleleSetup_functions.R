@@ -1545,18 +1545,23 @@ pingAllele.call_final_alleles <- function( currentSample, currentLocus, refSnpDF
     cat('\n\t\tCalling on',exonPosPerc,'of exon positions')
   }
   
+  if( length(sampleCols) < 2 ){
+    currentSample[['callList']][[currentLocus]] <- list('alleleVect'='failed','scoreInt'=0)
+  }else{
+  
   #currentSample[['callList']][[currentLocus]] <- alleleSetup.call_allele( currentSample, currentLocus, currentSnpDF, currentADSnpDF, homScoreBuffer=1, kirRes=5, ambScore=F )
   
-  currentSample[['callList']][[currentLocus]]  <- tryCatch({
-    alleleSetup.call_allele( currentSample, currentLocus, currentSnpDF, currentADSnpDF, homScoreBuffer=1, kirRes=5, ambScore=F )
-  },
-  error=function(cond) {
-    message(paste("Allele calling error for:", currentLocus))
-    message("Error message:")
-    message(cond)
-    # Choose a return value in case of error
-    return(list('alleleVect'='failed','scoreInt'=0))
-  })
+    currentSample[['callList']][[currentLocus]]  <- tryCatch({
+      alleleSetup.call_allele( currentSample, currentLocus, currentSnpDF, currentADSnpDF, homScoreBuffer=1, kirRes=5, ambScore=F )
+    },
+    error=function(cond) {
+      message(paste("Allele calling error for:", currentLocus))
+      message("Error message:")
+      message(cond)
+      # Choose a return value in case of error
+      return(list('alleleVect'='failed','scoreInt'=0))
+    })
+  }
   
   #unresLocus.vect <- which( sapply( currentSample[['callList']], function(x) x$scoreInt > 0 ) )
   
