@@ -44,6 +44,7 @@ library(plotly)
 library(R.utils)
 library(gtools)
 library(zip)
+library(parallel)
 #library(rstudioapi)
                                         # Initialization
 ## cwd <- arguments$ Sys.getenv("CWD", unset='~/PING')
@@ -86,26 +87,26 @@ setwd(workingDirectory)
 ## allele.fullAlign <- Sys.getenv("ALLELE_FULLALIGN", unset=F)
 ## copy.fullAlign <- Sys.getenv("COPY_FULLALIGN", unset=F)
 
-# library(rstudioapi)
-# setwd( dirname( getActiveDocumentContext()$path ) )
-# # RSTUDIO / RSCRIPT Initialization variables ------------------------------------------------
-# rawFastqDirectory <- 'input/test_sequence/fastq/' # can be set to raw sequence or extractedFastq directory
-# fastqPattern <- '_KIR_' # use '_KIR_' to find already extracted files, otherwise use 'fastq' or whatever fits your data
-# threads <- 24
-# resultsDirectory <- 'test_sequence_output/' # Set the master results directory (all pipeline output will be recorded here)
-# shortNameDelim <- '' # can set a delimiter to shorten sample ID's (ID will be characters before delim, ID's must be unique or else there will be an error)
-# setup.minDP <- 8
-# final.minDP <- 20
-# 
-# # Run mode variables ------------------------------------------------
-# setup.hetRatio <- 0.25
-# final.hetRatio <- 0.25
-# copy.readBoost <- T
-# setup.readBoost <- T
-# final.readBoost <- F
-# readBoost.thresh <- 2
-# allele.fullAlign <- F
-# copy.fullAlign <- F
+library(rstudioapi)
+setwd( dirname( getActiveDocumentContext()$path ) )
+# RSTUDIO / RSCRIPT Initialization variables ------------------------------------------------
+rawFastqDirectory <- 'input/test_sequence/fastq/' # can be set to raw sequence or extractedFastq directory
+fastqPattern <- '_KIR_' # use '_KIR_' to find already extracted files, otherwise use 'fastq' or whatever fits your data
+threads <- 24
+resultsDirectory <- 'test_sequence_output/' # Set the master results directory (all pipeline output will be recorded here)
+shortNameDelim <- '' # can set a delimiter to shorten sample ID's (ID will be characters before delim, ID's must be unique or else there will be an error)
+setup.minDP <- 8
+final.minDP <- 20
+
+# Run mode variables ------------------------------------------------
+setup.hetRatio <- 0.25
+final.hetRatio <- 0.25
+copy.readBoost <- T
+setup.readBoost <- T
+final.readBoost <- F
+readBoost.thresh <- 2
+allele.fullAlign <- F
+copy.fullAlign <- F
 
 
 source('Resources/general_functions.R') # do not change
@@ -132,15 +133,15 @@ outDir.extFqDir <- pathObj(name='extractedFqDir',path=extractedFastqDirectory)
 outDir.extFqDir$dirGen()
 
 # Run PING2 extractor
-sampleList <- extractor.run(sampleList,threads,outDir.extFqDir$path,forceRun=F) # set forceRun=T if you want to force alignments
+sampleList[1] <- extractor.run(sampleList[1],threads,outDir.extFqDir$path,forceRun=F) # set forceRun=T if you want to force alignments
 
 # PING2 gene content and copy number --------------------------------------
 source('Resources/genotype_alignment_functions.R') # do not change
 source('Resources/alleleSetup_functions.R')
 cat('\n\n----- Moving to PING gene content and copy determination -----')
-sampleList <- ping_copy.graph(sampleList=sampleList,threads=threads,resultsDirectory=outDir$path,forceRun=T,onlyKFF=F,fullAlign = copy.fullAlign, hetRatio=setup.hetRatio, minDP = setup.minDP) # set forceRun=T if you want to force alignments
+sampleList[1] <- ping_copy.graph(sampleList=sampleList[1],threads=threads,resultsDirectory=outDir$path,forceRun=T,onlyKFF=F,fullAlign = copy.fullAlign, hetRatio=setup.hetRatio, minDP = setup.minDP) # set forceRun=T if you want to force alignments
 
-sampleList <- ping_copy.autoSetCopy_wgs( sampleList, resultsDirectory, setup.minDP )
+sampleList[1] <- ping_copy.autoSetCopy_wgs( sampleList[1], resultsDirectory, setup.minDP )
 
 #cat('\n\nZipping relevant results.')
 #zip(file.path(resultsDirectory,'copy_output.zip'),c(file.path(resultsDirectory,'snp_output'), file.path(resultsDirectory,'locusCountFrame.csv'),file.path(resultsDirectory,'kffCountFrame.csv'), file.path(resultsDirectory,'copyPlots')))
@@ -149,7 +150,7 @@ sampleList <- ping_copy.autoSetCopy_wgs( sampleList, resultsDirectory, setup.min
 # ' 6.12 hours for 50 samples at 40 threads, 150bp, 50dp
 # '
 # sampleList <- ping_copy.manual_threshold(sampleList=sampleList,resultsDirectory=outDir$path,use.threshFile = T) # this function sets copy thresholds
-sampleList <- ping_copy.load_copy_results( sampleList, outDir$path )
+sampleList[1] <- ping_copy.load_copy_results( sampleList[1], outDir$path )
 #
 # # Fix for poor 2DL2
 # #sapply(sampleList, function(x) x$copyNumber[['KIR2DL2']] <- as.character(2-as.integer(x$copyNumber[['KIR2DL3']])))
@@ -180,7 +181,7 @@ probeDF <- read.csv(file.path(gcResourceDirectory, probelistFile), stringsAsFact
 row.names(probeDF) <- probeDF$Name
 
 # Alignment and allele calling workflow
-sampleList <- ping_allele(sampleList)
+sampleList[1] <- ping_allele(sampleList[1])
 
 # ----- Formatting Results Genotypes -----
 source('Resources/alleleFinalize_functions.R')

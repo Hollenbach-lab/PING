@@ -653,19 +653,29 @@ alleleSetup.call_allele <- function( currentSample, currentLocus, currentSnpDF, 
     
     score <- max( sum(!rowBoolVect), sum(!colBoolVect) )
     '
-    
-    sapply( hetPosVect, function(currentPos){
+    #startTime <- Sys.time()
+    mclapply( hetPosVect, function(currentPos){
       alignedSnpVect <- currentSnpDT[,..currentPos][[1]]
       possAlleleDT[,'distance' := alleleSetup.geno_score_calc( alleleVect, distance, adSnpDT, alignedSnpVect, currentPos, ambScore ), by=seq_len(nrow(possAlleleDT)) ]
       return(NULL)
-    })
+    }, mc.cores = threads)
+    #endTime <- Sys.time()
+    #endTime - startTime
+    # 46.40s for hetPosVect[1:20]
+    # 11.74s for hetPosVect[1:20] mclapply w/ 20 cores
     
+    # 11.84s for hetPosVect[1:5]
+    # 6.2s for hetPosVect[1:5] mclapply w/ 5 cores
     bestScoreInt <- min(possAlleleDT$distance)
     bestMatchIndex <- which(possAlleleDT$distance == bestScoreInt)
     
     bestMatchAlleleVect <- sapply( unlist( possAlleleDT$alleleVect[bestMatchIndex], recursive=F ), paste0, collapse='+' )
   }
   
+  # Fix for alleles with 8 digits (for examples 2DL1*0320101N)
+  if( kirRes == 7 ){
+    kirRes <- 8
+  }
   ## Add back in exactly matching excluded alleles + cut allele calls to desired res
   formattedAlleleVect <- alleleSetup.format_call( bestMatchAlleleVect, excludedAlleleList, hetBool, kirRes )
   
@@ -783,7 +793,6 @@ alleleSetup.format_call <- function( bestMatchAlleleVect, excludedAlleleList, he
   
   return( output.alleleVect )
 }
-
 
 alleleSetup.call_setup_alleles <- function( currentSample, uniqueSamDT, setup.knownSnpDFList, hetRatio, setup.minDP, ambScore=T, allPosScore=F, onlyExonScore=F, homScoreBuffer=4, includeAmb=F, addDiversity=F, combineTypings=F, skipSnpGen=F, skipSet=F){
   

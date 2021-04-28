@@ -7,6 +7,7 @@ library(plotly)
 library(R.utils)
 library(gtools)
 library(zip)
+library(parallel)
 
 
 ##' Checks that the input is well-formed and returns it or errors out
