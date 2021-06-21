@@ -658,7 +658,7 @@ alleleSetup.call_allele <- function( currentSample, currentLocus, currentSnpDF, 
       alignedSnpVect <- currentSnpDT[,..currentPos][[1]]
       possAlleleDT[,'distance' := alleleSetup.geno_score_calc( alleleVect, distance, adSnpDT, alignedSnpVect, currentPos, ambScore ), by=seq_len(nrow(possAlleleDT)) ]
       return(NULL)
-    }, mc.cores = threads)
+    }, mc.cores = round(threads/2))
     #endTime <- Sys.time()
     #endTime - startTime
     # 46.40s for hetPosVect[1:20]
