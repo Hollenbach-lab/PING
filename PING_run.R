@@ -115,9 +115,3 @@ source('Resources/alleleFinalize_functions.R')
 cat('\n\n ----- FINALIZING GENOTYPES ----- ')
 finalCallPath <- pingFinalize.format_calls( resultsDirectory )
 cat('\nFinal calls written to:',finalCallPath)
-
-
-
-
-
-
