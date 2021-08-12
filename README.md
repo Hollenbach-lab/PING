@@ -104,16 +104,16 @@ Please save a copy of your R Console output and contact me through github or ema
 Please cite:
 
 
-##PING (https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1008904)
+## PING (https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1008904)
 
 Marin WM, Dandekar R, Augusto DG, Yusufali T, Heyn B, et al. (2021) High-throughput Interpretation of Killer-cell Immunoglobulin-like Receptor Short-read Sequencing Data with PING. PLOS Computational Biology 17(8): e1008904. https://doi.org/10.1371/journal.pcbi.1008904
 
 
-##IPD-KIR (https://www.ebi.ac.uk/ipd/kir/)
+## IPD-KIR (https://www.ebi.ac.uk/ipd/kir/)
 
 Robinson J, Waller MJ, Stoehr P, Marsh SGE. IPD-the Immuno Polymorphism Database. Nucleic Acids Research (2005), 331:D523-526
 
 
-##Bowtie2 (http://bowtie-bio.sourceforge.net/bowtie2/index.shtml)
+## Bowtie2 (http://bowtie-bio.sourceforge.net/bowtie2/index.shtml)
 
 Langmead B, Salzberg S. Fast gapped-read alignment with Bowtie 2. Nature Methods. 2012, 9:357-359.
