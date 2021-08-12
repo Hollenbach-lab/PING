@@ -596,6 +596,15 @@ alleleSetup.call_allele <- function( currentSample, currentLocus, currentSnpDF, 
   if( homBool ){
     cat('\n\t\tScoring hom positions.')
     
+    #Fix for a single row adSnpDT, which causes formatting issues in the following sapply step
+    if(nrow(adSnpDT) == 1){
+      dumAlleleDT <- copy(adSnpDT)
+      dumAlleleDT[1,] <- 'Z'
+      dumAlleleDT[1,]$alleleName <- 'dummyAllele'
+      
+      adSnpDT <- rbind(adSnpDT,dumAlleleDT)
+    }
+    
     scoreDF <- sapply( homPosVect, function(x){
       #cat('\n',x)
       outVect1 <- (adSnpDT[,..x] != currentSnpDT[1,..x][[1]])*1
@@ -609,9 +618,12 @@ alleleSetup.call_allele <- function( currentSample, currentLocus, currentSnpDF, 
         finalOutVect <- outVect1
         names(finalOutVect) <- adSnpDT$alleleName
       }
-      
       return(finalOutVect)
     })
+    
+    if( 'dummyAllele' %in% rownames(scoreDF) ){
+      scoreDF <- scoreDF[rownames(scoreDF) != 'dummyAllele',,drop=F]
+    }
     
     homScoreList <- apply(scoreDF, 1, sum)
   }
@@ -654,16 +666,21 @@ alleleSetup.call_allele <- function( currentSample, currentLocus, currentSnpDF, 
     score <- max( sum(!rowBoolVect), sum(!colBoolVect) )
     '
     
-    sapply( hetPosVect, function(currentPos){
+    mclapply( hetPosVect, function(currentPos){
       alignedSnpVect <- currentSnpDT[,..currentPos][[1]]
       possAlleleDT[,'distance' := alleleSetup.geno_score_calc( alleleVect, distance, adSnpDT, alignedSnpVect, currentPos, ambScore ), by=seq_len(nrow(possAlleleDT)) ]
       return(NULL)
-    })
+    }, mc.cores = round(threads/2))
     
     bestScoreInt <- min(possAlleleDT$distance)
     bestMatchIndex <- which(possAlleleDT$distance == bestScoreInt)
     
     bestMatchAlleleVect <- sapply( unlist( possAlleleDT$alleleVect[bestMatchIndex], recursive=F ), paste0, collapse='+' )
+  }
+  
+  # Fix for alleles with 8 digits (for examples 2DL1*0320101N)
+  if( kirRes == 7 ){
+    kirRes <- 8
   }
   
   ## Add back in exactly matching excluded alleles + cut allele calls to desired res
@@ -860,6 +877,7 @@ alleleSetup.call_setup_alleles <- function( currentSample, uniqueSamDT, setup.kn
       currentSample[['setCallList']] <- 'failed'
       currentSample[['setupAlleleList']] <- 'failed'
       currentSample[['failed']] <- TRUE
+      currentSample[['failureMessage']] <- 'No aligned SNP data during allele calling'
       return(currentSample)
     }
     
@@ -1463,6 +1481,10 @@ pingAllele.generate_snp_df <- function( currentSample, uniqueSamDT, output.dir, 
   for(currentLocus in unique(uniqueSamDT$locus)){
     cat('',currentLocus)
     
+    if(nrow(uniqueSamDT[locus == currentLocus]) < 10){
+      message('-- fewer than 10 aligned reads, skipping --')
+      next}
+    
     locusSnpDF <- setup.knownSnpDFList[[currentLocus]]
     locusSamDT <- uniqueSamDT[locus == currentLocus]
     currentDepthDF <- as.data.frame( matrix(data=0,nrow=6,ncol=ncol(locusSnpDF)) )
@@ -1510,6 +1532,10 @@ pingAllele.generate_snp_df <- function( currentSample, uniqueSamDT, output.dir, 
     currentSnpDF <- currentSnpDF[,passedMinDP.index]
     currentDepthDF <- currentDepthDF[,passedMinDP.index]
     
+    if(ncol(currentDepthDF) < 10){
+      message('-- fewer than 10 SNPs above minDP threshold, skipping --')
+      next}
+    
     currentSnpDF[,] <- apply( currentDepthDF, 2, function(x){
       snpIndex <- which( ( x / max(x) ) > hetRatio )
       snpVect <- names(nucListConvWIns)[snpIndex]
@@ -1556,18 +1582,23 @@ pingAllele.call_final_alleles <- function( currentSample, currentLocus, refSnpDF
     cat('\n\t\tCalling on',exonPosPerc,'of exon positions')
   }
   
-  #currentSample[['callList']][[currentLocus]] <- alleleSetup.call_allele( currentSample, currentLocus, currentSnpDF, currentADSnpDF, homScoreBuffer=1, kirRes=5, ambScore=F )
-  
-  currentSample[['callList']][[currentLocus]]  <- tryCatch({
-    alleleSetup.call_allele( currentSample, currentLocus, currentSnpDF, currentADSnpDF, homScoreBuffer=1, kirRes=5, ambScore=F )
-  },
-  error=function(cond) {
-    message(paste("Allele calling error for:", currentLocus))
-    message("Error message:")
-    message(cond)
-    # Choose a return value in case of error
-    return(list('alleleVect'='failed','scoreInt'=0))
-  })
+  if( length(sampleCols) < 2 ){
+    currentSample[['callList']][[currentLocus]] <- list('alleleVect'='failed','scoreInt'=0)
+  }else{
+    
+    #currentSample[['callList']][[currentLocus]] <- alleleSetup.call_allele( currentSample, currentLocus, currentSnpDF, currentADSnpDF, homScoreBuffer=1, kirRes=5, ambScore=F )
+    
+    currentSample[['callList']][[currentLocus]]  <- tryCatch({
+      alleleSetup.call_allele( currentSample, currentLocus, currentSnpDF, currentADSnpDF, homScoreBuffer=1, kirRes=5, ambScore=F )
+    },
+    error=function(cond) {
+      message(paste("Allele calling error for:", currentLocus))
+      message("Error message:")
+      message(cond)
+      # Choose a return value in case of error
+      return(list('alleleVect'='failed','scoreInt'=0))
+    })
+  }
   
   #unresLocus.vect <- which( sapply( currentSample[['callList']], function(x) x$scoreInt > 0 ) )
   

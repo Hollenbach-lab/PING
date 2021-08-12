@@ -3,15 +3,14 @@ extractor.bowtie2_align <- function(bowtie2_command, threads, currentSample, ext
   currentSample$samPath <- file.path(extractedFastqDirectory,paste0(currentSample$name,'.sam'))
   optionsCommand <- c('-x Resources/extractor_resources/reference/output',
                      '-5 3','-3 7','-L 20','-i S,1,0.5','--score-min L,0,-0.187',
-                     '-I 75','-X 1000', 
+                     '-I 75','-X 1000', '--no-unal',
                      paste0('-p ',threads),
                      paste0('-1 ',currentSample$rawfastq1path),
                      paste0('-2 ',currentSample$rawfastq2path),
                      paste0('-S ',currentSample$samPath),
                      paste0('--al-conc-gz ',
                             file.path(extractedFastqDirectory,paste0(currentSample$name,'_KIR_%.fastq.gz'))
-                            ),
-                     '--un delete.me'
+                            )
                      )
   cat('\n\n',bowtie2_command, optionsCommand)
   output.sampleAlign <- system2(bowtie2_command, optionsCommand, stdout=T, stderr=T)
@@ -19,6 +18,13 @@ extractor.bowtie2_align <- function(bowtie2_command, threads, currentSample, ext
   if(!is.null(attributes(output.sampleAlign))){
     cat('\nBowtie2 alignment failed, retrying...')
     output.sampleAlign <- system2(bowtie2_command, optionsCommand, stdout=T, stderr=T)
+  }
+  
+  if(!is.null(attributes(output.sampleAlign))){
+    cat('\nBowtie2 alignment failed, marking sample as failed.')
+    currentSample$failed <- T
+    currentSample[['failureMessage']] <- paste0(currentSample$name,': Failed KIR extraction.')
+    cat(currentSample[['failureMessage']], file = failureLog, sep = "\n", append = TRUE)
   }
   
   check.system2_output(output.sampleAlign, 'Bowtie2 KIR extraction alignment failed.')
@@ -31,7 +37,7 @@ extractor.bowtie2_align <- function(bowtie2_command, threads, currentSample, ext
   cat('\n\nSuccessfully extracted KIR reads for',currentSample$name)
   
   cat('\nCleaning up alignment files.')
-  file.remove('delete.me')
+  #file.remove('delete.me')
   file.remove(currentSample$samPath)
   
   return(currentSample)

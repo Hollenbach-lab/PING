@@ -587,9 +587,9 @@ sampleObj.iterBowtie2Align <- function(currentSample, bowtie2, threads, deleteSa
     bt2_un <- "--un dump.me"
     
     if( all.align ){
-      optionsCommand <- c(bt2_p, bt2_5, bt2_3, bt2_i, bt2_min_score, bt2_I, bt2_X, bt2_x, bt2_1, bt2_2, bt2_noUnal, bt2_stream, bt2_al_conc, bt2_un, bt2_a)
+      optionsCommand <- c(bt2_p, bt2_5, bt2_3, bt2_i, bt2_min_score, bt2_I, bt2_X, bt2_x, bt2_1, bt2_2, bt2_noUnal, bt2_stream, bt2_al_conc, bt2_a)
     }else{
-      optionsCommand <- c(bt2_p, bt2_5, bt2_3, bt2_i, bt2_min_score, bt2_I, bt2_X, bt2_x, bt2_1, bt2_2, bt2_noUnal, bt2_stream, bt2_al_conc, bt2_un)
+      optionsCommand <- c(bt2_p, bt2_5, bt2_3, bt2_i, bt2_min_score, bt2_I, bt2_X, bt2_x, bt2_1, bt2_2, bt2_noUnal, bt2_stream, bt2_al_conc)
     }
     
     ## Run the bowtie2 alignment command
@@ -609,7 +609,7 @@ sampleObj.iterBowtie2Align <- function(currentSample, bowtie2, threads, deleteSa
     if(deleteSam){
       file.remove(currentSample[['iterSamPathList']][[currentIter]])
     }
-    file.remove('dump.me')
+    #file.remove('dump.me')
     file.remove(paste0(fastqBase,'_1.fastq.gz'))
     file.remove(paste0(fastqBase,'_2.fastq.gz'))
   }

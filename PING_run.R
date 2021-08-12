@@ -14,6 +14,7 @@ library(plotly)
 library(R.utils)
 library(gtools)
 library(zip)
+library(parallel)
 
 # DOCKER Initialization variables ------------------------------------------------
 # rawFastqDirectory <- Sys.getenv("RAW_FASTQ_DIR", unset='test_sequence/') # can be set to raw sequence or extractedFastq directory
@@ -64,7 +65,7 @@ outDir$dirGen()
 # Build up a list of sample objects
 sampleList <- general.paired_sample_objects(rawFastqDirectory, fastqPattern, outDir$path, shortNameDelim) # no need to change
 
-
+failureLog <- file.path(outDir$path,'failure.log')
 # PING2 extractor ---------------------------------------------------------
 cat('\n\n----- Moving to PING KIR extraction -----')
 # Define the extracted fastq directory
@@ -84,8 +85,7 @@ sampleList <- ping_copy.graph(sampleList=sampleList,threads=threads,resultsDirec
 sampleList <- ping_copy.manual_threshold(sampleList=sampleList,resultsDirectory=outDir$path,use.threshFile = T) # this function sets copy thresholds
 sampleList <- ping_copy.load_copy_results( sampleList, outDir$path )
 
-
-## Fix for poor 2DL2 
+## Fix for poor 2DL2  
 #sapply(sampleList, function(x) x$copyNumber[['KIR2DL2']] <- as.character(2-as.integer(x$copyNumber[['KIR2DL3']])))
 
 ## Seeing the following message when generating copy plots is normal

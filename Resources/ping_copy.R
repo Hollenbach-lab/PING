@@ -30,7 +30,7 @@ cat('\nPING_copy version:',ping_copy.version)
 ping_copy.graph <- function(sampleList=list(),
                     threads=4,
                     resultsDirectory,
-                    KIR3DL3MinReadThreshold=100,
+                    KIR3DL3MinReadThreshold=500,
                     maxReadThreshold=50000,
                     probelistFile='probelist_2021_01_24.csv',
                     onlyKFF=F,
@@ -229,8 +229,20 @@ ping_copy.graph <- function(sampleList=list(),
   
   ## Run all samples through bowtie2 gc alignment
   for(currentSample in sampleList[!(names(sampleList) %in% previousIDVect)]){
+    
+    if(currentSample$failed){next}
+    
     cat('\n\nProcessing', currentSample$name)
     cat('\n------------------------------------')
+    
+    if( file.size(currentSample$kirfastq1path) < 10000 ){
+      message('\n-- Sample failure --')
+      message(paste0(currentSample$name,': extracted fastq size smaller than 10KB'))
+      currentSample$failed <- T
+      currentSample[['failureMessage']] <- paste0(currentSample$name,': Extracted fastq smaller than 10KB')
+      cat(currentSample[['failureMessage']], file = failureLog, sep = "\n", append = TRUE)
+      next
+    }
     
     cat('\n\nCounting KFF primer matches.')
     
@@ -368,7 +380,13 @@ ping_copy.graph <- function(sampleList=list(),
   ## Mark bad samples as failed
   if(length(badRows) > 0){
     for(sampleID in badRows){
-      sampleList[[sampleID]]$failed <- T
+      if(!sampleList[[sampleID]]$failed){
+        sampleList[[sampleID]]$failed <- T
+        sampleList[[sampleID]][['failureMessage']] <- paste0(currentSample$name,': Fewer than ',KIR3DL3MinReadThreshold,' KIR3DL3 reads.')
+        cat(sampleList[[sampleID]][['failureMessage']], file = failureLog, sep = "\n", append = TRUE)
+        message('\n-- Sample failure --')
+        message(paste0(sampleID,': Fewer than ',KIR3DL3MinReadThreshold,' KIR3DL3 reads.'))
+      }
     }
   }
   
