@@ -1532,7 +1532,7 @@ pingAllele.generate_snp_df <- function( currentSample, uniqueSamDT, output.dir, 
     currentSnpDF <- currentSnpDF[,passedMinDP.index]
     currentDepthDF <- currentDepthDF[,passedMinDP.index]
     
-    if(ncol(currentDepthDF) < 10){
+    if( class(currentDepthDF) != 'data.frame' || ncol(currentDepthDF) < 10){
       message('-- fewer than 10 SNPs above minDP threshold, skipping --')
       next}
     
