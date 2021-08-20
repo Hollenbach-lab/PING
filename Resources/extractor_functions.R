@@ -21,6 +21,13 @@ extractor.bowtie2_align <- function(bowtie2_command, threads, currentSample, ext
     output.sampleAlign <- system2(bowtie2_command, optionsCommand, stdout=T, stderr=T)
   }
   
+  if(!is.null(attributes(output.sampleAlign))){
+    cat('\nBowtie2 alignment failed, marking sample as failed.')
+    currentSample$failed <- T
+    currentSample[['failureMessage']] <- paste0(currentSample$name,': Failed KIR extraction.')
+    #cat(currentSample[['failureMessage']], file = failureLog, sep = "\n", append = TRUE)
+  }
+  
   check.system2_output(output.sampleAlign, 'Bowtie2 KIR extraction alignment failed.')
   
   cat('\n',paste0(output.sampleAlign, collapse='\n'))
