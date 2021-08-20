@@ -374,11 +374,13 @@ ping_copy.graph <- function(sampleList=list(),
   }
   
   ## Subset the count dataframe by the samples that were determined to be good, then normalize each locus unique read count by KIR3DL3
-  locusRatioDF <- apply(locusCountDF[goodRows,,drop=F], 2, function(x) x / locusCountDF[goodRows,'KIR3DL3'])
-  
-  if( length(goodRows) == 1){
-    locusRatioDF <- data.frame( as.list( locusRatioDF ) ,stringsAsFactors = F, row.names = goodRows)
-  }else{ 
+  if( length(goodRows) == 0){
+    stop('No samples passed copy determination quality control.')
+  }else if( length(goodRows) == 1 ){
+    locusRatioDF <- as.data.frame( locusCountDF[goodRows,] / locusCountDF[goodRows,'KIR3DL3'] )
+  }else{
+    ## Subset the count dataframe by the samples that were determined to be good, then normalize each locus unique read count by KIR3DL3
+    locusRatioDF <- apply(locusCountDF[goodRows,], 2, function(x) x / locusCountDF[goodRows,'KIR3DL3'])
     locusRatioDF <- as.data.frame(locusRatioDF)
   }
   
