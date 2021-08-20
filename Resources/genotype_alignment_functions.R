@@ -922,7 +922,9 @@ allele.custom_2DL1_allele_filter <- function(currentSample,
 
 # function to run the ITER alignments
 ping_iter.run_alignments <- function( currentSample, threads, all.align=F, synSeq.key){
-  
+  if(currentSample$failed){
+    return(currentSample)
+  }
   cat('\nLoading ref DF')
   currentSample <- sampleObj.loadRefDF(currentSample, referenceAlleleDF) # Subset reference allele dataframe by present loci, save to sample object
   
