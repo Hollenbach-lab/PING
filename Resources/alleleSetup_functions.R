@@ -809,6 +809,13 @@ alleleSetup.format_call <- function( bestMatchAlleleVect, excludedAlleleList, he
 
 alleleSetup.call_setup_alleles <- function( currentSample, uniqueSamDT, setup.knownSnpDFList, hetRatio, setup.minDP, ambScore=T, allPosScore=F, onlyExonScore=F, homScoreBuffer=4, includeAmb=F, addDiversity=F, combineTypings=F, skipSnpGen=F, skipSet=F){
   
+  if( currentSample$failed ){
+    message('\n\n-- sample marked as failure --')
+    currentSample[['setCallList']] <- 'failed'
+    currentSample[['setupAlleleList']] <- 'failed'
+    return(currentSample)
+  }  
+  
   '
   pingAllele.generate_snp_df could be sped up by only processing AD SNP positions, would save time and storage without impacting results
   '
@@ -855,23 +862,28 @@ alleleSetup.call_setup_alleles <- function( currentSample, uniqueSamDT, setup.kn
     # rawSnpTbl <- alleleSetup.generate_rawSnpTbl( currentLocus , currentLocusSnpDF, currentADSnpDF, uniqueSamDT, setup.minDP )
     # currentSnpDF <- alleleSetup.generate_snpDF( rawSnpTbl )
     
-    currentSnpDF <- tryCatch(
-      {
-        read.csv(file.path(currentSample$snpDFPathList[['setup']][['SNP']][[currentLocus]]),
-                                 check.names=F,stringsAsFactors = F,row.names=1,header = T,colClasses = c("character"))
-      },
-      error=function(cond) {
-        # Choose a return value in case of error
-        return(NA)
-      }
-    )
-    
-    if( class(currentSnpDF) != 'data.frame' ){
+    currentSnpDF <- tryCatch({
+      read.csv(file.path(currentSample$snpDFPathList[['setup']][['SNP']][[currentLocus]]),
+               check.names=F,stringsAsFactors = F,row.names=1,header = T,colClasses = c("character"))
+    },
+    error=function(cond){
       message(paste("Allele calling error for:", currentLocus))
-      message("Error with reading in SNP data. Setting gene copy to 0 for allele calling.")
-      currentSample$copyNumber[[currentLocus]] <- 0
-      next
-    }
+      message("Error message: no SNP data, marking sample as failed")
+      # Choose a return value in case of error
+
+      currentAlleleCall.list[[currentLocus]] <- paste0( alleleSetupRef.df[currentLocus,], collapse='+' )
+      currentScore.list[[currentLocus]] <- 999
+
+      'failed'
+    })
+
+    if(class(currentSnpDF) == 'character'){
+      currentSample[['setCallList']] <- 'failed'
+      currentSample[['setupAlleleList']] <- 'failed'
+      currentSample[['failed']] <- TRUE
+      return(currentSample)
+    } 
+ 
     
     #nonADCol.vect <- colnames(currentSnpDF)[!(colnames(currentSnpDF) %in% colnames(currentADSnpDF))]
     
@@ -1342,6 +1354,10 @@ alleleSetup.call_setup_alleles <- function( currentSample, uniqueSamDT, setup.kn
 # ----- REF INFO WRITING FUNCTIONS -----
 alleleSetup.write_sample_ref_info <- function( currentSample, alleleSetupDirectory, setup.knownSnpDFList, referenceAlleleDF, addFullyDefined=F){
   
+  if( currentSample$failed ){
+    return(currentSample)
+  }
+  
   refInfoPath <- file.path(alleleSetupDirectory,paste0(currentSample$name,'.refInfo.txt'))
   currentSample[['refInfoPath']] <- alleleSetup.initialize_info_file( refInfoPath )
   
@@ -1544,6 +1560,12 @@ pingAllele.generate_snp_df <- function( currentSample, uniqueSamDT, output.dir, 
 
 
 pingAllele.call_final_alleles <- function( currentSample, currentLocus, refSnpDF ){
+  
+  if( currentSample$failed ){
+    currentSample[['callList']][[currentLocus]] <- list('alleleVect'='failed','scoreInt'=0)
+    return(currentSample)
+  }
+  
   #refSnpDF <- knownSnpDFList[[currentLocus]]$snpDF
   currentADSnpDF <- refSnpDF
   
@@ -1757,7 +1779,7 @@ pingAllele.addUnresSNPs <- function( currentSample, currentADSnpDF, currentSnpDF
 ping_allele <- function(sampleList){
   
   for( currentSample in sampleList ){
-    
+    if( currentSample$failed ){next}
     currentSample <- alleleSetup.gc_matched_ref_alignment( currentSample, alleleSetupDirectory, as.list, threads)
     
     currentSample[['setCallList']] <- list()
@@ -1766,26 +1788,33 @@ ping_allele <- function(sampleList){
     currentSample <- alleleSetup.prep_results_directory( currentSample, alignmentFileDirectory )
     currentSample <- alleleSetup.call_setup_alleles( currentSample, uniqueSamDT, setup.knownSnpDFList, setup.hetRatio, setup.minDP, includeAmb = T )
     currentSample <- alleleSetup.write_sample_ref_info( currentSample, alleleSetupDirectory, setup.knownSnpDFList, alleleSetupRef.df, addFullyDefined = F)
+    if( currentSample$failed ){next}
     
     synSeq.key <- alleleSetup.readAnswerKey( currentSample$refInfoPath )
     currentSample <- ping_iter.run_alignments(currentSample, threads, all.align=T, synSeq.key)
-    uniqueSamDT <- alleleSetup.process_samDT( currentSample$iterSamPathList[[1]], delIndex.list, processSharedReads = T, 2 )
+    if( !currentSample$failed ){
+      uniqueSamDT <- alleleSetup.process_samDT( currentSample$iterSamPathList[[1]], delIndex.list, processSharedReads = T, 2 )}
     currentSample <- alleleSetup.call_setup_alleles( currentSample, uniqueSamDT, setup.knownSnpDFList, setup.hetRatio, setup.minDP, includeAmb=T, ambScore=F, allPosScore = F, homScoreBuffer = 1, addDiversity = F)
     currentSample <- alleleSetup.call_setup_alleles( currentSample, uniqueSamDT, setup.knownSnpDFList, final.hetRatio, final.minDP, includeAmb=T, ambScore=T, allPosScore = F, onlyExonScore = T, homScoreBuffer = 1, addDiversity=T,combineTypings=T, skipSnpGen=T)
     currentSample <- alleleSetup.write_sample_ref_info( currentSample, alleleSetupDirectory, setup.knownSnpDFList, alleleSetupRef.df, addFullyDefined = T)
+    if( currentSample$failed ){next}
     
     synSeq.key <- alleleSetup.readAnswerKey( currentSample$refInfoPath )
     currentSample <- ping_iter.run_alignments(currentSample, threads, all.align=F, synSeq.key)
-    uniqueSamDT <- alleleSetup.process_samDT( currentSample$iterSamPathList[[1]], delIndex.list, processSharedReads = F, 2 )
+    if( !currentSample$failed ){
+      uniqueSamDT <- alleleSetup.process_samDT( currentSample$iterSamPathList[[1]], delIndex.list, processSharedReads = F, 2 )}
     currentSample <- alleleSetup.call_setup_alleles( currentSample, uniqueSamDT, setup.knownSnpDFList, setup.hetRatio, setup.minDP, includeAmb=T, ambScore=F, allPosScore = F, homScoreBuffer = 1, addDiversity = F, skipSet = F)
     currentSample <- alleleSetup.call_setup_alleles( currentSample, uniqueSamDT, setup.knownSnpDFList, final.hetRatio, final.minDP, includeAmb=T, ambScore=T, allPosScore = F, onlyExonScore = T, homScoreBuffer = 1, addDiversity=F,combineTypings=T,skipSnpGen=T, skipSet=F)
     currentSample <- alleleSetup.write_sample_ref_info( currentSample, alleleSetupDirectory, setup.knownSnpDFList, alleleSetupRef.df, addFullyDefined = T)
+    if( currentSample$failed ){next}
     
     synSeq.key <- alleleSetup.readAnswerKey( currentSample$refInfoPath )
     currentSample <- ping_iter.run_alignments(currentSample, threads, all.align=F, synSeq.key)
-    uniqueSamDT <- alleleSetup.process_samDT( currentSample$iterSamPathList[[1]], delIndex.list, processSharedReads = F, 2 )
+    if( !currentSample$failed ){
+      uniqueSamDT <- alleleSetup.process_samDT( currentSample$iterSamPathList[[1]], delIndex.list, processSharedReads = F, 2 )}
     currentSample <- pingAllele.generate_snp_df( currentSample,uniqueSamDT,currentSample[['iterRefDirectory']],setup.knownSnpDFList,'final', final.hetRatio, final.minDP )
     
+    if( currentSample$failed ){next}
     cat('\n\n\n----- Final allele calling -----')
     for( currentLocus in names( currentSample[['snpDFPathList']][['final']][['SNP']] )){
       cat('\n\t',currentLocus)
