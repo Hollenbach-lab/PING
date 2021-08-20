@@ -596,6 +596,15 @@ alleleSetup.call_allele <- function( currentSample, currentLocus, currentSnpDF, 
   if( homBool ){
     cat('\n\t\tScoring hom positions.')
     
+    #Fix for a single row adSnpDT, which causes formatting issues in the following sapply step
+    if(nrow(adSnpDT) == 1){
+      dumAlleleDT <- copy(adSnpDT)
+      dumAlleleDT[1,] <- 'Z'
+      dumAlleleDT[1,]$alleleName <- 'dummyAllele'
+
+      adSnpDT <- rbind(adSnpDT,dumAlleleDT)
+    }
+    
     scoreDF <- sapply( homPosVect, function(x){
       #cat('\n',x)
       outVect1 <- (adSnpDT[,..x] != currentSnpDT[1,..x][[1]])*1
@@ -612,6 +621,10 @@ alleleSetup.call_allele <- function( currentSample, currentLocus, currentSnpDF, 
       
       return(finalOutVect)
     })
+    
+    if( 'dummyAllele' %in% rownames(scoreDF) ){
+      scoreDF <- scoreDF[rownames(scoreDF) != 'dummyAllele',,drop=F]
+    }
     
     homScoreList <- apply(scoreDF, 1, sum)
   }
