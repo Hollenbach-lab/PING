@@ -1456,6 +1456,10 @@ pingAllele.generate_snp_df <- function( currentSample, uniqueSamDT, output.dir, 
   for(currentLocus in unique(uniqueSamDT$locus)){
     cat('',currentLocus)
     
+    if(nrow(uniqueSamDT[locus == currentLocus]) < 10){
+      message('-- fewer than 10 aligned reads, skipping --')
+      next}
+    
     locusSnpDF <- setup.knownSnpDFList[[currentLocus]]
     locusSamDT <- uniqueSamDT[locus == currentLocus]
     currentDepthDF <- as.data.frame( matrix(data=0,nrow=6,ncol=ncol(locusSnpDF)) )
@@ -1502,6 +1506,10 @@ pingAllele.generate_snp_df <- function( currentSample, uniqueSamDT, output.dir, 
     
     currentSnpDF <- currentSnpDF[,passedMinDP.index]
     currentDepthDF <- currentDepthDF[,passedMinDP.index]
+    
+    if( class(currentDepthDF) != 'data.frame' || ncol(currentDepthDF) < 10){
+      message('-- fewer than 10 SNPs above minDP threshold, skipping --')
+      next}
     
     currentSnpDF[,] <- apply( currentDepthDF, 2, function(x){
       snpIndex <- which( ( x / max(x) ) > hetRatio )
