@@ -225,8 +225,18 @@ ping_copy.graph <- function(sampleList=list(),
   
   ## Run all samples through bowtie2 gc alignment
   for(currentSample in sampleList[!(names(sampleList) %in% previousIDVect)]){
+    if(currentSample$failed){next}
     cat('\n\nProcessing', currentSample$name)
     cat('\n------------------------------------')
+    
+    if( file.size(currentSample$kirfastq1path) < 10000 ){
+      message('\n-- Sample failure --')
+      message(paste0(currentSample$name,': extracted fastq size smaller than 10KB'))
+      currentSample$failed <- T
+      currentSample[['failureMessage']] <- paste0(currentSample$name,': Extracted fastq smaller than 10KB')
+      #cat(currentSample[['failureMessage']], file = failureLog, sep = "\n", append = TRUE)
+      next
+    }
     
     cat('\n\nCounting KFF primer matches.')
     
