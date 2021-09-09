@@ -53,7 +53,7 @@ pingFinalize.combineL23 <- function( iterCall.df ){
       L23.call.vect <- 'failed'
     }
     
-    if( length(L23.call.vect) > 64 ){
+    if( length(L23.call.vect) > 128 ){
       L23.call.str <- 'failed'
     }else{
       L23.call.str <- paste0(L23.call.vect, collapse=' ')
@@ -179,7 +179,7 @@ pingFinalize.combineS35 <- function( iterCall.df, copyCall.df ){
       S35.call.vect <- 'failed'
     }
     
-    if( length(S35.call.vect) > 64 ){
+    if( length(S35.call.vect) > 128 ){
       S35.call.str <- 'failed'
     }else{
       S35.call.str <- paste0(S35.call.vect, collapse=' ')
@@ -286,7 +286,7 @@ pingFinalize.combineL1S1 <- function( iterCall.df, copyCall.df ){
       L1S1.call.vect <- 'failed'
     }
     
-    if( length(L1S1.call.vect) > 64 ){
+    if( length(L1S1.call.vect) > 128 ){
       L1S1.call.str <- 'failed'
     }else{
       L1S1.call.str <- paste0(L1S1.call.vect, collapse=' ')
@@ -347,7 +347,7 @@ pingFinalize.otherLoci <- function( iterCall.df, copyCall.df ){
         locus.call.vect <- 'failed'
       }
       
-      if( length(locus.call.vect) > 64 ){
+      if( length(locus.call.vect) > 128 ){
         locus.call.str <- 'failed'
       }else{
         locus.call.str <- paste0(locus.call.vect, collapse=' ')
