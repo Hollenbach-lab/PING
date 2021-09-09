@@ -666,11 +666,13 @@ alleleSetup.call_allele <- function( currentSample, currentLocus, currentSnpDF, 
     score <- max( sum(!rowBoolVect), sum(!colBoolVect) )
     '
     
-    mclapply( hetPosVect, function(currentPos){
+    hetScoreList <- mclapply( hetPosVect, function(currentPos){
       alignedSnpVect <- currentSnpDT[,..currentPos][[1]]
-      possAlleleDT[,'distance' := alleleSetup.geno_score_calc( alleleVect, distance, adSnpDT, alignedSnpVect, currentPos, ambScore ), by=seq_len(nrow(possAlleleDT)) ]
-      return(NULL)
+      testVect <- possAlleleDT[, alleleSetup.geno_score_calc( alleleVect, 0, adSnpDT, alignedSnpVect, currentPos, ambScore ), by=seq_len(nrow(possAlleleDT)) ]
+      return( as.integer(testVect$V1) )
     }, mc.cores = round(threads/2))
+    
+    possAlleleDT$distance <- possAlleleDT$distance + Reduce('+',hetScoreList)
     
     bestScoreInt <- min(possAlleleDT$distance)
     bestMatchIndex <- which(possAlleleDT$distance == bestScoreInt)
