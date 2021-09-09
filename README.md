@@ -1,3 +1,10 @@
+# -- IMPORTANT UPDATE (9/9/2021) --
+The August 12th update added in genotype multithreading, but also introduced a critical genotyping bug where heterozygous SNPs were being ignored during genotyping. This bug resulted in excessive genotype ambiguity and potentially incorrect genotype calls. 
+
+This bug has been fixed in the latest release (Sept 9. 2021) and it is vital to update in order to have to accuracy and precision that PING was designed for.
+# ----
+
+
 # PING (Pushing Immunogenetics to the Next Generation)
 An R-based bioinformatic pipeline to determine killer-cell immunoglobulin-like receptor (KIR) copy number and high-resolution genotypes from short-read sequencing data.
 
