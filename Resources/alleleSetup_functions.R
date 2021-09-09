@@ -667,11 +667,14 @@ alleleSetup.call_allele <- function( currentSample, currentLocus, currentSnpDF, 
     score <- max( sum(!rowBoolVect), sum(!colBoolVect) )
     '
     #startTime <- Sys.time()
-    mclapply( hetPosVect, function(currentPos){
+    hetScoreList <- mclapply( hetPosVect, function(currentPos){
       alignedSnpVect <- currentSnpDT[,..currentPos][[1]]
-      possAlleleDT[,'distance' := alleleSetup.geno_score_calc( alleleVect, distance, adSnpDT, alignedSnpVect, currentPos, ambScore ), by=seq_len(nrow(possAlleleDT)) ]
-      return(NULL)
+      testVect <- possAlleleDT[, alleleSetup.geno_score_calc( alleleVect, 0, adSnpDT, alignedSnpVect, currentPos, ambScore ), by=seq_len(nrow(possAlleleDT)) ]
+      return( as.integer(testVect$V1))
+      #return(NULL)
     }, mc.cores = round(threads/2))
+    
+    possAlleleDT$distance <- possAlleleDT$distance + Reduce('+',hetScoreList)
     #endTime <- Sys.time()
     #endTime - startTime
     # 46.40s for hetPosVect[1:20]
