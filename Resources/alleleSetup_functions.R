@@ -811,7 +811,7 @@ alleleSetup.format_call <- function( bestMatchAlleleVect, excludedAlleleList, he
 }
 
 alleleSetup.call_setup_alleles <- function( currentSample, uniqueSamDT, setup.knownSnpDFList, hetRatio, setup.minDP, ambScore=T, allPosScore=F, onlyExonScore=F, homScoreBuffer=4, includeAmb=F, addDiversity=F, combineTypings=F, skipSnpGen=F, skipSet=F){
-  
+  probeThresh <- 5
   if( currentSample$failed ){
     message('\n\n-- sample marked as failure --')
     currentSample[['setCallList']] <- 'failed'
@@ -1030,10 +1030,10 @@ alleleSetup.call_setup_alleles <- function( currentSample, uniqueSamDT, setup.kn
   
   
   if( 'KIR2DL1' %in% names(nonAmbAlleleCall.list) ){
-    pos4710 <- as.integer( currentSample$kffHits[['*KIR2DL1*4710b']] ) > 10
-    pos47 <- as.integer( currentSample$kffHits[['*KIR2DL1*4and7']] ) > 10
-    pos7 <- as.integer( currentSample$kffHits[['*KIR2DL1*7only']] ) > 10
-    pos003 <- as.integer( currentSample$kffHits[['*KIR2DL1*003']] ) > 10
+    pos4710 <- as.integer( currentSample$kffHits[['*KIR2DL1*4710b']] ) > probeThresh
+    pos47 <- as.integer( currentSample$kffHits[['*KIR2DL1*4and7']] ) > probeThresh
+    pos7 <- as.integer( currentSample$kffHits[['*KIR2DL1*7only']] ) > probeThresh
+    pos003 <- as.integer( currentSample$kffHits[['*KIR2DL1*003']] ) > probeThresh
     
     calledAlleleVect <- unique( unlist( strsplit( nonAmbAlleleCall.list[['KIR2DL1']], '+', fixed=T) ) )
     
@@ -1072,9 +1072,9 @@ alleleSetup.call_setup_alleles <- function( currentSample, uniqueSamDT, setup.kn
   }
   
   if( 'KIR2DL2' %in% names(nonAmbAlleleCall.list) ){
-    posE5292T <- as.integer( currentSample$kffHits[['*KIR2DL2*E5292T']] ) > 10
-    pos00103 <- as.integer( currentSample$kffHits[['*KIR2DL2*00103']] ) > 10
-    pos004 <- as.integer( currentSample$kffHits[['*KIR2DL2*004']] ) > 10
+    posE5292T <- as.integer( currentSample$kffHits[['*KIR2DL2*E5292T']] ) > probeThresh
+    pos00103 <- as.integer( currentSample$kffHits[['*KIR2DL2*00103']] ) > probeThresh
+    pos004 <- as.integer( currentSample$kffHits[['*KIR2DL2*004']] ) > probeThresh
     
     calledAlleleVect <- unique( unlist( strsplit( nonAmbAlleleCall.list[['KIR2DL2']], '+', fixed=T) ) )
     
@@ -1129,8 +1129,8 @@ alleleSetup.call_setup_alleles <- function( currentSample, uniqueSamDT, setup.kn
   }
   
   if( 'KIR2DL4' %in% names(nonAmbAlleleCall.list) ){
-    pos10A <- as.integer( currentSample$kffHits[['*KIR2DL4*10A64']] ) > 10
-    pos9A <- as.integer( currentSample$kffHits[['*KIR2DL4*9A64']] ) > 10
+    pos10A <- as.integer( currentSample$kffHits[['*KIR2DL4*10A64']] ) > probeThresh
+    pos9A <- as.integer( currentSample$kffHits[['*KIR2DL4*9A64']] ) > probeThresh
     
     calledAlleleVect <- unique( unlist( strsplit( nonAmbAlleleCall.list[['KIR2DL4']], '+', fixed=T) ) )
     
@@ -1183,13 +1183,13 @@ alleleSetup.call_setup_alleles <- function( currentSample, uniqueSamDT, setup.kn
   }
   
   if( 'KIR2DS1' %in% names(nonAmbAlleleCall.list) ){
-    pos001 <- as.integer( currentSample$kffHits[['*KIR2DS1*001']] ) > 10
-    pos00202.00302 <- as.integer( currentSample$kffHits[['*KIR2DS1*00202^00302']] ) > 10
-    pos005 <- as.integer(currentSample$kffHits[['*KIR2DS1*005']]) > 10
-    pos003 <- as.integer(currentSample$kffHits[['*KIR2DS1*00301']]) > 10
-    pos006 <- as.integer(currentSample$kffHits[['*KIR2DS1*006']]) > 10
-    pos004.008 <- as.integer(currentSample$kffHits[['*KIR2DS1*004^008']]) > 10
-    pos009 <- as.integer(currentSample$kffHits[['*KIR2DS1*009']]) > 10
+    pos001 <- as.integer( currentSample$kffHits[['*KIR2DS1*001']] ) > probeThresh
+    pos00202.00302 <- as.integer( currentSample$kffHits[['*KIR2DS1*00202^00302']] ) > probeThresh
+    pos005 <- as.integer(currentSample$kffHits[['*KIR2DS1*005']]) > probeThresh
+    pos003 <- as.integer(currentSample$kffHits[['*KIR2DS1*00301']]) > probeThresh
+    pos006 <- as.integer(currentSample$kffHits[['*KIR2DS1*006']]) > probeThresh
+    pos004.008 <- as.integer(currentSample$kffHits[['*KIR2DS1*004^008']]) > probeThresh
+    pos009 <- as.integer(currentSample$kffHits[['*KIR2DS1*009']]) > probeThresh
     #pos010 <- as.integer(currentSample$kffHits[['*KIR2DS1*010']]) > 10
     #pos011 <- as.integer(currentSample$kffHits[['*KIR2DS1*011']]) > 10
     
@@ -1292,8 +1292,8 @@ alleleSetup.call_setup_alleles <- function( currentSample, uniqueSamDT, setup.kn
   
   if( 'KIR3DP1' %in% names(nonAmbAlleleCall.list) ){
     
-    pos3DP1del <- as.integer( currentSample$kffHits[['*KIR3DP1*E2del']] ) > 10
-    neg3DP1del <- as.integer( currentSample$kffHits[['*KIR3DP1*E2nodel']] ) > 10
+    pos3DP1del <- as.integer( currentSample$kffHits[['*KIR3DP1*E2del']] ) > probeThresh
+    neg3DP1del <- as.integer( currentSample$kffHits[['*KIR3DP1*E2nodel']] ) > probeThresh
     
     calledAlleleVect <- unique( unlist( strsplit( nonAmbAlleleCall.list[['KIR3DP1']], '+', fixed=T) ) )
     
@@ -1325,7 +1325,7 @@ alleleSetup.call_setup_alleles <- function( currentSample, uniqueSamDT, setup.kn
   }
   
   if( 'KIR3DS1' %in% names(nonAmbAlleleCall.list) ){
-    pos049 <- as.integer( currentSample$kffHits[['*KIR3DS1*049']] ) > 10
+    pos049 <- as.integer( currentSample$kffHits[['*KIR3DS1*049']] ) > probeThresh
     
     calledAlleleVect <- unique( unlist( strsplit( nonAmbAlleleCall.list[['KIR3DS1']], '+', fixed=T) ) )
     
