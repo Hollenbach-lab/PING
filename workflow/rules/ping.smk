@@ -10,7 +10,7 @@ rule index_cram:
         mem_mb=2000,
         time=str(timedelta(minutes=30))
     threads:
-        2
+        4
     shell:
         """samtools index -@ {threads} {input}"""
 
@@ -27,7 +27,7 @@ rule index_bam:
         mem_mb=2000,
         time=str(timedelta(minutes=30))
     threads:
-        2
+        4
     shell:
         """samtools index -@ {threads} {input}"""
 
@@ -42,7 +42,7 @@ rule cram2fastq:
     output:
         fq1="../input/{pref}/fastq/{sample}_KIR_1.fastq.gz",
         fq2="../input/{pref}/fastq/{sample}_KIR_2.fastq.gz"
-    threads: 8
+    threads: 4
     conda:
         "../../envs/ping.yaml"        
     shell:
@@ -58,7 +58,7 @@ rule bam2fastq:
     output:
         fq1="../input/{pref}/fastq/{sample}_KIR_1.fastq.gz",
         fq2="../input/{pref}/fastq/{sample}_KIR_2.fastq.gz"
-    threads: 8
+    threads: 4
     conda:
         "../../envs/ping.yaml"        
     shell:
@@ -82,10 +82,10 @@ rule run_PING:
         resultsDirectory="output/{pref}/{sample}",
         samplename="{sample}",
         shortNameDelim="_",
-        setup_hetRatio="0.33",
-        final_hetRatio="0.33",
-        setup_minDP="6",
-        final_minDP="6",
+        setup_hetRatio="0.25",
+        final_hetRatio="0.25",
+        setup_minDP="12",
+        final_minDP="12",
         copy_readBoost="T",
         setup_readBoost="T",
         final_readBoost="F",
@@ -97,6 +97,6 @@ rule run_PING:
     log:
         "../output/{pref}/{sample}_log.txt"        
     threads:
-        26
+        8
     script:
         """../scripts/PING_run.R"""
