@@ -1289,6 +1289,49 @@ alleleSetup.call_setup_alleles <- function( currentSample, uniqueSamDT, setup.kn
     
     
   }
+                                             
+  if( 'KIR2DS4' %in% names(nonAmbAlleleCall.list) ){
+    pos003 <- as.integer(currentSample$kffHits[['*KIR2DS4*del003']]) > probeThresh
+    pos006 <- as.integer(currentSample$kffHits[['*KIR2DS4*del006']]) > probeThresh
+    pos009 <- as.integer(currentSample$kffHits[['*KIR2DS4*009']]) > probeThresh
+    
+    calledAlleleVect <- unique( unlist( strsplit( nonAmbAlleleCall.list[['KIR2DS4']], '+', fixed=T) ) )
+    
+    if( pos003 ){
+      probeSeq <- probeDF['*KIR2DS4*del003','Sequence']
+      hitAllele.vect <- names(alleleSeq.list)[ grepl(probeSeq,alleleSeq.list,fixed = T) ]
+      if( !any( calledAlleleVect %in% hitAllele.vect ) ){
+        addAllele <- hitAllele.vect
+        cat('\n\nAdjusting KIR2DS4 call to include',addAllele,'based on KFF')
+        calledAlleleVect <- c(calledAlleleVect,addAllele)
+        addAllele <- integer(0)
+      }
+    }
+    
+    if( pos006 ){
+      probeSeq <- probeDF['*KIR2DS4*del006','Sequence']
+      hitAllele.vect <- names(alleleSeq.list)[ grepl(probeSeq,alleleSeq.list,fixed = T) ]
+      if( !any( calledAlleleVect %in% hitAllele.vect ) ){
+        addAllele <- hitAllele.vect
+        cat('\n\nAdjusting KIR2DS4 call to include',addAllele,'based on KFF')
+        calledAlleleVect <- c(calledAlleleVect,addAllele)
+        addAllele <- integer(0)
+      }
+    }
+    
+    if( pos009 ){
+      probeSeq <- probeDF['*KIR2DS4*009','Sequence']
+      hitAllele.vect <- names(alleleSeq.list)[ grepl(probeSeq,alleleSeq.list,fixed = T) ]
+      if( !any( calledAlleleVect %in% hitAllele.vect ) ){
+        addAllele <- hitAllele.vect
+        cat('\n\nAdjusting KIR2DS4 call to include',addAllele,'based on KFF')
+        calledAlleleVect <- c(calledAlleleVect,addAllele)
+        addAllele <- integer(0)
+      }
+    }
+    
+    nonAmbAlleleCall.list[['KIR2DS4']] <- paste0(calledAlleleVect,collapse='+')
+  }
   
   if( 'KIR3DP1' %in% names(nonAmbAlleleCall.list) ){
     
