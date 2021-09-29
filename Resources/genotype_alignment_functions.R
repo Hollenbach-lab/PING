@@ -82,8 +82,8 @@ new.initLocusRef.extend_5UTR <- function( filled.snpDFList, UTRextList ){
     utr5.replacement.colVect <- unlist( sapply(utr5.colVect, function(x) {
       xVect <- strsplit(x,'_',fixed=T)[[1]]
       xPos <- as.integer(xVect[2]) + utr5.addition.length
-      return( paste0(xVect[1],'_',xPos) )
-    }) )
+     return( paste0(xVect[1],'_',xPos) )
+      }) )
     
     colnames(snpDF)[utr5.indexVect] <- utr5.replacement.colVect
     
@@ -206,17 +206,53 @@ new.initLocusRef.snpDFtoLocusRefBed <- function( filled.snpDFList, locusRefList,
   return(locusRefList)
 } 
 
-
-#locusRefList <- general.initialize_locus_ref_object()
-#filled.snpDFList <- new.initLocusRef.read_snp_df( locusRefList, snpDFDirectory )
-#filled.snpDFList <- new.initLocusRef.extend_5UTR( filled.snpDFList, UTRextList )
-#filled.snpDFList <- new.initLocusRef.extend_3UTR( filled.snpDFList, UTRextList )
-###locusRefList <- new.initLocusRef.convertSnpDFtoLocusRefObject( filled.snpDFList, locusRefList )
-#locusRefList <- new.initLocusRef.snpDFtoLocusRefAlleleSeq( filled.snpDFList, locusRefList )
-#locusRefList <- new.initLocusRef.snpDFtoLocusRefBed( filled.snpDFList, locusRefList, kirLocusFeatureNameList )
-
+## This commented section creates new reference databases
+# locusRefList <- general.initialize_locus_ref_object()
+# filled.snpDFList <- new.initLocusRef.read_snp_df( locusRefList, snpDFDirectory )
+# filled.snpDFList <- new.initLocusRef.extend_5UTR( filled.snpDFList, UTRextList )
+# filled.snpDFList <- new.initLocusRef.extend_3UTR( filled.snpDFList, UTRextList )
+# locusRefList <- new.initLocusRef.snpDFtoLocusRefAlleleSeq( filled.snpDFList, locusRefList )
+# locusRefList <- new.initLocusRef.snpDFtoLocusRefBed( filled.snpDFList, locusRefList, kirLocusFeatureNameList )
 #saveRDS(filled.snpDFList, file='Resources/filled.snpDFList.rds')
 #saveRDS(locusRefList, file='Resources/locusRefList.rds')
+# annotatedAlleleDirectory <- file.path('Resources/genotype_resources/extended_SNP_files')
+# for(locus in kirLocusList){
+#   write.csv(filled.snpDFList[[locus]],file.path(annotatedAlleleDirectory,paste0(locus,'_alleleSNPs.csv')))
+# }
+# gcResourceDirectory <- normalizePath('Resources/gc_resources', mustWork = T)
+# kirReferenceFasta <- normalizePath(file.path(gcResourceDirectory,'filled_kir_reference','KIR_gen_onelines_filled.fasta'), mustWork=T)
+# kirReferenceIndex <- file.path(gcResourceDirectory,'filled_kir_reference','KIR_gen_onelines_filled')
+# fastaCon <- file(kirReferenceFasta, 'w')
+# for(locus in names(filled.snpDFList)){
+#   for(alleleName in rownames(filled.snpDFList[[locus]])){
+#     alleleStr <- paste0( filled.snpDFList[[locus]][alleleName,], collapse='')
+#     alleleStr <- gsub('.','',alleleStr,fixed=T)
+#     general.write_fasta(fastaCon,alleleName,alleleStr)
+#   }
+# }
+# close(fastaCon)
+# system2(bowtie2Build, c(kirReferenceFasta, kirReferenceIndex,'--quiet',paste('--threads', threads)))
+# 
+# kirReferenceFasta <- normalizePath(file.path(gcResourceDirectory,'filled_kir_reference','KIR_compact_filled.fasta'), mustWork=T)
+# kirReferenceIndex <- file.path(gcResourceDirectory,'filled_kir_reference','KIR_compact_filled')
+# test.fa <- general.read_fasta(kirReferenceFasta)
+# 
+# alleleVect <- unlist( lapply(names(filled.snpDFList), function(x){
+#   unlist( sapply(names(test.fa), function(y) grep(y,rownames(filled.snpDFList[[x]]),fixed = T,value=T)) )
+#   }),use.names = F)
+# 
+# fastaCon <- file(kirReferenceFasta, 'w')
+# for(locus in names(filled.snpDFList)){
+#   for(alleleName in rownames(filled.snpDFList[[locus]])){
+#     if(alleleName %in% alleleVect){
+#       alleleStr <- paste0( filled.snpDFList[[locus]][alleleName,], collapse='')
+#       alleleStr <- gsub('.','',alleleStr,fixed=T)
+#       general.write_fasta(fastaCon,alleleName,alleleStr)
+#     }
+#   }
+# }
+# close(fastaCon)
+# system2(bowtie2Build, c(kirReferenceFasta, kirReferenceIndex,'--quiet',paste('--threads', threads)))
 
 filled.snpDFList <- readRDS('Resources/filled.snpDFList.rds')
 locusRefList <- readRDS('Resources/locusRefList.rds')
@@ -227,7 +263,8 @@ locusRefList <- readRDS('Resources/locusRefList.rds')
 #old.locusRefList <- initLocusRef.create_bed(old.locusRefList, referenceResourceDirectory, kirLocusFeatureNameList, writeBed=F)
 
 # Read in reference allele dataframe
-referenceAlleleDF <- read.csv('Resources/genotype_resources/master_haplo_iteration_testing_v10.csv',row.names=1,stringsAsFactors = F)
+#referenceAlleleDF <- read.csv('Resources/genotype_resources/master_haplo_iteration_testing_v10.csv',row.names=1,stringsAsFactors = F)
+referenceAlleleDF <- read.csv('Resources/genotype_resources/gc_allele_reference.csv',row.names=1,stringsAsFactors = F)
 
 # Generate df's to store allele calls for both workflows covering all samples and loci
 alleleDFPathList <- allele.setup_results_df( locusRefList, filterLocusConv, resultsDirectory, sampleList )
@@ -399,7 +436,7 @@ filter_contam_snps <- function(currentSample, current.locus, sampleSnpDF,PctFilt
         if( any(is_nuc(sampleSnpDF[,'E4_202'])) ) { 
           cat('\n\t\tRemoving E4_202')
           sampleSnpDF[,'E4_202'] <- NA 
-        }
+          }
         
         if( any(is_nuc(sampleSnpDF[,'E4_261'])) ) {
           
@@ -922,9 +959,11 @@ allele.custom_2DL1_allele_filter <- function(currentSample,
 
 # function to run the ITER alignments
 ping_iter.run_alignments <- function( currentSample, threads, all.align=F, synSeq.key){
+  
   if(currentSample$failed){
     return(currentSample)
   }
+  
   cat('\nLoading ref DF')
   currentSample <- sampleObj.loadRefDF(currentSample, referenceAlleleDF) # Subset reference allele dataframe by present loci, save to sample object
   
@@ -1089,3 +1128,4 @@ ping_filter.allele <- function( currentSample ){
   
   return(currentSample)
 }
+
