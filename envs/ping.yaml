@@ -10,7 +10,7 @@ dependencies:
   - samtools
   - bowtie2=2.3.4.1
   - tbb=2020.2
-  - r=4.0.*
+  - r=3.6.*
   - r-stringr
   - r-plotly
   - r-r.utils
