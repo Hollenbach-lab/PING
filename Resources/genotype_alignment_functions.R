@@ -206,17 +206,53 @@ new.initLocusRef.snpDFtoLocusRefBed <- function( filled.snpDFList, locusRefList,
   return(locusRefList)
 } 
 
-
+## This commented section creates new reference databases
 # locusRefList <- general.initialize_locus_ref_object()
 # filled.snpDFList <- new.initLocusRef.read_snp_df( locusRefList, snpDFDirectory )
 # filled.snpDFList <- new.initLocusRef.extend_5UTR( filled.snpDFList, UTRextList )
 # filled.snpDFList <- new.initLocusRef.extend_3UTR( filled.snpDFList, UTRextList )
-# #locusRefList <- new.initLocusRef.convertSnpDFtoLocusRefObject( filled.snpDFList, locusRefList )
 # locusRefList <- new.initLocusRef.snpDFtoLocusRefAlleleSeq( filled.snpDFList, locusRefList )
 # locusRefList <- new.initLocusRef.snpDFtoLocusRefBed( filled.snpDFList, locusRefList, kirLocusFeatureNameList )
-
 #saveRDS(filled.snpDFList, file='Resources/filled.snpDFList.rds')
 #saveRDS(locusRefList, file='Resources/locusRefList.rds')
+# annotatedAlleleDirectory <- file.path('Resources/genotype_resources/extended_SNP_files')
+# for(locus in kirLocusList){
+#   write.csv(filled.snpDFList[[locus]],file.path(annotatedAlleleDirectory,paste0(locus,'_alleleSNPs.csv')))
+# }
+# gcResourceDirectory <- normalizePath('Resources/gc_resources', mustWork = T)
+# kirReferenceFasta <- normalizePath(file.path(gcResourceDirectory,'filled_kir_reference','KIR_gen_onelines_filled.fasta'), mustWork=T)
+# kirReferenceIndex <- file.path(gcResourceDirectory,'filled_kir_reference','KIR_gen_onelines_filled')
+# fastaCon <- file(kirReferenceFasta, 'w')
+# for(locus in names(filled.snpDFList)){
+#   for(alleleName in rownames(filled.snpDFList[[locus]])){
+#     alleleStr <- paste0( filled.snpDFList[[locus]][alleleName,], collapse='')
+#     alleleStr <- gsub('.','',alleleStr,fixed=T)
+#     general.write_fasta(fastaCon,alleleName,alleleStr)
+#   }
+# }
+# close(fastaCon)
+# system2(bowtie2Build, c(kirReferenceFasta, kirReferenceIndex,'--quiet',paste('--threads', threads)))
+# 
+# kirReferenceFasta <- normalizePath(file.path(gcResourceDirectory,'filled_kir_reference','KIR_compact_filled.fasta'), mustWork=T)
+# kirReferenceIndex <- file.path(gcResourceDirectory,'filled_kir_reference','KIR_compact_filled')
+# test.fa <- general.read_fasta(kirReferenceFasta)
+# 
+# alleleVect <- unlist( lapply(names(filled.snpDFList), function(x){
+#   unlist( sapply(names(test.fa), function(y) grep(y,rownames(filled.snpDFList[[x]]),fixed = T,value=T)) )
+#   }),use.names = F)
+# 
+# fastaCon <- file(kirReferenceFasta, 'w')
+# for(locus in names(filled.snpDFList)){
+#   for(alleleName in rownames(filled.snpDFList[[locus]])){
+#     if(alleleName %in% alleleVect){
+#       alleleStr <- paste0( filled.snpDFList[[locus]][alleleName,], collapse='')
+#       alleleStr <- gsub('.','',alleleStr,fixed=T)
+#       general.write_fasta(fastaCon,alleleName,alleleStr)
+#     }
+#   }
+# }
+# close(fastaCon)
+# system2(bowtie2Build, c(kirReferenceFasta, kirReferenceIndex,'--quiet',paste('--threads', threads)))
 
 filled.snpDFList <- readRDS('Resources/filled.snpDFList.rds')
 locusRefList <- readRDS('Resources/locusRefList.rds')
