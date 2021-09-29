@@ -25,7 +25,7 @@ $RECYCLE.BIN/
 *.msp
 
 input/tgp*
-filled_*
+#filled_*
 danillo*
 allele_threshold*
 copy_number*
@@ -33,7 +33,7 @@ kff_threshold_graphs*
 Sequences/*.fastq
 .Rhistory
 Results*
-GC_results*
+GC_results
 Caller_results*
 african*
 filled_kir_results*
