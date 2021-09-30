@@ -3489,8 +3489,8 @@ ping_copy.autoSetCopy_wgs <- function( sampleList, resultsDirectory, minDP ){
 autoCopy.set_ratios <- function( currentSample, minDP, ratio.df, snpOutput.dir, named.uniquePos.list, lowVar.pos.list ){
   cat('\n\tAuto-setting copy for:')
   
-  snpDepth.locusVect <- c('KIR2DL2','KIR2DS1','KIR2DS2','KIR2DS5')
-  readDepth.locusVect <- c('KIR3DL1','KIR2DL3','KIR2DL4','KIR2DL5','KIR2DS3','KIR2DS4','KIR3DL2','KIR3DP1','KIR3DS1','KIR2DP1')
+  snpDepth.locusVect <- c('KIR2DL2','KIR2DS1','KIR2DS5')
+  readDepth.locusVect <- c('KIR3DL1','KIR2DL3','KIR2DL4','KIR2DL5','KIR2DS3','KIR2DS4','KIR3DL2','KIR3DP1','KIR3DS1','KIR2DP1','KIR2DS2')
   other.locusVect <- c('KIR2DL1')
   
   current.sampleID <- currentSample$name
