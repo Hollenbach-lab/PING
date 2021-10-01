@@ -227,6 +227,7 @@ new.initLocusRef.snpDFtoLocusRefBed <- function( filled.snpDFList, locusRefList,
 #   for(alleleName in rownames(filled.snpDFList[[locus]])){
 #     alleleStr <- paste0( filled.snpDFList[[locus]][alleleName,], collapse='')
 #     alleleStr <- gsub('.','',alleleStr,fixed=T)
+#     alleleStr <- gsub('*','N',alleleStr,fixed=T)
 #     general.write_fasta(fastaCon,alleleName,alleleStr)
 #   }
 # }
@@ -247,6 +248,7 @@ new.initLocusRef.snpDFtoLocusRefBed <- function( filled.snpDFList, locusRefList,
 #     if(alleleName %in% alleleVect){
 #       alleleStr <- paste0( filled.snpDFList[[locus]][alleleName,], collapse='')
 #       alleleStr <- gsub('.','',alleleStr,fixed=T)
+#       alleleStr <- gsub('*','N',alleleStr,fixed=T)
 #       general.write_fasta(fastaCon,alleleName,alleleStr)
 #     }
 #   }
