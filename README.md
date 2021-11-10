@@ -8,6 +8,9 @@ This bug has been fixed in the latest release (Sept 9. 2021) and it is vital to 
 # PING (Pushing Immunogenetics to the Next Generation)
 An R-based bioinformatic pipeline to determine killer-cell immunoglobulin-like receptor (KIR) copy number and high-resolution genotypes from short-read sequencing data.
 
+## Data compatibility
+Paired-end KIR targeted sequencing data
+
 ## Language
 R
 
