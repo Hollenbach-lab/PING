@@ -382,7 +382,7 @@ ping_copy.graph <- function(sampleList=list(),
     for(sampleID in badRows){
       if(!sampleList[[sampleID]]$failed){
         sampleList[[sampleID]]$failed <- T
-        sampleList[[sampleID]][['failureMessage']] <- paste0(currentSample$name,': Fewer than ',KIR3DL3MinReadThreshold,' KIR3DL3 reads.')
+        sampleList[[sampleID]][['failureMessage']] <- paste0(sampleID,': Fewer than ',KIR3DL3MinReadThreshold,' KIR3DL3 reads.')
         cat(sampleList[[sampleID]][['failureMessage']], file = failureLog, sep = "\n", append = TRUE)
         message('\n-- Sample failure --')
         message(paste0(sampleID,': Fewer than ',KIR3DL3MinReadThreshold,' KIR3DL3 reads.'))
