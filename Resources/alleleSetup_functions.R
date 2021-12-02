@@ -66,6 +66,7 @@ alleleSetup.write_sample_gc_fasta <- function( currentSample, alleleSetupDirecto
   
   if( any( currentSample$copyNumber == 'failed' ) | any( is.na(currentSample$copyNumber) ) ){
     currentSample[['ASFastaPath']] <- 'failed'
+    currentSample[['failed']] <- T
     return(currentSample)
   }
   currentSample[['ASFastaPath']] <- file.path(alleleSetupDirectory,paste0(currentSample$name,'.fasta'))
@@ -1822,6 +1823,7 @@ ping_allele <- function(sampleList){
     if( currentSample$failed ){next}
     
     currentSample <- alleleSetup.gc_matched_ref_alignment( currentSample, alleleSetupDirectory, as.list, threads)
+    if( currentSample$failed ){next}
     
     currentSample[['setCallList']] <- list()
     uniqueSamDT <- alleleSetup.process_samDT( currentSample$ASSamPath, delIndex.list, processSharedReads = setup.readBoost, readBoost.thresh )
