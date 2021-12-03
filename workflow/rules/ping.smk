@@ -1,3 +1,20 @@
+rule bam_extract:
+    """Download the subset of the 1000 genomes CRAM file corresponding to the kir regions"""
+    input:
+        bedf="../data/kir_regions.bed",
+        ref_fq="../data/GRCh38_full_analysis_set_plus_decoy_hla.fa",
+    output:
+        bamf="../input/tgp/bam/{sample}_kir.bam",
+    conda:
+        "../../envs/ping.yaml"
+    resources:
+        mem_mb=8000,
+        time=str(timedelta(hours=3))
+    threads:
+        4
+    shell:
+        "samtools view --reference {input.ref_fq} --threads {threads} -M -L {input.bedf} -o {output.bamf} ../input/{pref}/bam/{sample}.bam"
+
 rule index_cram:
   """index the subset CRAM file"""
     input:
