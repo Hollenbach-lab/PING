@@ -556,7 +556,7 @@ alleleSetup.call_allele <- function( currentSample, currentLocus, currentSnpDF, 
   adSnpDF <- unique(currentADSnpDF[,colnames(currentSnpDF)])
   
   # Reset the adSnpDF back to input if no AD cols
-  if( ncol(adSnpDF) == 0 ){
+  if( ncol(adSnpDF) == 0 || nrow(adSnpDF) == 1 ){
     adSnpDF <- currentADSnpDF[,colnames(currentSnpDF)]
   }
   
