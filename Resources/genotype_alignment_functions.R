@@ -206,15 +206,24 @@ new.initLocusRef.snpDFtoLocusRefBed <- function( filled.snpDFList, locusRefList,
   return(locusRefList)
 } 
 
-## This commented section creates new reference databases
-# locusRefList <- general.initialize_locus_ref_object()
+filled.snpDFList <- readRDS('Resources/filled.snpDFList.rds')
+locusRefList <- readRDS('Resources/locusRefList.rds')
+
+
+## Procedure for updating IPD-KIR resources from copied MSF files (Uncomment and run)
+# ----- Generating reference object list for each locus -----
+# old.locusRefList <- general.initialize_locus_ref_object()
+# old.locusRefList <- initLocusRef.read_raw_msf(old.locusRefList, copiedMsfDirectory)
+# old.locusRefList <- initLocusRef.create_bed(old.locusRefList, referenceResourceDirectory, kirLocusFeatureNameList, writeBed=F)
+# alleleDFPathList <- allele.create_allele_resources(old.locusRefList, snpDFDirectory)
 # filled.snpDFList <- new.initLocusRef.read_snp_df( locusRefList, snpDFDirectory )
 # filled.snpDFList <- new.initLocusRef.extend_5UTR( filled.snpDFList, UTRextList )
 # filled.snpDFList <- new.initLocusRef.extend_3UTR( filled.snpDFList, UTRextList )
+# remove(old.locusRefList)
 # locusRefList <- new.initLocusRef.snpDFtoLocusRefAlleleSeq( filled.snpDFList, locusRefList )
 # locusRefList <- new.initLocusRef.snpDFtoLocusRefBed( filled.snpDFList, locusRefList, kirLocusFeatureNameList )
-#saveRDS(filled.snpDFList, file='Resources/filled.snpDFList.rds')
-#saveRDS(locusRefList, file='Resources/locusRefList.rds')
+# saveRDS(filled.snpDFList, file='Resources/filled.snpDFList.rds')
+# saveRDS(locusRefList, file='Resources/locusRefList.rds')
 # annotatedAlleleDirectory <- file.path('Resources/genotype_resources/extended_SNP_files')
 # for(locus in kirLocusList){
 #   write.csv(filled.snpDFList[[locus]],file.path(annotatedAlleleDirectory,paste0(locus,'_alleleSNPs.csv')))
@@ -227,40 +236,32 @@ new.initLocusRef.snpDFtoLocusRefBed <- function( filled.snpDFList, locusRefList,
 #   for(alleleName in rownames(filled.snpDFList[[locus]])){
 #     alleleStr <- paste0( filled.snpDFList[[locus]][alleleName,], collapse='')
 #     alleleStr <- gsub('.','',alleleStr,fixed=T)
+#     alleleStr <- gsub('*','N',alleleStr,fixed=T)
 #     general.write_fasta(fastaCon,alleleName,alleleStr)
 #   }
 # }
 # close(fastaCon)
 # system2(bowtie2Build, c(kirReferenceFasta, kirReferenceIndex,'--quiet',paste('--threads', threads)))
-# 
 # kirReferenceFasta <- normalizePath(file.path(gcResourceDirectory,'filled_kir_reference','KIR_compact_filled.fasta'), mustWork=T)
 # kirReferenceIndex <- file.path(gcResourceDirectory,'filled_kir_reference','KIR_compact_filled')
 # test.fa <- general.read_fasta(kirReferenceFasta)
-# 
 # alleleVect <- unlist( lapply(names(filled.snpDFList), function(x){
 #   unlist( sapply(names(test.fa), function(y) grep(y,rownames(filled.snpDFList[[x]]),fixed = T,value=T)) )
-#   }),use.names = F)
-# 
+# }),use.names = F)
 # fastaCon <- file(kirReferenceFasta, 'w')
 # for(locus in names(filled.snpDFList)){
 #   for(alleleName in rownames(filled.snpDFList[[locus]])){
 #     if(alleleName %in% alleleVect){
 #       alleleStr <- paste0( filled.snpDFList[[locus]][alleleName,], collapse='')
 #       alleleStr <- gsub('.','',alleleStr,fixed=T)
+#       alleleStr <- gsub('*','N',alleleStr,fixed=T)
 #       general.write_fasta(fastaCon,alleleName,alleleStr)
 #     }
 #   }
 # }
 # close(fastaCon)
 # system2(bowtie2Build, c(kirReferenceFasta, kirReferenceIndex,'--quiet',paste('--threads', threads)))
-
-filled.snpDFList <- readRDS('Resources/filled.snpDFList.rds')
-locusRefList <- readRDS('Resources/locusRefList.rds')
-
-# ----- Generating reference object list for each locus -----
-#old.locusRefList <- general.initialize_locus_ref_object()
-#old.locusRefList <- initLocusRef.read_raw_msf(old.locusRefList, copiedMsfDirectory)
-#old.locusRefList <- initLocusRef.create_bed(old.locusRefList, referenceResourceDirectory, kirLocusFeatureNameList, writeBed=F)
+# -- /IPD-KIR update script --
 
 # Read in reference allele dataframe
 #referenceAlleleDF <- read.csv('Resources/genotype_resources/master_haplo_iteration_testing_v10.csv',row.names=1,stringsAsFactors = F)
