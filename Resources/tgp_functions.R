@@ -27,7 +27,7 @@ retrieve_cram <- function(sampleID, output_dir, ref_path, bed_path, resourceDir)
   cat(paste('\n\t',data_url,'->',output_path))
   downloadCram <- system2('samtools',c('view',
                                        paste('--reference',ref_path),
-                                       '-M','-P',
+                                       '-M',
                                        paste('-L',bed_path),
                                        paste('-o',output_path),
                                        data_url))
