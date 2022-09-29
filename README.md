@@ -23,7 +23,7 @@ You can download and install conda [https://conda.io/en/latest/miniconda.html](h
 ### 1. Install conda
 
 ```shell
-wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/miniconda3.sh  && bash ~/miniconda3.sh -b  && . ~/miniconda3/etc/profile.d/conda.sh && conda activate base && conda install mamba -n base -c conda-forge
+wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/miniconda3.sh  && bash ~/miniconda3.sh -b  && . ~/miniconda3/etc/profile.d/conda.sh && conda activate base && conda install mamba conda=4.12.0 -n base -c conda-forge
 ```
 
 ### 2. Install snakemake 
