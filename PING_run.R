@@ -31,9 +31,9 @@ library(parallel)
 # copy.fullAlign <- Sys.getenv("COPY_FULLALIGN", unset=T)
 
 # RSTUDIO / RSCRIPT Initialization variables ------------------------------------------------
-rawFastqDirectory <- 'test_sequence/' # can be set to raw sequence or extractedFastq directory
-fastqPattern <- 'fastq' # use '_KIR_' to find already extracted files, otherwise use 'fastq' or whatever fits your data
-threads <- 4
+rawFastqDirectory <- 'tgpData/' # can be set to raw sequence or extractedFastq directory
+fastqPattern <- '_KIR_' # use '_KIR_' to find already extracted files, otherwise use 'fastq' or whatever fits your data
+threads <- 40
 resultsDirectory <- 'test_sequence_output/' # Set the master results directory (all pipeline output will be recorded here)
 shortNameDelim <- '' # can set a delimiter to shorten sample ID's (ID will be characters before delim, ID's must be unique or else there will be an error)
 run.mode <- 'WGS' # Set this to match your sequencing data type, either WGS or targeted
