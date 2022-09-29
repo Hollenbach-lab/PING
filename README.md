@@ -1,15 +1,16 @@
-# -- IMPORTANT UPDATE (9/9/2021) --
-The August 12th update added in genotype multithreading, but also introduced a critical genotyping bug where heterozygous SNPs were being ignored during genotyping. This bug resulted in excessive genotype ambiguity and potentially incorrect genotype calls. 
-
-This bug has been fixed in the latest release (Sept 9. 2021) and it is vital to update in order to have the accuracy and precision that PING was designed for.
-# ----
-
-
-# PING (Pushing Immunogenetics to the Next Generation)
+# PING (Pushing Immunogenetics to the Next Generation) WGS EDITION!
 An R-based bioinformatic pipeline to determine killer-cell immunoglobulin-like receptor (KIR) copy number and high-resolution genotypes from short-read sequencing data.
+
+# An upcoming manuscript outlines the changes and performance of PING WGS
+Meanwhile, you can try out the pipeline on 1000Genomes project data using the included 1000Genomes_download_coordinator.R script
+To use this script, just open it up as you would PING_run.R, and set the **Initialization variables** on lines 12 and 13 to match your preferences.
+Afterwards, run the entire script and it should download 1000Genomes 30X WGS sequencing data and covert them into FQ files for use with PING.
+Once the script is completed, you would run PING over the output FQ directory just like you normally would. This version of PING is already setup
+to be run with WGS data, so nothing extra is needed.
 
 ## Data compatibility
 Paired-end KIR targeted sequencing data
+Paired-end WGS sequencing data
 
 ## Language
 R
@@ -42,30 +43,30 @@ R
 * plotly
 * gtools
 * R.utils
+* Parallel
 
 #### R dependency console install command
-`install.packages(c("data.table","plotly","stringr","pryr","gtools","R.utils"),dependencies = T)`
+`install.packages(c("data.table","plotly","stringr","pryr","gtools","R.utils","Parallel"),dependencies = T)`
 
 ## Setting up pipeline
 #### Downloading pipeline code
-Option 1: Download zip file `wget https://github.com/wesleymarin/PING/archive/master.zip ; unzip master.zip`
+Option 1: Download zip file `wget https://github.com/Hollenbach-lab/PING/archive/master.zip ; unzip master.zip`
 
-Option 2: Clone repository `git clone https://github.com/wesleymarin/PING.git`
+Option 2: Clone repository `git clone https://github.com/Hollenbach-lab/PING.git`
 
 #### Environment setup
-Change lines 33-39 to fit your data/environment, this does not need to be changed to run the included example dataset.
-  - `33 rawFastqDirectory <- 'test_sequence/'` Set to raw sequence directory or extracted fastq directory if extraction has already been performed
-  - `34 fastqPattern <- 'fastq'` Use '_KIR_' to find already extracted files, otherwise use 'fastq' or whatever fits your data
-  - `35 threads <- 4` Number of threads to use during bowtie2 alignments
-  - `36 resultsDirectory <- '3_test_sequence_results/'` Set the results directory, one will be created if it does not already exist (all pipeline output will be recorded here)
-  - `37 shortNameDelim <- ''` Set a delimiter to shorten sample ID's (ID will be characters before delim)
-  - `38 setup.minDP <- 8` Minimum depth for calling variants used for genotype-matched references (set lower if using low-depth data, the default of 8 should work for most data)
-  - `39 final.minDP <- 20` Minimum depth for calling variants used for final genotype determination (set lower if using low-depth data, the default of 20 should work for most data)
+Change lines 34-39 to fit your data/environment, this does not need to be changed to run the included example dataset.
+  - `34 rawFastqDirectory <- 'test_sequence/'` Set to raw sequence directory or extracted fastq directory if extraction has already been performed
+  - `35 fastqPattern <- 'fastq'` Use '_KIR_' to find already extracted files, otherwise use 'fastq' or whatever fits your data
+  - `36 threads <- 4` Number of threads to use during bowtie2 alignments
+  - `37 resultsDirectory <- '3_test_sequence_results/'` Set the results directory, one will be created if it does not already exist (all pipeline output will be recorded here)
+  - `38 shortNameDelim <- ''` Set a delimiter to shorten sample ID's (ID will be characters before delim)
+  - `39 run.mode <- 'WGS'` Set the run mode based on the sequencing data time (wgs or targeted)
 
 ## Running PING
 Open PING_run.R in Rstudio
 
-Set environment variables outlined in **Environment setup**. Nothing needs to be changed to run the included example dataset.
+Set environment variables outlined in **Initialization variables**. Nothing needs to be changed to run the included example dataset.
 
 Run the script from top to bottom
 
@@ -113,10 +114,7 @@ Please save a copy of your R Console output and contact me through github or ema
 # Citations
 Please cite:
 
-
-## PING (https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1008904)
-
-Marin WM, Dandekar R, Augusto DG, Yusufali T, Heyn B, et al. (2021) High-throughput Interpretation of Killer-cell Immunoglobulin-like Receptor Short-read Sequencing Data with PING. PLOS Computational Biology 17(8): e1008904. https://doi.org/10.1371/journal.pcbi.1008904
+## PING WGS publication pending
 
 
 ## IPD-KIR (https://www.ebi.ac.uk/ipd/kir/)
