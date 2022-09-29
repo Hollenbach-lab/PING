@@ -36,12 +36,14 @@ fastqPattern <- 'fastq' # use '_KIR_' to find already extracted files, otherwise
 threads <- 4
 resultsDirectory <- 'test_sequence_output/' # Set the master results directory (all pipeline output will be recorded here)
 shortNameDelim <- '' # can set a delimiter to shorten sample ID's (ID will be characters before delim, ID's must be unique or else there will be an error)
-setup.minDP <- 8
-final.minDP <- 20
+run.mode <- 'WGS' # Set this to match your sequencing data type, either WGS or targeted
+
 
 # Run mode variables ------------------------------------------------
 setup.hetRatio <- 0.25
 final.hetRatio <- 0.25
+setup.minDP <- 8
+final.minDP <- 20
 copy.readBoost <- T
 setup.readBoost <- T
 final.readBoost <- F
@@ -49,8 +51,6 @@ readBoost.thresh <- 2
 allele.fullAlign <- F
 copy.fullAlign <- F
 refine.probeThresh <- 10
-run.mode <- 'WGS'
-
 
 if( tolower(run.mode) == 'wgs' ){
   setup.minDP=6
