@@ -1,0 +1,8 @@
+# Conversion (IPD-KIR coordinates to Genomic Vcf positions) February 2019
+# 2DL1*010:       2469=3735,2497=3763
+# 2DL1*01201:     1311=2577
+# 2DL1*01201/010: 1321=2587
+Allele,2577,2587,3735,3763
+KIR2DL1*00101,C,C,G,G
+KIR2DL1*010,C,T,A,T
+KIR2DL1*01201,A,T,G,G
