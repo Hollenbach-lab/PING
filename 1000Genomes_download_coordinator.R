@@ -63,6 +63,8 @@ for( pop in pop_vect ){
   fq_path_list <- mclapply(popManifest$`Sample name`, function(sampleID){
     cram_path <- retrieve_cram(sampleID, popData_cramDir, refPath, bedPath, resourceDir)
     fq_paths <- cram_to_fq(sampleID, cram_path, popData_fqDir)
-  }, mc.cores=threads)
+    file.remove(paste0(sampleID,'.final.cram.crai'))
+    return(fq_paths)
+  }, mc.cores=threads, mc.silent=F)
   cat('\n\n-- DONE! --')
 }
