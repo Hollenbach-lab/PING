@@ -8,12 +8,12 @@ retrieve_ref <- function(resourceDir){
     return(refPath)}
   else{
     cat('\nDownloading ftp://ftp.1000genomes.ebi.ac.uk/vol1/ftp/technical/reference/GRCh38_reference_genome/GRCh38_full_analysis_set_plus_decoy_hla.fa')
-    cat('to',resourceDir)
-    cat('This might take awhile...')
+    cat('\tto',resourceDir)
+    cat('\nThis might take awhile...')
     downloadRef <- system2('wget', c(paste('-O',refPath), 
                                      "ftp://ftp.1000genomes.ebi.ac.uk/vol1/ftp/technical/reference/GRCh38_reference_genome/GRCh38_full_analysis_set_plus_decoy_hla.fa"))
     check.system2_output(downloadRef, 'reference download failed')
-    cat('-- DONE! --')
+    cat('\n-- DONE! --')
     return(refPath)}}
 
 retrieve_cram <- function(sampleID, output_dir, ref_path, bed_path, resourceDir){
