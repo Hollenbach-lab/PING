@@ -20,11 +20,11 @@ retrieve_cram <- function(sampleID, output_dir, ref_path, bed_path, resourceDir)
   output_path <- file.path(output_dir,paste0(sampleID,'_KIR.cram'))
   
   if( file.exists(output_path) ){
-    print(paste('\n\t',output_path,'already exists, skipping this download..'))
+    cat(paste('\n\t',output_path,'already exists, skipping this download..'))
     return(output_path)}
   
   data_url <- get_tgp_url(sampleID, dataManifest, awsUrl)
-  print(paste('\n\t',data_url,'->',output_path))
+  cat(paste('\n\t',data_url,'->',output_path))
   downloadCram <- system2('samtools',c('view',
                                        paste('--reference',ref_path),
                                        '-M',
@@ -40,7 +40,7 @@ cram_to_fq <- function(sampleID, cram_path, output_path){
   f2_path <- file.path(output_path,paste0(sampleID,'_KIR_2.fq'))
   
   if( file.exists(f1_path) & file.exists(f2_path) ){
-    print(paste('\n\t',f1_path,'already exists, skipping this conversion..'))
+    cat(paste('\n\t',f1_path,'already exists, skipping this conversion..'))
     return(list('f1'=f1_path,'f2'=f2_path))}
   
   cram2fq <- system2('samtools',c('sort','-n','-M',
