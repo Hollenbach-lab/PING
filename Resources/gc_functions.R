@@ -890,8 +890,8 @@ run.generate_copy_number_graphs <- function(countRatioDF, kffDF, kirLocusList, p
     print(p)
     
     ## Save each plot
-    htmlwidgets::saveWidget(p, file=file.path(plotDirectory,paste0(currentLocus, '_copy_number_plot.html')))
-    
+    # htmlwidgets::saveWidget(p, file=file.path(plotDirectory,paste0(currentLocus, '_copy_number_plot.html')))
+    htmltools::save_html(p, file=file.path(plotDirectory,paste0(currentLocus, '_copy_number_plot.html')))
   }
 }
 
@@ -1052,100 +1052,6 @@ readThresholdFloat <- function(topCopy){
   return(n)
 }
 
-## This function generates copy number graphs
-run.generate_predicted_copy_number_graphs <- function(countRatioDF, kirLocusList, plotDirectory, countDF, copyDF){
-  
-  ## Check to see what samples are in both data frames
-  samplesInBoth <- intersect(row.names(countRatioDF), row.names(copyDF))
-  
-  ## If there are no samples in both data frames, stop the script
-  if(length(samplesInBoth) < 1){
-    stop('\n\nThe kff presence table does not match up with the locus count table.')
-  }
-  
-  ## Subset both data frames by the samples found in both
-  countRatioDF <- countRatioDF[samplesInBoth,]
-  countDF <- countDF[samplesInBoth,]
-  copyDF <- copyDF[samplesInBoth,]
-  
-  ## Give sample id their own column
-  countRatioDF$id <- rownames(countRatioDF)
-  
-  ## Initialize 3DL3 ratio to max 3DL3 count
-  countRatioDF$overall3DL3Ratio <- 0
-  
-  ## Set the 3DL3 ratio to max 3DL3 count
-  countRatioDF[samplesInBoth,'overall3DL3Ratio'] <- countDF[samplesInBoth,'KIR3DL3']/max(countDF[samplesInBoth,'KIR3DL3'])
-  
-  ## Iterate over all KIR loci, create a plot for each one
-  for(currentLocus in kirLocusList){
-    
-    if(currentLocus =='KIR3DL3'){
-      next
-    }
-    
-    ## Determine the rank of the ratios (x-axis order from lowest to highest)
-    countRatioDF$ratioRank <- sample(rank(countRatioDF[,currentLocus], ties.method = 'first'))
-    
-    ## Set the predicted copy number for the current sample
-    countRatioDF$copyNumber <- copyDF[,currentLocus]
-    
-    ## Set the color scheme
-    pal <- c("#ff0000", "#000cff", "#ff00ff", "#00d6dd", "#cda425")
-    pal <- setNames(pal, c('0', '1', '2', '3', '4'))
-    pal <- pal[as.character(unique(countRatioDF$copyNumber))]
-    pal[['KIR3DL3']] <- '#cdcdcd' 
-    
-    ## Set the maximum Y value
-    maxY <- max(c(1,unlist(countRatioDF[samplesInBoth,currentLocus])))+0.2
-    
-    ## Initialize the plot
-    p1 <- plot_ly(colors=pal)
-
-    ## Plot the copy number predictions
-    for(copyNumber in unique(countRatioDF$copyNumber)){
-      
-
-      ## Pull out the current copy sample names
-      currentCopySamples <- row.names(countRatioDF)[countRatioDF[,'copyNumber'] == copyNumber]
-      
-      ## Initialize the overlay text
-      currentCopyText <- paste('Sample ID:',countRatioDF[currentCopySamples,'id'],
-                               '$<br>Ratio:',countRatioDF[currentCopySamples,currentLocus],
-                               '$<br>KIR3DL3_ratio:',countRatioDF[currentCopySamples,'overall3DL3Ratio'])
-      
-      ## Add the trace for the current copy information
-      #p1 <- add_trace(p1, 
-      #                x=countRatioDF[currentCopySamples,'ratioRank'], 
-      #                y=countRatioDF[currentCopySamples,'overall3DL3Ratio'],
-      #                type="scatter",mode="markers",
-      #                showlegend=F,
-      #                color='KIR3DL3',
-      #                text=currentCopyText)
-      
-      ## Add the trace for the current copy information
-      p1 <- add_trace(p1, 
-                      x=countRatioDF[currentCopySamples,'ratioRank'], 
-                      y=countRatioDF[currentCopySamples,currentLocus],
-                      type="scatter",mode="markers",
-                      name=as.character(copyNumber),
-                      color=as.character(copyNumber),
-                      text=currentCopyText)
-    }
-    
-    ## Format the layout of the graph
-    p1 <- layout(p1,
-                 title=currentLocus,
-                 xaxis = list(title='Sample rank',showgrid=F),
-                 yaxis = list(title='',range=c(0,maxY),showgrid=T))
-    
-    ## Print the graph
-    print(p1)
-    
-    ## Save each plot
-    htmlwidgets::saveWidget(p1, file=file.path(plotDirectory,paste0(currentLocus, '_predicted_copy_number_plot.html')))
-  }
-}
 
 ## This function performs a nucleotide string search and count to determine
 run.count_kff_probes <- function(currentSample, probelistDF, maxReadThreshold){
@@ -1815,33 +1721,201 @@ run.assemble_multi_reads <- function(samTable, multiLocusReads, assembledNucList
 
 ## This function runs the count data through a trained random forest model for predicting copy number
 run.predict_copy <- function(locusRatioDF, locusCountDF, copyNumberDF, goodRows, resultsDirectory, rfAllPathList){
+  # Prepare ratios file
+  ratios = locusRatioDF
+  copyNumberDF = ratios
   
-  ### Prepare data for merging
-  colnames(locusCountDF) <- paste0('locusCount_', colnames(locusCountDF))
-  colnames(locusRatioDF) <- paste0('locusNorm_', colnames(locusRatioDF))
-  ###
   
-  locusCountDF <- locusCountDF[goodRows,]
-  locusRatioDF <- locusRatioDF[goodRows,]
-  
-  ### Merge the data used for prediction
-  mergedData <- merge(locusCountDF[,'locusCount_KIR3DL3',drop=F], locusRatioDF, by=0, all=T)
-  rownames(mergedData) <- mergedData$Row.names
-  mergedData <- mergedData[,2:ncol(mergedData)]
-  ###
-  
-  ### Predict
-  for(currentLocus in names(rfAllPathList)){
-    load(rfAllPathList[[currentLocus]])
-    predData <- predict(model1, mergedData, type='class')
-    copyNumberDF[names(predData),currentLocus] <- as.numeric(levels(predData))[predData]
+  for (col in colnames(ratios)){
+    if (col=='KIR3DL3'){
+      next
+    }
+    print(paste0("Performing automated thresholding for ", col))
+    
+    # Prep data
+    data <- unlist(as.list(ratios[col]))
+    data_sorted <- sort(data)
+    data <- matrix(data, ncol=1)
+    
+    # Get optimal K cluster using silhouette scores
+    k_vals = list(2,3,4,5)
+    silhouette_scores <- list()
+    for (k in k_vals){
+      clust <- kmeans(data, centers=k, nstart=100, algorithm = "Lloyd", iter.max = 300)
+      sil_obj <- silhouette(clust$cluster, dist(data))
+      #print(length(clust$cluster))
+      avg_score <- mean(sil_obj[, "sil_width"])
+      silhouette_scores <- append(silhouette_scores, avg_score)
+    }
+    optimalK <- which.max(silhouette_scores) + 1
+    print(paste0('Option 1 (Silhouette) optimal K = ', optimalK))
+    
+    if(col=='KIR2DL1'){
+      optimalK = 3
+    }
+    
+    # Perform kmeans 
+    k3 <- kmeans(data, centers=optimalK, nstart=100, algorithm = "Lloyd", iter.max = 300)
+    # k3 <- kmeans(data, centers=k, nstart=100, algorithm = "Lloyd")
+    color_map <- c("red","green","blue", "black","gray","yellow","orange","purple","brown","aquamarine","bisque","deeppink","pink","chocolate","cornflowerblue")
+    cluster_sorted <- k3$cluster[match(data_sorted, data)]
+    
+    
+    
+    # Retrieve cluster coordinates and plot
+    change_indices <- c(1, 1 + which(diff(cluster_sorted) != 0)) - 1
+    change_indices <- change_indices[-1] #remove first element
+    coord <- data_sorted[change_indices]
+    avg_coord <- c()
+    for (i in seq(from=1, to=length(coord))){
+      val1 <- coord[i]
+      val2 <- data_sorted[change_indices[i]+1]
+      tmp <- (val1+val2)/2
+      avg_coord <- c(avg_coord, tmp)
+      
+    }
+    
+    # Plot and save as .jpeg
+    # jpeg(file=glue('{resultsDirectory}/plot{col}.jpeg'))
+    # plot(data_sorted, col = color_map[cluster_sorted], pch=20, main=col, ylab="locusRatio")
+    # abline(h=avg_coord, lty=2, col='red') # plot the coordinate as a dashed red line
+    # dev.off()
+    
+    # Assign CN to cluster
+    rle_result <- rle(cluster_sorted)
+    value_counts <- rep(0, length(rle_result$values))
+    value_counts[rle_result$values] <- 1:length(rle_result$values)
+    output_list <- rep(value_counts[rle_result$values], rle_result$lengths) - 1
+    matcha = (match(data, data_sorted))
+
+    # Create a list of copy number
+    new_cn <- lapply(matcha, function(m) {
+      output_list[[m]]
+    })
+    new_cn <- lapply(new_cn, as.integer)
+
+    if (col == 'KIR3DL2'){
+      new_cn = rep(2,length(data))
+    }
+    
+    if (col == 'KIR3DP1' | col == 'KIR2DL4'){
+      new_cn = unlist(new_cn) + 1
+    }
+    
+    copyNumberDF[[col]] = new_cn
+    
+    
+    # if (col == "KIR3DP1"){
+    #   break
+    # }
+    
   }
-  copyNumberDF[,'KIR3DL3'] <- 2
-  ###
+    
+    
   
+  ### OLD CODE FROM WES
+  # ### Prepare data for merging
+  # colnames(locusCountDF) <- paste0('locusCount_', colnames(locusCountDF))
+  # colnames(locusRatioDF) <- paste0('locusNorm_', colnames(locusRatioDF))
+  # ###
+  # 
+  # locusCountDF <- locusCountDF[goodRows,]
+  # locusRatioDF <- locusRatioDF[goodRows,]
+  # 
+  # ### Merge the data used for prediction
+  # mergedData <- merge(locusCountDF[,'locusCount_KIR3DL3',drop=F], locusRatioDF, by=0, all=T)
+  # rownames(mergedData) <- mergedData$Row.names
+  # mergedData <- mergedData[,2:ncol(mergedData)]
+  # ###
+  # 
+  # ### Predict
+  # for(currentLocus in names(rfAllPathList)){
+  #   load(rfAllPathList[[currentLocus]])
+  #   predData <- predict(model1, mergedData, type='class')
+  #   copyNumberDF[names(predData),currentLocus] <- as.numeric(levels(predData))[predData]
+  # }
+  copyNumberDF[,'KIR3DL3'] <- 2
+  copyNumberDF <- apply(copyNumberDF,2,as.integer)
+  rownames(copyNumberDF) <- goodRows
   return(copyNumberDF)
 }
 
+run.get_threshold <- function(locusRatioDF, locusCountDF, copyNumberDF, goodRows, resultsDirectory, rfAllPathList){
+  # Prepare ratios file
+  ratios = locusRatioDF
+  copyNumberDF = ratios
+  
+  # Prepare thresholdDF
+  kirLocusList <- colnames(ratios)
+  thresholdCols <- c('0-1','1-2','2-3','3-4','4-5','5-6')
+  thresholdDF <- data.frame(matrix(NA,nrow=length(kirLocusList),ncol=length(thresholdCols)),stringsAsFactors = F)
+  rownames(thresholdDF) <- kirLocusList
+  colnames(thresholdDF) <- thresholdCols
+  
+  
+  for (col in colnames(ratios)){
+    if (col=='KIR3DL3'){
+      next
+    }
+    
+    # Prep data
+    data <- unlist(as.list(ratios[col]))
+    data_sorted <- sort(data)
+    data <- matrix(data, ncol=1)
+    
+    # Get optimal K cluster using silhouette scores
+    k_vals = list(2,3,4,5)
+    silhouette_scores <- list()
+    for (k in k_vals){
+      clust <- kmeans(data, centers=k, nstart=100, algorithm = "Lloyd", iter.max = 300)
+      sil_obj <- silhouette(clust$cluster, dist(data))
+      avg_score <- mean(sil_obj[, "sil_width"])
+      silhouette_scores <- append(silhouette_scores, avg_score)
+    }
+    optimalK <- which.max(silhouette_scores) + 1
+    
+    if(col=='KIR2DL1'){
+      optimalK = 3
+    }
+    
+    # Perform kmeans 
+    k3 <- kmeans(data, centers=optimalK, nstart=100, algorithm = "Lloyd", iter.max = 300)
+    # k3 <- kmeans(data, centers=k, nstart=100, algorithm = "Lloyd")
+    color_map <- c("red","green","blue", "black","gray","yellow","orange","purple","brown","aquamarine","bisque","deeppink","pink","chocolate","cornflowerblue")
+    cluster_sorted <- k3$cluster[match(data_sorted, data)]
+    
+    
+    
+    # Retrieve cluster coordinates and plot
+    change_indices <- c(1, 1 + which(diff(cluster_sorted) != 0)) - 1
+    change_indices <- change_indices[-1] #remove first element
+    coord <- data_sorted[change_indices]
+    avg_coord <- c()
+    for (i in seq(from=1, to=length(coord))){
+      val1 <- coord[i]
+      val2 <- data_sorted[change_indices[i]+1]
+      tmp <- (val1+val2)/2
+      avg_coord <- c(avg_coord, tmp)
+      
+    }
+    
+    # Fill in thresholdDF
+    for (i in seq(from=1, to=length(avg_coord))){
+      thresholdDF[col, i] <- avg_coord[i]
+    }
+  }
+  
+  # Shift the thresholdDF for KIR2DL4 and KIR3DP1 because cluster usually starts with CN = 1
+  vector_KIR2DL4 <- as.character(unlist(thresholdDF['KIR2DL4',]))
+  vector_KIR2DL4 <- c(0, vector_KIR2DL4[-length(vector_KIR2DL4)])
+  thresholdDF['KIR2DL4',] <- vector_KIR2DL4
+  
+  vector_KIR3DP1 <- as.character(unlist(thresholdDF['KIR3DP1',]))
+  vector_KIR3DP1 <- c(0, vector_KIR3DP1[-length(vector_KIR3DP1)])
+  thresholdDF['KIR3DP1',] <- vector_KIR3DP1
+  
+  return(thresholdDF)
+}
 ## This function prompts for user input for determining copy number thresholds
 readRatioPrompt <- function(copyNumber){ 
   n <- readline(prompt=paste0('Enter the lowest ratio for copy number ', copyNumber, ': '))
