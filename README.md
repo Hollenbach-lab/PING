@@ -1,56 +1,35 @@
-# -- IMPORTANT UPDATE (9/9/2021) --
-The August 12th update added in genotype multithreading, but also introduced a critical genotyping bug where heterozygous SNPs were being ignored during genotyping. This bug resulted in excessive genotype ambiguity and potentially incorrect genotype calls. 
-
-This bug has been fixed in the latest release (Sept 9. 2021) and it is vital to update in order to have the accuracy and precision that PING was designed for.
-# ----
-
-
 # PING (Pushing Immunogenetics to the Next Generation)
 An R-based bioinformatic pipeline to determine killer-cell immunoglobulin-like receptor (KIR) copy number and high-resolution genotypes from short-read sequencing data.
 
 ## Data compatibility
 Paired-end KIR targeted sequencing data
 
-## Language
-R
-
-## System compatibility
-* Linux (tested on Ubuntu, CentOs)
-* Possible on OS X, but untested
-
-## System dependencies download and install
-* bowtie2 (tested with version 2.3.4.1) https://sourceforge.net/projects/bowtie-bio/files/bowtie2/2.3.4.1/
-* samtools (tested with version 1.7) https://sourceforge.net/projects/samtools/files/samtools/1.7/
-* bcftools (tested with version 1.7) https://sourceforge.net/projects/samtools/files/samtools/1.7/
-* R (tested wtih version 3.6.3) https://cran.r-project.org/src/base/R-3/R-3.6.3.tar.gz
-* RStudio (used for running the script) https://rstudio.com/products/rstudio/download/
-  - Either RStudio desktop free version, or RStudio server free version
-  - It is possible to run the script without RStudio, but copy number thresholding will be more difficult
-
-## Ubuntu 20.04 command-line install of dependencies
-#### System dependencies
-`sudo apt install bowtie2 gzip samtools bcftools r-base gdebi-core wget libssl-dev libcurl4-openssl-dev`
-#### Download RStudio
-`wget https://download1.rstudio.org/desktop/bionic/amd64/rstudio-1.3.1093-amd64.deb`
-#### Install RStudio
-`sudo gdebi rstudio-1.3.1093-amd64.deb`
-
-## Required R packages:
-* data.table
-* stringr
-* pryr
-* plotly
-* gtools
-* R.utils
-
-#### R dependency console install command
-`install.packages(c("data.table","plotly","stringr","pryr","gtools","R.utils"),dependencies = T)`
-
 ## Setting up pipeline
-#### Downloading pipeline code
-Option 1: Download zip file `wget https://github.com/wesleymarin/PING/archive/master.zip ; unzip master.zip`
+Download the pipeline code with the following line:
+```
+git clone https://github.com/Hollenbach-lab/PING.git
+cd ./PING
+```
+## Setting up container
+To ensure a reliable run, we have containerized our image in Singularity. We have tested it on Singularity version 3.11.4. The Singularity recipe file, MHConstructor/container/mhconstructor.def, can be built using one of the following commands:
+```
+cd ./container
+sudo singularity build ping.sif ping.def
+cd ../
+```
+If you do not have sudo privilege, you can utilize the `fakeroot` option by Singularity which will let you build the container still, by using the command below instead: 
+```
+cd ./container
+singularity build --fakeroot ping.sif ping.def
+cd ../
+```
 
-Option 2: Clone repository `git clone https://github.com/wesleymarin/PING.git`
+## Running PING
+Ensure that you are within the `PING` directory and you can run the entirety of the pipeline using the following command:
+
+```
+singularity exec ./container/ping.sif Rscript PING_run.R --fqDirectory <fastq_location> --fastqPattern <fastq_pattern> --resultsDirectory <output_location>
+```
 
 #### Environment setup
 Change lines 33-39 to fit your data/environment, this does not need to be changed to run the included example dataset.
@@ -61,18 +40,6 @@ Change lines 33-39 to fit your data/environment, this does not need to be change
   - `37 shortNameDelim <- ''` Set a delimiter to shorten sample ID's (ID will be characters before delim)
   - `38 setup.minDP <- 8` Minimum depth for calling variants used for genotype-matched references (set lower if using low-depth data, the default of 8 should work for most data)
   - `39 final.minDP <- 20` Minimum depth for calling variants used for final genotype determination (set lower if using low-depth data, the default of 20 should work for most data)
-
-## Running PING
-Open PING_run.R in Rstudio
-
-Set environment variables outlined in **Environment setup**. Nothing needs to be changed to run the included example dataset.
-
-Run the script from top to bottom
-
-Seeing the following message in the copy graphing module is normal:
-
-`'A line object has been specified, but lines is not in the mode
-Adding lines to the mode...'`
 
 ## Running included test data
 We have included 5 test sequences to run through the pipeline, they are located in the test_sequence/ directory. These samples were picked to cover a range of KIR haplotypes.
