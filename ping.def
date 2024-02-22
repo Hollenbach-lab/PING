@@ -1,0 +1,58 @@
+Bootstrap: docker
+From: ubuntu:22.04
+
+%post
+    # For timezone
+    export TZ=UTC
+    export DEBIAN_FRONTEND=noninteractive
+    
+	apt-get update && apt-get install -y \
+	gzip \
+    unzip \
+    gdebi-core \
+    wget \
+    libtbb-dev \
+    libssl-dev \
+    libcurl4-openssl-dev \
+    samtools \
+    bcftools \
+    libxml2-dev \
+    pandoc \
+    git \
+    less \
+    curl \
+    bzip2 \
+    wget \
+    build-essential \
+    gfortran \
+    tzdata \
+    zlib1g \
+    zlib1g-dev \
+    libbz2-dev \
+    liblzma-dev \
+    libpcre2-dev \
+    libudunits2-dev librsvg2-dev \
+    libfreetype6-dev libfribidi-dev libharfbuzz-dev libfontconfig1-dev pandoc libicu-dev libjpeg-dev libpng-dev libtiff-dev make zlib1g-dev libxml2-dev libcurl4-openssl-dev libssl-dev libgit2-dev
+
+
+	### Install R 4.3.1
+    wget https://cran.r-project.org/src/base/R-4/R-4.3.1.tar.gz 
+    tar -xf R-4.3.1.tar.gz
+    cd R-4.3.1
+    ./configure --prefix=/opt/local/R --with-readline=no --with-x=no
+    make && make install && make clean
+    cd ..
+    /opt/local/R/bin/R --slave -e 'install.packages(c("data.table", "stringr", "methods", "pryr", "plotly", "R.utils", "gtools", "zip", "parallel", "tidyverse", "cluster", "glue", "argparser", "pandoc"), repos = "http://cran.us.r-project.org", dependencies = TRUE)'
+
+    ### Install bowtie2
+    wget https://sourceforge.net/projects/bowtie-bio/files/bowtie2/2.4.1/bowtie2-2.4.1-source.zip/download
+    unzip download
+	cd bowtie2-2.4.1
+    sed -i 's/“/\"/g' processor_support.h 
+    sed -i 's/”/\"/g' processor_support.h
+    make
+	# PATH=$PATH:/usr/home/bowtie2-2.4.1
+
+%environment
+	export PATH=/opt/local/R/bin:${PATH}
+    export PATH=/bowtie2-2.4.1:${PATH}
