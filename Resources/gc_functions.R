@@ -1799,7 +1799,12 @@ run.predict_copy <- function(locusRatioDF, locusCountDF, copyNumberDF, goodRows,
     }
     
     if (col == 'KIR3DP1' | col == 'KIR2DL4'){
-      new_cn = unlist(new_cn) + 1
+      modus = Mode(unlist(new_cn))
+      if (modus == 0){
+        new_cn = unlist(new_cn) + 2  
+      } else if (modus == 1){
+        new_cn = unlist(new_cn) + 1
+      }
     }
     
     copyNumberDF[[col]] = new_cn

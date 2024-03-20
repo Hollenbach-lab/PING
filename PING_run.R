@@ -21,6 +21,7 @@ library(cluster)
 library(glue)
 library(argparser)
 library(pandoc)
+library(DescTools)
 
 
 # DOCKER Initialization variables ------------------------------------------------

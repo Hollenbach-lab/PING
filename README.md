@@ -51,8 +51,6 @@ Copy number output can be found at `[resultsDirectory]/predictedCopyNumberFrame.
 
 Genotype output can be found at `[resultsDirectory]/finalAlleleCalls.csv`
 
-Copy number plots can be found at `[resultsDirectory]/copyPlots/KIR[gene]_copy_number_plot.html`
-
 Aligned SNP tables can be found in `[resultsDirectory]/alignmentFiles/[sampleID]/iterAlign/`
 
 Copy number graphs can be found in `[resultsDirectory]/copyPlots/`
