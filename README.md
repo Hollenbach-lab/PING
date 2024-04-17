@@ -7,17 +7,18 @@ Paired-end KIR targeted sequencing data
 ## Setting up pipeline
 Download the pipeline code with the following line:
 ```
-git clone https://github.com/Hollenbach-lab/PING.git
+git clone -b auto_cluster --single-branch https://github.com/Hollenbach-lab/PING.git
 cd ./PING
 ```
 ## Setting up container
 To ensure a reliable run, we have containerized our image in [Singularity](https://docs.sylabs.io/guides/3.11/admin-guide/installation.html). Please install Singularity on your system before proceeding. We have tested PING to run on Singularity version 3.11.4. 
 
 The Singularity recipe file, `PING/ping.def`, can be built using one of the following commands:
+
 ```
 sudo singularity build ping.sif ping.def
 ```
-If you do not have sudo privilege, you can utilize the `fakeroot` option by Singularity which will let you build the container still, by using the command below instead: 
+If you do not have sudo privilege, you can utilize the `--fakeroot` option:
 ```
 singularity build --fakeroot ping.sif ping.def
 ```
@@ -64,7 +65,7 @@ Unresolved genotype information can be found in `[resultsDirectory]/iterAlleleCa
 Where closest matched allele is the allele genotyping that best matches the aligned SNPs, nucleotide denotes the mismatched nucleotide located at the indicated exon and position within the exon. Multiple mismatched SNPs are connected with the `^` symbol.
 
 ## Troubleshooting
-Please save a copy of your R Console output and contact me through github or email at wesley.marin@ucsf.edu
+Please save a copy of your R Console output and contact me through Github or email at wesley.marin@ucsf.edu or rayo.suseno@ucsf.edu
 
 # Citations
 Please cite:
