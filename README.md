@@ -13,14 +13,19 @@ cd ./PING
 ## Setting up container
 To ensure a reliable run, we have containerized our image in [Singularity](https://docs.sylabs.io/guides/3.11/admin-guide/installation.html). Please install Singularity on your system before proceeding. We have tested PING to run on Singularity version 3.11.4. 
 
-The Singularity recipe file, `PING/ping.def`, can be built using one of the following commands:
+Once Singularity has been installed, obtain the image using one of these following commands:
 
+1. Build with sudo
 ```
 sudo singularity build ping.sif ping.def
 ```
-If you do not have sudo privilege, you can utilize the `--fakeroot` option:
+2. Build with `--fakeroot`, if sudo is not possible
 ```
 singularity build --fakeroot ping.sif ping.def
+```
+3. Pull directly from Sylabs
+```
+singularity pull ping.sif library://rsuseno/rsuseno/ping:latest
 ```
 
 ## Running PING
