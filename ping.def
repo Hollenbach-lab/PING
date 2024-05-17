@@ -39,10 +39,10 @@ From: ubuntu:22.04
     wget https://cran.r-project.org/src/base/R-4/R-4.3.1.tar.gz 
     tar -xf R-4.3.1.tar.gz
     cd R-4.3.1
-    ./configure --prefix=/opt/local/R --with-readline=no --with-x=no
+    ./configure --prefix=/opt/local/R --with-readline=no --with-x=no --enable-R-shlib --enable-BLAS-shlib --enable-LAPACK-shlib
     make && make install && make clean
     cd ..
-    /opt/local/R/bin/R --slave -e 'install.packages(c("data.table", "stringr", "methods", "pryr", "plotly", "R.utils", "gtools", "zip", "parallel", "tidyverse", "cluster", "glue", "argparser", "pandoc"), repos = "http://cran.us.r-project.org", dependencies = TRUE)'
+    /opt/local/R/bin/R --slave -e 'install.packages(c("data.table", "stringr", "methods", "pryr", "plotly", "R.utils", "gtools", "zip", "parallel", "tidyverse", "cluster", "glue", "argparser", "pandoc", "DescTools"), repos = "http://cran.us.r-project.org", dependencies = TRUE)'
 
     ### Install bowtie2
     wget https://sourceforge.net/projects/bowtie-bio/files/bowtie2/2.4.1/bowtie2-2.4.1-source.zip/download
