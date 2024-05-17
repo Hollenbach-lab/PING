@@ -42,9 +42,12 @@ Listed below are the arguments needed to run PING:
 
 
 ## Running included test data
-We have included 5 test sequences to run through the pipeline, they are located in the test_sequence/ directory. These samples were picked to cover a range of KIR haplotypes.
-
-The copy thresholding functionality will not work well for such a small cohort, but we included preset thresholds for the example dataset.
+We have included 10 test sequences to run through the pipeline, they are located in the test_sequence/ directory. These samples are meant to test that all the installations were done properly. You can run the following code to execute the test:
+```
+singularity exec ping.sif Rscript PING_run.R 
+  --fqDirectory test_sequence
+  --resultsDirectory test_sequence_output 
+```
 
 
 ## PING output
