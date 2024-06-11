@@ -7,7 +7,7 @@ Paired-end KIR targeted sequencing data
 ## Setting up pipeline
 Download the pipeline code with the following line:
 ```
-git clone -b auto_cluster --single-branch https://github.com/Hollenbach-lab/PING.git
+git clone https://github.com/Hollenbach-lab/PING.git
 cd ./PING
 ```
 ## Setting up container
