@@ -365,7 +365,7 @@ pingFinalize.otherLoci <- function( iterCall.df, copyCall.df ){
 pingFinalize.format_calls <- function( resultsDirectory ){
   iterCall.df <- read.csv(file.path(resultsDirectory,'iterAlleleCalls.csv'),
                           stringsAsFactors=F,check.names=F,row.names=1)
-  copyCall.df <- read.csv(file.path(resultsDirectory,'manualCopyNumberFrame.csv'),
+  copyCall.df <- read.csv(file.path(resultsDirectory,'predictedCopyNumberFrame.csv'),
                           stringsAsFactors=F,check.names=F,row.names=1)
   
   goodSampleID.vect <- rownames(iterCall.df)[ !apply( iterCall.df, 1, function(x) all( is.na(x) ) ) ]

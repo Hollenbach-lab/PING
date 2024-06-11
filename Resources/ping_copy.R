@@ -36,7 +36,7 @@ ping_copy.graph <- function(sampleList=list(),
                     onlyKFF=F,
                     forceRun=F,
                     fullAlign=F){
-  predictCopy=F
+  predictCopy=T
   kirLocusList <- c('KIR3DP1','KIR2DS5','KIR2DL3','KIR2DP1',
                     'KIR2DS3','KIR2DS2','KIR2DL4','KIR3DL3',
                     'KIR3DL1','KIR3DS1','KIR2DL2','KIR3DL2','KIR2DS4','KIR2DL1', 'KIR2DS1', 'KIR2DL5')
@@ -149,7 +149,7 @@ ping_copy.graph <- function(sampleList=list(),
     thresholdDF <- read.csv('Resources/gc_resources/manualCopyThresholds_example.csv',stringsAsFactors = F, check.names=F,row.names=1)
   }
   
-  write.csv(thresholdDF, file = threshPath)
+  # write.csv(thresholdDF, file = threshPath)
   ## /Threshold df setup
   
   previousIDVect <- c()
@@ -324,6 +324,7 @@ ping_copy.graph <- function(sampleList=list(),
     ## Add the counts to the appropriate count dataframe
     locusCount.tab <- table( samDT$locus )
     locusCountDF[currentSample$name,names(locusCount.tab)] = as.integer( locusCount.tab )
+    locusCountDF[is.na(locusCountDF)] <- 0
     
     currentSample <- pingAllele.generate_snp_df( currentSample, samDT, snpDir$path, setup.knownSnpDFList,'copy', setup.hetRatio, setup.minDP)
     
@@ -407,6 +408,7 @@ ping_copy.graph <- function(sampleList=list(),
     ## Use the random forest models to predict copy number
     cat('\nPredicting copy number... ')
     copyNumberDF <- run.predict_copy(locusRatioDF, locusCountDF, copyNumberDF, goodRows, resultsDirectory, rfAllPathList)
+    thresholdDF <- run.get_threshold(locusRatioDF, locusCountDF, copyNumberDF, goodRows, resultsDirectory, rfAllPathList)
     
     ## Write the results to a csv file
     cat('\nFinished with copy predictions.')
@@ -414,7 +416,8 @@ ping_copy.graph <- function(sampleList=list(),
     
     ## Generate ratio graphs and color according to predicted copy number
     cat('\nGenerating predicted copy number graphs...')
-    run.generate_predicted_copy_number_graphs(locusRatioDF, kirLocusList, plotDirectory, locusCountDF, copyNumberDF)
+    # run.generate_predicted_copy_number_graphs(locusRatioDF, kffPresenceDF, kirLocusList, plotDirectory, locusCountDF, copyNumberDF)
+    run.generate_copy_number_graphs(locusRatioDF, kffPresenceDF, kirLocusList, plotDirectory, locusCountDF, thresholdDF)
   }else{
     ## Generate ratio graphs and color according to kff presence/absence
     cat('\nGenerating copy number graphs... ')
@@ -527,7 +530,8 @@ ping_copy.load_copy_results <- function( sampleList, resultsDirectory ){
   
   cat('\n\n ----- Loading up results from ping_copy -----')
   kffCountDFFile <- file.path(resultsDirectory, 'kffCountFrame.csv')
-  copyDFFile <- file.path(resultsDirectory, 'manualCopyNumberFrame.csv')
+  # copyDFFile <- file.path(resultsDirectory, 'manualCopyNumberFrame.csv')
+  copyDFFile <- file.path(resultsDirectory, 'predictedCopyNumberFrame.csv')
   
   if( all(file.exists(c(kffCountDFFile, copyDFFile))) ){
     

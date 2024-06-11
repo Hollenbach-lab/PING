@@ -1,97 +1,62 @@
-# -- IMPORTANT UPDATE (9/9/2021) --
-The August 12th update added in genotype multithreading, but also introduced a critical genotyping bug where heterozygous SNPs were being ignored during genotyping. This bug resulted in excessive genotype ambiguity and potentially incorrect genotype calls. 
-
-This bug has been fixed in the latest release (Sept 9. 2021) and it is vital to update in order to have the accuracy and precision that PING was designed for.
-# ----
-
-
 # PING (Pushing Immunogenetics to the Next Generation)
 An R-based bioinformatic pipeline to determine killer-cell immunoglobulin-like receptor (KIR) copy number and high-resolution genotypes from short-read sequencing data.
 
 ## Data compatibility
 Paired-end KIR targeted sequencing data
 
-## Language
-R
-
-## System compatibility
-* Linux (tested on Ubuntu, CentOs)
-* Possible on OS X, but untested
-
-## System dependencies download and install
-* bowtie2 (tested with version 2.3.4.1) https://sourceforge.net/projects/bowtie-bio/files/bowtie2/2.3.4.1/
-* samtools (tested with version 1.7) https://sourceforge.net/projects/samtools/files/samtools/1.7/
-* bcftools (tested with version 1.7) https://sourceforge.net/projects/samtools/files/samtools/1.7/
-* R (tested wtih version 3.6.3) https://cran.r-project.org/src/base/R-3/R-3.6.3.tar.gz
-* RStudio (used for running the script) https://rstudio.com/products/rstudio/download/
-  - Either RStudio desktop free version, or RStudio server free version
-  - It is possible to run the script without RStudio, but copy number thresholding will be more difficult
-
-## Ubuntu 20.04 command-line install of dependencies
-#### System dependencies
-`sudo apt install bowtie2 gzip samtools bcftools r-base gdebi-core wget libssl-dev libcurl4-openssl-dev`
-#### Download RStudio
-`wget https://download1.rstudio.org/desktop/bionic/amd64/rstudio-1.3.1093-amd64.deb`
-#### Install RStudio
-`sudo gdebi rstudio-1.3.1093-amd64.deb`
-
-## Required R packages:
-* data.table
-* stringr
-* pryr
-* plotly
-* gtools
-* R.utils
-
-#### R dependency console install command
-`install.packages(c("data.table","plotly","stringr","pryr","gtools","R.utils"),dependencies = T)`
-
 ## Setting up pipeline
-#### Downloading pipeline code
-Option 1: Download zip file `wget https://github.com/wesleymarin/PING/archive/master.zip ; unzip master.zip`
+Download the pipeline code with the following line:
+```
+git clone -b auto_cluster --single-branch https://github.com/Hollenbach-lab/PING.git
+cd ./PING
+```
+## Setting up container
+To ensure a reliable run, we have containerized our image in [Singularity](https://docs.sylabs.io/guides/3.11/admin-guide/installation.html). Please install Singularity on your system before proceeding. We have tested PING to run on Singularity version 3.11.4. 
 
-Option 2: Clone repository `git clone https://github.com/wesleymarin/PING.git`
+Once Singularity has been installed, obtain the image using one of these following commands:
 
-#### Environment setup
-Change lines 33-39 to fit your data/environment, this does not need to be changed to run the included example dataset.
-  - `33 rawFastqDirectory <- 'test_sequence/'` Set to raw sequence directory or extracted fastq directory if extraction has already been performed
-  - `34 fastqPattern <- 'fastq'` Use '_KIR_' to find already extracted files, otherwise use 'fastq' or whatever fits your data
-  - `35 threads <- 4` Number of threads to use during bowtie2 alignments
-  - `36 resultsDirectory <- '3_test_sequence_results/'` Set the results directory, one will be created if it does not already exist (all pipeline output will be recorded here)
-  - `37 shortNameDelim <- ''` Set a delimiter to shorten sample ID's (ID will be characters before delim)
-  - `38 setup.minDP <- 8` Minimum depth for calling variants used for genotype-matched references (set lower if using low-depth data, the default of 8 should work for most data)
-  - `39 final.minDP <- 20` Minimum depth for calling variants used for final genotype determination (set lower if using low-depth data, the default of 20 should work for most data)
+1. Build with sudo
+```
+sudo singularity build ping.sif ping.def
+```
+2. Build with `--fakeroot`, if sudo is not possible
+```
+singularity build --fakeroot ping.sif ping.def
+```
+3. Pull directly from Sylabs
+```
+singularity pull ping.sif library://rsuseno/rsuseno/ping:latest
+```
 
 ## Running PING
-Open PING_run.R in Rstudio
+Ensure that you are within the `PING` directory and you can run the entirety of the pipeline using the following command:
 
-Set environment variables outlined in **Environment setup**. Nothing needs to be changed to run the included example dataset.
+```
+singularity exec ping.sif Rscript PING_run.R 
+  --fqDirectory <fastq_location> 
+  --resultsDirectory <output_location> 
+  --fastqPattern <fastq_pattern> 
+  --threads <number_of_threads>
+```
 
-Run the script from top to bottom
+Listed below are the arguments needed to run PING:
+  - `--fqDirectory` Set to raw sequence directory or extracted fastq directory if extraction has already been performed
+  - `--resultsDirectory` Set the results directory, one will be created if it does not already exist (all pipeline output will be recorded here)
+  - (OPTIONAL) `--fastqPattern` Specify a pattern on the `fqDirectory` to only process  specific samples. For example, if your sequencing data is named [SAMPLE_ID]\_R1_fq.gz, you would change it to '_fq_'. Additionally, you can use '_KIR_' to find already extracted files. (default = '_fastq_')
+  - (OPTIONAL) `--threads` Number of threads to use during bowtie2 alignments (default = 4)
 
-Seeing the following message in the copy graphing module is normal:
-
-`'A line object has been specified, but lines is not in the mode
-Adding lines to the mode...'`
 
 ## Running included test data
-We have included 5 test sequences to run through the pipeline, they are located in the test_sequence/ directory. These samples were picked to cover a range of KIR haplotypes.
+We have included 10 test sequences to run through the pipeline, they are located in the test_sequence/ directory. These samples are meant to test that all the installations were done properly. You can run the following code to execute the test:
+```
+singularity exec ping.sif Rscript PING_run.R 
+  --fqDirectory test_sequence
+  --resultsDirectory test_sequence_output 
+```
 
-The default input settings (lines 33-39) are setup to run on this data without modification.
-
-The copy thresholding functionality will not work well for such a small cohort, but we included preset thresholds for the example dataset.
-
-## Running your own data
-Update line 33 `rawFastqDirectory <- 'test_sequence/'` to point to your own data directory.
-
-Update line 34 `fastqPattern <- 'fastq'` to match your data naming if necessary. For example, if your sequencing data is named [SAMPLE_ID]\_R1_fq.gz, you would change line 34 to `fastqPattern <- 'fq'`.
-
-Change line 84 option `use.threshFile=T` to `use.threshFile=F`, this will cause PING to prompt for copy number thresholding. If using Rstudio, copy number plots will be displayed in the 'Plots' panel, these plots can also be found in \[resultsDirectory\]/copyPlots/\[GENE\]\_copy\_number\_plot.html as html files to be opened with a web browser. 
-
-It is recommended to only run the script to this line first if you are using your own data, then set the copy number thresholds, then run the rest of the script. 
 
 ## PING output
-Copy number output can be found at `[resultsDirectory]/manualCopyNumberFrame.csv`
+Copy number output can be found at `[resultsDirectory]/predictedCopyNumberFrame.csv`
 
 Genotype output can be found at `[resultsDirectory]/finalAlleleCalls.csv`
 
@@ -108,7 +73,7 @@ Unresolved genotype information can be found in `[resultsDirectory]/iterAlleleCa
 Where closest matched allele is the allele genotyping that best matches the aligned SNPs, nucleotide denotes the mismatched nucleotide located at the indicated exon and position within the exon. Multiple mismatched SNPs are connected with the `^` symbol.
 
 ## Troubleshooting
-Please save a copy of your R Console output and contact me through github or email at wesley.marin@ucsf.edu
+Please save a copy of your R Console output and contact me through Github or email at wesley.marin@ucsf.edu or rayo.suseno@ucsf.edu
 
 # Citations
 Please cite:

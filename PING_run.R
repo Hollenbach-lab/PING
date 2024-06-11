@@ -1,5 +1,5 @@
-library("rstudioapi")
-setwd( dirname( getActiveDocumentContext()$path ) ) # This command should set the working directory to the PING_run.R directory
+#library("rstudioapi")
+#setwd( dirname( getActiveDocumentContext()$path ) ) # This command should set the working directory to the PING_run.R directory
 #setwd() # Set working directory manually if the above command does not work
 
 # ---- DEPENDENCIES ----
@@ -15,6 +15,14 @@ library(R.utils)
 library(gtools)
 library(zip)
 library(parallel)
+library(tidyverse)
+library(cluster)
+#library(factoextra)
+library(glue)
+library(argparser)
+library(pandoc)
+library(DescTools)
+
 
 # DOCKER Initialization variables ------------------------------------------------
 # rawFastqDirectory <- Sys.getenv("RAW_FASTQ_DIR", unset='test_sequence/') # can be set to raw sequence or extractedFastq directory
@@ -30,11 +38,19 @@ library(parallel)
 # allele.fullAlign <- Sys.getenv("ALLELE_FULLALIGN", unset=F)
 # copy.fullAlign <- Sys.getenv("COPY_FULLALIGN", unset=T)
 
+# ARGPARSER setup
+p <- arg_parser("Run PING")
+p <- add_argument(p, "--fqDirectory", help='The path to the directory holding your fastq dataThe path to the directory holding your fastq data')
+p <- add_argument(p, "--fastqPattern", help='A string that is shared across all of your fastq file names (used to find fq files and match pairs), this is usually fq or fastq', default = 'fastq')
+p <- add_argument(p, "--threads", help='Number of threads to use during bowtie2 alignments', default = 4)
+p <- add_argument(p, "--resultsDirectory", help='The path to your desired output directory')
+argv <- parse_args(p)
+
 # RSTUDIO / RSCRIPT Initialization variables ------------------------------------------------
-rawFastqDirectory <- 'test_sequence/' # can be set to raw sequence or extractedFastq directory
-fastqPattern <- 'fastq' # use '_KIR_' to find already extracted files, otherwise use 'fastq' or whatever fits your data
-threads <- 4
-resultsDirectory <- 'test_sequence_output/' # Set the master results directory (all pipeline output will be recorded here)
+rawFastqDirectory <- argv$fqDirectory # can be set to raw sequence or extractedFastq directory
+fastqPattern <- argv$fastqPattern # use '_KIR_' to find already extracted files, otherwise use 'fastq' or whatever fits your data
+threads <- argv$threads
+resultsDirectory <- argv$resultsDirectory # Set the master results directory (all pipeline output will be recorded here)
 shortNameDelim <- '' # can set a delimiter to shorten sample ID's (ID will be characters before delim, ID's must be unique or else there will be an error)
 setup.minDP <- 8
 final.minDP <- 20
@@ -82,7 +98,7 @@ source('Resources/alleleSetup_functions.R')
 cat('\n\n----- Moving to PING gene content and copy determination -----')
 
 sampleList <- ping_copy.graph(sampleList=sampleList,threads=threads,resultsDirectory=outDir$path,forceRun=F,onlyKFF=F,fullAlign = F) # set forceRun=T if you want to force alignments
-sampleList <- ping_copy.manual_threshold(sampleList=sampleList,resultsDirectory=outDir$path,use.threshFile = T) # this function sets copy thresholds
+# sampleList <- ping_copy.manual_threshold(sampleList=sampleList,resultsDirectory=outDir$path,use.threshFile = F) # this function sets copy thresholds
 sampleList <- ping_copy.load_copy_results( sampleList, outDir$path )
 
 ## Fix for poor 2DL2  
