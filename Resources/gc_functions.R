@@ -1918,7 +1918,11 @@ run.get_threshold <- function(locusRatioDF, locusCountDF, copyNumberDF, goodRows
   vector_KIR3DP1 <- as.character(unlist(thresholdDF['KIR3DP1',]))
   vector_KIR3DP1 <- c(0, vector_KIR3DP1[-length(vector_KIR3DP1)])
   thresholdDF['KIR3DP1',] <- vector_KIR3DP1
-  
+
+  vector_KIR3DL2 <- as.character(unlist(thresholdDF['KIR3DL2',]))
+  vector_KIR3DL2 <- c(0, vector_KIR3DL2[-length(vector_KIR3DL2)])
+  thresholdDF['KIR3DL2',] <- vector_KIR3DL2
+
   return(thresholdDF)
 }
 ## This function prompts for user input for determining copy number thresholds
