@@ -11,21 +11,22 @@ git clone https://github.com/Hollenbach-lab/PING.git
 cd ./PING
 ```
 ## Setting up container
-To ensure a reliable run, we have containerized our image in [Singularity](https://docs.sylabs.io/guides/3.11/admin-guide/installation.html). Please install Singularity on your system before proceeding. We have tested PING to run on Singularity version 3.11.4. 
+To ensure a reliable run, we have containerized our image in Singularity (tested on version 3.11.4). You can check whether Singularity has been installed in your system by running `singularity --version`. Please install Singularity by following their guide [here](https://docs.sylabs.io/guides/3.11/admin-guide/installation.html). 
 
 Once Singularity has been installed, obtain the image using one of these following commands:
 
-1. Build with sudo
-```
-sudo singularity build ping.sif ping.def
-```
-2. Build with `--fakeroot`, if sudo is not possible
+
+- Option A: build with `--fakeroot`
 ```
 singularity build --fakeroot ping.sif ping.def
 ```
-3. Pull directly from Sylabs
+- Option B: pull directly from Sylabs
 ```
 singularity pull ping.sif library://rsuseno/rsuseno/ping:latest
+```
+- Option C: build with sudo
+```
+sudo singularity build ping.sif ping.def
 ```
 
 ## Running PING
@@ -73,7 +74,7 @@ Unresolved genotype information can be found in `[resultsDirectory]/iterAlleleCa
 Where closest matched allele is the allele genotyping that best matches the aligned SNPs, nucleotide denotes the mismatched nucleotide located at the indicated exon and position within the exon. Multiple mismatched SNPs are connected with the `^` symbol.
 
 ## Troubleshooting
-Please save a copy of your R Console output and contact me through Github or email at wesley.marin@ucsf.edu or rayo.suseno@ucsf.edu
+Please save a copy of your terminal output and contact me through Github or email at wesley.marin@ucsf.edu or rayo.suseno@ucsf.edu.
 
 # Citations
 Please cite:
