@@ -1722,8 +1722,8 @@ run.assemble_multi_reads <- function(samTable, multiLocusReads, assembledNucList
 ## This function runs the count data through a trained random forest model for predicting copy number
 run.predict_copy <- function(locusRatioDF, locusCountDF, copyNumberDF, goodRows, resultsDirectory, rfAllPathList){
   # Prepare ratios file
-  ratios = locusRatioDF
-  copyNumberDF = ratios
+  ratios <- locusRatioDF
+  copyNumberDF <- ratios
   
   
   for (col in colnames(ratios)){
@@ -1748,10 +1748,10 @@ run.predict_copy <- function(locusRatioDF, locusCountDF, copyNumberDF, goodRows,
       silhouette_scores <- append(silhouette_scores, avg_score)
     }
     optimalK <- which.max(silhouette_scores) + 1
-    print(paste0('Option 1 (Silhouette) optimal K = ', optimalK))
+    print(paste0('Optimal K = ', optimalK))
     
     if(col=='KIR2DL1'){
-      optimalK = 3
+      optimalK <- 3
     }
     
     # Perform kmeans 
@@ -1775,35 +1775,25 @@ run.predict_copy <- function(locusRatioDF, locusCountDF, copyNumberDF, goodRows,
       
     }
     
-    # Plot and save as .jpeg
-    # jpeg(file=glue('{resultsDirectory}/plot{col}.jpeg'))
-    # plot(data_sorted, col = color_map[cluster_sorted], pch=20, main=col, ylab="locusRatio")
-    # abline(h=avg_coord, lty=2, col='red') # plot the coordinate as a dashed red line
-    # dev.off()
-    
     # Assign CN to cluster
     rle_result <- rle(cluster_sorted)
     value_counts <- rep(0, length(rle_result$values))
     value_counts[rle_result$values] <- 1:length(rle_result$values)
     output_list <- rep(value_counts[rle_result$values], rle_result$lengths) - 1
-    matcha = (match(data, data_sorted))
+    matcha <- (match(data, data_sorted))
 
     # Create a list of copy number
     new_cn <- lapply(matcha, function(m) {
       output_list[[m]]
     })
     new_cn <- lapply(new_cn, as.integer)
-
-    if (col == 'KIR3DL2'){
-      new_cn = rep(2,length(data))
-    }
     
     if (col == 'KIR3DP1' | col == 'KIR2DL4'){
-      modus = Mode(unlist(new_cn))
+      modus <- Mode(unlist(new_cn))
       if (modus == 0){
-        new_cn = unlist(new_cn) + 2  
+        new_cn <- unlist(new_cn) + 2  
       } else if (modus == 1){
-        new_cn = unlist(new_cn) + 1
+        new_cn <- unlist(new_cn) + 1
       }
     }
     
@@ -1847,8 +1837,8 @@ run.predict_copy <- function(locusRatioDF, locusCountDF, copyNumberDF, goodRows,
 
 run.get_threshold <- function(locusRatioDF, locusCountDF, copyNumberDF, goodRows, resultsDirectory, rfAllPathList){
   # Prepare ratios file
-  ratios = locusRatioDF
-  copyNumberDF = ratios
+  ratios <- locusRatioDF
+  copyNumberDF <- ratios
   
   # Prepare thresholdDF
   kirLocusList <- colnames(ratios)
@@ -1869,7 +1859,7 @@ run.get_threshold <- function(locusRatioDF, locusCountDF, copyNumberDF, goodRows
     data <- matrix(data, ncol=1)
     
     # Get optimal K cluster using silhouette scores
-    k_vals = list(2,3,4,5)
+    k_vals <- list(2,3,4,5)
     silhouette_scores <- list()
     for (k in k_vals){
       clust <- kmeans(data, centers=k, nstart=100, algorithm = "Lloyd", iter.max = 300)
@@ -1880,7 +1870,7 @@ run.get_threshold <- function(locusRatioDF, locusCountDF, copyNumberDF, goodRows
     optimalK <- which.max(silhouette_scores) + 1
     
     if(col=='KIR2DL1'){
-      optimalK = 3
+      optimalK <- 3
     }
     
     # Perform kmeans 
@@ -1919,9 +1909,9 @@ run.get_threshold <- function(locusRatioDF, locusCountDF, copyNumberDF, goodRows
   vector_KIR3DP1 <- c(0, vector_KIR3DP1[-length(vector_KIR3DP1)])
   thresholdDF['KIR3DP1',] <- vector_KIR3DP1
 
-  vector_KIR3DL2 <- as.character(unlist(thresholdDF['KIR3DL2',]))
-  vector_KIR3DL2 <- c(0, vector_KIR3DL2[-length(vector_KIR3DL2)])
-  thresholdDF['KIR3DL2',] <- vector_KIR3DL2
+  # vector_KIR3DL2 <- as.character(unlist(thresholdDF['KIR3DL2',]))
+  # vector_KIR3DL2 <- c(0, vector_KIR3DL2[-length(vector_KIR3DL2)])
+  # thresholdDF['KIR3DL2',] <- vector_KIR3DL2
 
   return(thresholdDF)
 }
