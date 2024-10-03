@@ -1743,14 +1743,14 @@ run.predict_copy <- function(locusRatioDF, locusCountDF, copyNumberDF, goodRows,
     for (k in k_vals){
       clust <- kmeans(data, centers=k, nstart=100, algorithm = "Lloyd", iter.max = 300)
       sil_obj <- silhouette(clust$cluster, dist(data))
-      #print(length(clust$cluster))
       avg_score <- mean(sil_obj[, "sil_width"])
       silhouette_scores <- append(silhouette_scores, avg_score)
     }
     optimalK <- which.max(silhouette_scores) + 1
     print(paste0('Optimal K = ', optimalK))
+
     
-    if(col=='KIR2DL1'){
+    if(col=='KIR2DL1' | col=='KIR3DL1'){
       optimalK <- 3
     }
     
@@ -1797,6 +1797,14 @@ run.predict_copy <- function(locusRatioDF, locusCountDF, copyNumberDF, goodRows,
       }
     }
     
+    if (col=='KIR3DL2'){
+      if (max(unlist(silhouette_scores)) < 0.6){ # if there's no good cluster, set all CN=2
+        new_cn <- rep(2,length(data))
+      } else {
+        new_cn <- unlist(new_cn) + 1 #otherwise, shift CN by 1
+      }
+    }    
+
     copyNumberDF[[col]] = new_cn
     
     
@@ -1869,7 +1877,7 @@ run.get_threshold <- function(locusRatioDF, locusCountDF, copyNumberDF, goodRows
     }
     optimalK <- which.max(silhouette_scores) + 1
     
-    if(col=='KIR2DL1'){
+    if(col=='KIR2DL1' | col == 'KIR3DL1'){
       optimalK <- 3
     }
     
@@ -1898,6 +1906,17 @@ run.get_threshold <- function(locusRatioDF, locusCountDF, copyNumberDF, goodRows
     for (i in seq(from=1, to=length(avg_coord))){
       thresholdDF[col, i] <- avg_coord[i]
     }
+
+    # Exception fill for KIR3DL2
+    if (col=='KIR3DL2'){
+      if (max(unlist(silhouette_scores)) < 0.6){ # if there's no good cluster, set all CN=2
+        thresholdDF['KIR3DL2',] <- c(0,0,NA,NA,NA,NA)
+      } else {
+        vector_KIR3DL2 <- as.character(unlist(thresholdDF['KIR3DL2',]))
+        vector_KIR3DL2 <- c(0, vector_KIR3DL2[-length(vector_KIR3DL2)])
+        thresholdDF['KIR3DL2',] <- vector_KIR3DL2
+      }
+    }
   }
   
   # Shift the thresholdDF for KIR2DL4 and KIR3DP1 because cluster usually starts with CN = 1
@@ -1909,9 +1928,6 @@ run.get_threshold <- function(locusRatioDF, locusCountDF, copyNumberDF, goodRows
   vector_KIR3DP1 <- c(0, vector_KIR3DP1[-length(vector_KIR3DP1)])
   thresholdDF['KIR3DP1',] <- vector_KIR3DP1
 
-  # vector_KIR3DL2 <- as.character(unlist(thresholdDF['KIR3DL2',]))
-  # vector_KIR3DL2 <- c(0, vector_KIR3DL2[-length(vector_KIR3DL2)])
-  # thresholdDF['KIR3DL2',] <- vector_KIR3DL2
 
   return(thresholdDF)
 }
