@@ -33,7 +33,7 @@ sudo singularity build ping.sif ping.def
 Ensure that you are within the `PING` directory and you can run the entirety of the pipeline using the following command:
 
 ```
-singularity exec ping.sif Rscript PING_run.R 
+singularity exec --bind <fastq_location> ping.sif Rscript PING_run.R 
   --fqDirectory <fastq_location> 
   --resultsDirectory <output_location> 
   --fastqPattern <fastq_pattern> 
@@ -45,6 +45,7 @@ Listed below are the arguments needed to run PING:
   - `--resultsDirectory` Set the results directory, one will be created if it does not already exist (all pipeline output will be recorded here)
   - (OPTIONAL) `--fastqPattern` Specify a pattern on the `fqDirectory` to only process  specific samples. For example, if your sequencing data is named [SAMPLE_ID]\_R1_fq.gz, you would change it to '_fq_'. Additionally, you can use '_KIR_' to find already extracted files. (default = '_fastq_')
   - (OPTIONAL) `--threads` Number of threads to use during bowtie2 alignments (default = 4)
+  - (Singularity argument) `--bind` Needed when the input FASTQs are located outside of your access privilege (e.g., if the inputs are not within `/home/username`). It is recommended to pass the `--bind` option regardless to ensure a proper run.
 
 
 ## Running included test data
