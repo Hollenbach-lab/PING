@@ -287,4 +287,31 @@ final_alleles_completely_processed_2$KIR2DL5_2 <- sub(".*\\+", "", final_alleles
 final_alleles_completely_processed_2$KIR2DL5_2 <- substr(final_alleles_completely_processed_2$KIR2DL5_2, start = 1, stop = stop_pos)
 
 
-write.csv(final_alleles_completely_processed_2, "KIR_alleles_for_analysis.csv")
+write.csv(final_alleles_completely_processed_2, "kirAllelesForAnalysis.csv")
+
+
+#### KIR3DL1/KIR3DL2 FUSION DETECTION
+
+print('Running KIR3DL1/KIR3DL2 fusion detection')
+predictedCopyNumber <- read.csv("predictedCopyNumberFrame.csv")
+kffCountFrame <- read.csv("kffCountFrame.csv")
+
+# Extract the relevant columns
+kff_selected <- kffCountFrame[, c("X", "X.KIR3DL12.v", "X.KIR3DL12.v_rc")]
+# print(paste('dimension kff_selected:',dim(kff_selected)))
+pred_selected <- predictedCopyNumber[, c("X", "KIR3DL1", "KIR3DL2", "KIR3DS1")]
+# print(paste('dimension pred_selected:',dim(pred_selected)))
+# Merge the two dataframes using 'X' as the key
+merged_df <- merge(kff_selected, pred_selected, by = "X", all = FALSE)
+merged_df$KIR3DL1S1 <- rowSums(merged_df[, c("KIR3DL1", "KIR3DS1")], na.rm = TRUE)
+# print(paste('dimension merged_df:',dim(merged_df)))
+# print(merged_df)
+# Filter for fusion
+filtered_df <- merged_df[
+  merged_df$`X.KIR3DL12.v` != 0 | 
+  merged_df$`X.KIR3DL12.v_rc` != 0 & 
+  merged_df$KIR3DL2 == 1 & 
+  merged_df$KIR3DL1S1 == 1, 
+]
+# print(paste('dimension filtered_df:',dim(filtered_df)))
+write.csv(filtered_df, "fusionSamples.csv")

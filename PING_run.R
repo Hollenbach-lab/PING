@@ -133,6 +133,6 @@ finalCallPath <- pingFinalize.format_calls( resultsDirectory )
 cat('\nFinal calls written to:',finalCallPath)
 
 # ----- Running Post-Processing Script -----
-cat('\n\n ----- CLEANING GENOTYPES ----- ')
+cat('\n\n ----- POST PROCESSING START ----- ')
 system(paste('Rscript Resources/post_processing.R', shQuote(resultsDirectory)))
-cat('\n\n ----- CLEANING GENOTYPES DONE ----- ')
+cat('\n\n ----- POST PROCESSING DONE ----- ')
