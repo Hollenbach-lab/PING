@@ -407,13 +407,18 @@ ping_copy.graph <- function(sampleList=list(),
   if(predictCopy){
     ## Use the random forest models to predict copy number
     cat('\nPredicting copy number... ')
-    copyNumberDF <- run.predict_copy(locusRatioDF, locusCountDF, copyNumberDF, goodRows, resultsDirectory, rfAllPathList)
-    thresholdDF <- run.get_threshold(locusRatioDF, locusCountDF, copyNumberDF, goodRows, resultsDirectory, rfAllPathList)
+    # copyNumberDF <- run.predict_copy(locusRatioDF, locusCountDF, copyNumberDF, goodRows, resultsDirectory, rfAllPathList)
+    # thresholdDF <- run.get_threshold(locusRatioDF, locusCountDF, copyNumberDF, goodRows, resultsDirectory, rfAllPathList)  
+    cnThresDF <- run.predict_copy_get_threshold(locusRatioDF, locusCountDF, copyNumberDF, goodRows, resultsDirectory, rfAllPathList)
+    copyNumberDF <- cnThresDF$dataframe1
+    thresholdDF <- cnThresDF$dataframe2
+    # print(identical(copyNumberDF, copyNumberDFmeow))
+    # print(identical(thresholdDF, thresholdDFmeow))
     
     ## Write the results to a csv file
     cat('\nFinished with copy predictions.')
     write.csv(copyNumberDF, file = file.path(resultsDirectory, 'predictedCopyNumberFrame.csv'))
-    
+
     ## Generate ratio graphs and color according to predicted copy number
     cat('\nGenerating predicted copy number graphs...')
     # run.generate_predicted_copy_number_graphs(locusRatioDF, kffPresenceDF, kirLocusList, plotDirectory, locusCountDF, copyNumberDF)

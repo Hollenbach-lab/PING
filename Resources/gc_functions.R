@@ -1719,7 +1719,138 @@ run.assemble_multi_reads <- function(samTable, multiLocusReads, assembledNucList
   return(assembledNucList)
 }
 
+run.predict_copy_get_threshold <- function(locusRatioDF, locusCountDF, copyNumberDF, goodRows, resultsDirectory, rfAllPathList){
+  # Prepare ratios file (copyNumberDF)
+  ratios <- locusRatioDF
+  copyNumberDF <- ratios
+
+  # Prepare thresholdDF
+  kirLocusList <- colnames(ratios)
+  thresholdCols <- c('0-1','1-2','2-3','3-4','4-5','5-6')
+  thresholdDF <- data.frame(matrix(NA,nrow=length(kirLocusList),ncol=length(thresholdCols)),stringsAsFactors = F)
+  rownames(thresholdDF) <- kirLocusList
+  colnames(thresholdDF) <- thresholdCols
+  
+  
+  for (col in colnames(ratios)){
+    if (col=='KIR3DL3'){
+      next
+    }
+    print(paste0("Performing automated thresholding for ", col))
+    
+    # Prep data
+    data <- unlist(as.list(ratios[col]))
+    data_sorted <- sort(data)
+    data <- matrix(data, ncol=1)
+    
+    # Get optimal K cluster using silhouette scores
+    k_vals = list(2,3,4,5)
+    silhouette_scores <- list()
+    for (k in k_vals){
+      clust <- kmeans(data, centers=k, nstart=100, algorithm = "Lloyd", iter.max = 300)
+      sil_obj <- silhouette(clust$cluster, dist(data))
+      avg_score <- mean(sil_obj[, "sil_width"])
+      silhouette_scores <- append(silhouette_scores, avg_score)
+    }
+    optimalK <- which.max(silhouette_scores) + 1
+    print(paste0('Optimal K = ', optimalK))
+
+    
+    if(col=='KIR2DL1' | col=='KIR3DL1'){
+      optimalK <- 3
+    }
+    
+    # Perform kmeans 
+    k3 <- kmeans(data, centers=optimalK, nstart=100, algorithm = "Lloyd", iter.max = 300)
+    # k3 <- kmeans(data, centers=k, nstart=100, algorithm = "Lloyd")
+    color_map <- c("red","green","blue", "black","gray","yellow","orange","purple","brown","aquamarine","bisque","deeppink","pink","chocolate","cornflowerblue")
+    cluster_sorted <- k3$cluster[match(data_sorted, data)]
+    
+    
+    
+    # Retrieve cluster coordinates and plot
+    change_indices <- c(1, 1 + which(diff(cluster_sorted) != 0)) - 1
+    change_indices <- change_indices[-1] #remove first element
+    coord <- data_sorted[change_indices]
+    avg_coord <- c()
+    for (i in seq(from=1, to=length(coord))){
+      val1 <- coord[i]
+      val2 <- data_sorted[change_indices[i]+1]
+      tmp <- (val1+val2)/2
+      avg_coord <- c(avg_coord, tmp)
+    }
+
+    # Fill in (thresholdDF)
+    for (i in seq(from=1, to=length(avg_coord))){
+      thresholdDF[col, i] <- avg_coord[i]
+    }
+
+    # Exception fill for KIR3DL2 (thresholdDF)
+    if (col=='KIR3DL2'){
+      if (max(unlist(silhouette_scores)) < 0.6){ # if there's no good cluster, set all CN=2
+        thresholdDF['KIR3DL2',] <- c(0,0,NA,NA,NA,NA)
+      } else {
+        vector_KIR3DL2 <- as.character(unlist(thresholdDF['KIR3DL2',]))
+        vector_KIR3DL2 <- c(0, vector_KIR3DL2[-length(vector_KIR3DL2)])
+        thresholdDF['KIR3DL2',] <- vector_KIR3DL2
+      }
+    }
+    
+    # Assign CN to cluster (copyNumberDF)
+    rle_result <- rle(cluster_sorted)
+    value_counts <- rep(0, length(rle_result$values))
+    value_counts[rle_result$values] <- 1:length(rle_result$values)
+    output_list <- rep(value_counts[rle_result$values], rle_result$lengths) - 1
+    matcha <- (match(data, data_sorted))
+
+    # Create a list of copy number (copyNumberDF)
+    new_cn <- lapply(matcha, function(m) {
+      output_list[[m]]
+    })
+    new_cn <- lapply(new_cn, as.integer)
+    
+    if (col == 'KIR3DP1' | col == 'KIR2DL4'){
+      modus <- Mode(unlist(new_cn))
+      if (modus == 0){
+        new_cn <- unlist(new_cn) + 2  
+      } else if (modus == 1){
+        new_cn <- unlist(new_cn) + 1
+      }
+    }
+    
+    # Exception fill for KIR3DL2 (copyNumberDF)
+    if (col=='KIR3DL2'){
+      if (max(unlist(silhouette_scores)) < 0.6){ # if there's no good cluster, set all CN=2
+        new_cn <- rep(2,length(data))
+      } else {
+        new_cn <- unlist(new_cn) + 1 #otherwise, shift CN by 1
+      }
+    }    
+
+    copyNumberDF[[col]] = new_cn
+    
+  }
+
+  # copyNumberDF finalize
+  copyNumberDF[,'KIR3DL3'] <- 2
+  copyNumberDF <- apply(copyNumberDF,2,as.integer)
+  rownames(copyNumberDF) <- goodRows
+
+  # thresholdDF finalize
+  # Shift the thresholdDF for KIR2DL4 and KIR3DP1 because cluster usually starts with CN = 1
+  vector_KIR2DL4 <- as.character(unlist(thresholdDF['KIR2DL4',]))
+  vector_KIR2DL4 <- c(0, vector_KIR2DL4[-length(vector_KIR2DL4)])
+  thresholdDF['KIR2DL4',] <- vector_KIR2DL4
+  vector_KIR3DP1 <- as.character(unlist(thresholdDF['KIR3DP1',]))
+  vector_KIR3DP1 <- c(0, vector_KIR3DP1[-length(vector_KIR3DP1)])
+  thresholdDF['KIR3DP1',] <- vector_KIR3DP1
+
+  return(list(dataframe1 = copyNumberDF, dataframe2 = thresholdDF))
+}
+
+
 ## This function runs the count data through a trained random forest model for predicting copy number
+## Deprecated as a combined predict_copy and get_threshold function now exists
 run.predict_copy <- function(locusRatioDF, locusCountDF, copyNumberDF, goodRows, resultsDirectory, rfAllPathList){
   # Prepare ratios file
   ratios <- locusRatioDF
@@ -1843,6 +1974,7 @@ run.predict_copy <- function(locusRatioDF, locusCountDF, copyNumberDF, goodRows,
   return(copyNumberDF)
 }
 
+## Deprecated as a combined predict_copy and get_threshold function now exists
 run.get_threshold <- function(locusRatioDF, locusCountDF, copyNumberDF, goodRows, resultsDirectory, rfAllPathList){
   # Prepare ratios file
   ratios <- locusRatioDF
