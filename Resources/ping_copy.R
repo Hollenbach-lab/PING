@@ -412,8 +412,6 @@ ping_copy.graph <- function(sampleList=list(),
     cnThresDF <- run.predict_copy_get_threshold(locusRatioDF, locusCountDF, copyNumberDF, goodRows, resultsDirectory, rfAllPathList)
     copyNumberDF <- cnThresDF$dataframe1
     thresholdDF <- cnThresDF$dataframe2
-    # print(identical(copyNumberDF, copyNumberDFmeow))
-    # print(identical(thresholdDF, thresholdDFmeow))
     
     ## Write the results to a csv file
     cat('\nFinished with copy predictions.')
