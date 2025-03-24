@@ -1808,7 +1808,13 @@ run.predict_copy_get_threshold <- function(locusRatioDF, locusCountDF, copyNumbe
       output_list[[m]]
     })
     new_cn <- lapply(new_cn, as.integer)
+
+    # Exception fill for KIR2DP1 where the copy number is shifted by +1
+    if (col == 'KIR2DP1'){
+      new_cn <- unlist(new_cn) + 1
+    }
     
+    # Exception fill for KIR3DP1 and KIR2DL4 where cluster with most samples will be assigned CN = 2
     if (col == 'KIR3DP1' | col == 'KIR2DL4'){
       modus <- Mode(unlist(new_cn))
       if (modus == 0){
@@ -1844,7 +1850,11 @@ run.predict_copy_get_threshold <- function(locusRatioDF, locusCountDF, copyNumbe
   vector_KIR3DP1 <- as.character(unlist(thresholdDF['KIR3DP1',]))
   vector_KIR3DP1 <- c(0, vector_KIR3DP1[-length(vector_KIR3DP1)])
   thresholdDF['KIR3DP1',] <- vector_KIR3DP1
-
+  # Do the same for KIR2DP1 because it also starts at CN = 1
+  vector_KIR2DP1 <- as.character(unlist(thresholdDF['KIR2DP1',]))
+  vector_KIR2DP1 <- c(0, vector_KIR2DP1[-length(vector_KIR2DP1)])
+  thresholdDF['KIR2DP1',] <- vector_KIR2DP1
+  
   return(list(dataframe1 = copyNumberDF, dataframe2 = thresholdDF))
 }
 
