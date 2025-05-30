@@ -34,8 +34,7 @@ From: ubuntu:22.04
     libudunits2-dev librsvg2-dev \
     libfreetype6-dev libfribidi-dev libharfbuzz-dev libfontconfig1-dev pandoc libicu-dev libjpeg-dev libpng-dev libtiff-dev make zlib1g-dev libxml2-dev libcurl4-openssl-dev libssl-dev libgit2-dev
 
-
-	### Install R 4.3.1
+    ### Install R 4.3.1
     wget https://cran.r-project.org/src/base/R-4/R-4.3.1.tar.gz 
     tar -xf R-4.3.1.tar.gz
     cd R-4.3.1
@@ -51,8 +50,18 @@ From: ubuntu:22.04
     sed -i 's/“/\"/g' processor_support.h 
     sed -i 's/”/\"/g' processor_support.h
     make
-	# PATH=$PATH:/usr/home/bowtie2-2.4.1
+	cd ..
+
+    ### Install PHASE
+    mkdir -p /opt/phase
+    cd /opt/phase
+    wget http://stephenslab.uchicago.edu/assets/software/phase/phasecode/phase.2.1.1.linux.tar.gz
+    tar -xf phase.2.1.1.linux.tar.gz
+    chown -R root:root /opt/phase/phase.2.1.1.linux
+    chmod 755 /opt/phase/phase.2.1.1.linux
+    chmod 755 /opt/phase/phase.2.1.1.linux/PHASE
 
 %environment
 	export PATH=/opt/local/R/bin:${PATH}
     export PATH=/bowtie2-2.4.1:${PATH}
+    export PATH=/opt/phase/phase.2.1.1.linux:${PATH}
