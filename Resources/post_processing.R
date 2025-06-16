@@ -12,8 +12,9 @@ library(tidyr)
 args <- commandArgs(trailingOnly = TRUE)
 ping_dir <- getwd()
 setwd(args) #Set this to your PING results directory
+# setwd('/home/rsuseno/PING_input_output/subset_LRC_output_cli')
 # setwd('/home/rsuseno/PING_OUTPUTS/IND130_132-133_results')
-# setwd('/home/rsuseno/PING_OUTPUTS/KIR3DL2_rerun_Feb2025_results')
+# setwd('/home/rsuseno/PING_input_output/KIR3DL2_rerun_Feb2025_results')
 # setwd('/home/rsuseno/PING_OUTPUTS/OneLambdaNewProbe')
 dir.create("phase_output", showWarnings = FALSE)
 final_allele <- read.csv('finalAlleleCalls.csv')
@@ -317,6 +318,10 @@ prep_PHASE_input <- function(gene){
     select(ID_Sample, Haplotype)
   
   # For Haplotypes to have spaces between each value
+  #Check if the string length in samples_summarized is x2 of the Locus type length in PHASE_prep (to ensure that the genotype length matches the locus type length)
+  samples_summarized <- samples_summarized %>%
+    filter(nchar(Haplotype) == 2 * nrow(PHASE_prep))
+  
   samples_summarized <- samples_summarized %>%
     mutate(Haplotype = sapply(Haplotype, function(x) {
       spaced <- paste(unlist(str_split(x, "")), collapse = " ")
@@ -352,11 +357,11 @@ kir3dl3 <- prep_PHASE_input('KIR3DL3')
 ### CALL PHASE ###
 # INPUT: project_PHASE_3DL*.txt
 # OUTPUT: PHASE_3DL*.out, PHASE_3DL*.out_pairs
-system2('/home/rsuseno/PING_debug/from_Heran/phase.2.1.1.linux/PHASE',
+system2('PHASE',
         args = c('-f1', 
                  'phase_output/project_PHASE_3DL2.txt', 
                  'phase_output/PHASE_3DL2.out'))
-system2('/home/rsuseno/PING_debug/from_Heran/phase.2.1.1.linux/PHASE',
+system2('PHASE',
         args = c('-f1', 
                  'phase_output/project_PHASE_3DL3.txt', 
                  'phase_output/PHASE_3DL3.out'))

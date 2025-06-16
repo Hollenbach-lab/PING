@@ -47,10 +47,23 @@ p <- add_argument(p, "--resultsDirectory", help='The path to your desired output
 argv <- parse_args(p)
 
 # RSTUDIO / RSCRIPT Initialization variables ------------------------------------------------
-rawFastqDirectory <- argv$fqDirectory # can be set to raw sequence or extractedFastq directory
-fastqPattern <- argv$fastqPattern # use '_KIR_' to find already extracted files, otherwise use 'fastq' or whatever fits your data
-threads <- argv$threads
-resultsDirectory <- argv$resultsDirectory # Set the master results directory (all pipeline output will be recorded here)
+runPredictCopy <- T
+rawFastqDirectory <- ''
+resultsDirectory <- ''
+fastqPattern <- ''
+threads <- 0
+if(runPredictCopy){
+  rawFastqDirectory <- argv$fqDirectory # can be set to raw sequence or extractedFastq directory
+  fastqPattern <- argv$fastqPattern # use '_KIR_' to find already extracted files, otherwise use 'fastq' or whatever fits your data
+  threads <- argv$threads
+  resultsDirectory <- argv$resultsDirectory # Set the master results directory (all pipeline output will be recorded here)
+}else{
+  rawFastqDirectory <- '/home/rsuseno/PING_input_output/subset_LRC' # can be set to raw sequence or extractedFastq directory
+  resultsDirectory <- '/home/rsuseno/PING_input_output/subset_LRC_output' # Set the master results directory (all pipeline output will be recorded here)
+  fastqPattern <- 'fq' # use '_KIR_' to find already extracted files, otherwise use 'fastq' or whatever fits your data
+  threads <- 40
+}
+
 shortNameDelim <- '' # can set a delimiter to shorten sample ID's (ID will be characters before delim, ID's must be unique or else there will be an error)
 setup.minDP <- 8
 final.minDP <- 20
@@ -64,6 +77,7 @@ final.readBoost <- F
 readBoost.thresh <- 2
 allele.fullAlign <- F
 copy.fullAlign <- F
+
 
 
 source('Resources/general_functions.R') # do not change
@@ -97,9 +111,12 @@ source('Resources/genotype_alignment_functions.R')
 source('Resources/alleleSetup_functions.R')
 cat('\n\n----- Moving to PING gene content and copy determination -----')
 
-sampleList <- ping_copy.graph(sampleList=sampleList,threads=threads,resultsDirectory=outDir$path,forceRun=F,onlyKFF=F,fullAlign = F) # set forceRun=T if you want to force alignments
-# sampleList <- ping_copy.manual_threshold(sampleList=sampleList,resultsDirectory=outDir$path,use.threshFile = F) # this function sets copy thresholds
-sampleList <- ping_copy.load_copy_results( sampleList, outDir$path )
+sampleList <- ping_copy.graph(sampleList=sampleList,threads=threads,resultsDirectory=outDir$path,
+                              forceRun=F,onlyKFF=F,fullAlign = F,predictCopy=runPredictCopy) # set forceRun=T if you want to force alignments
+if(!(runPredictCopy)){
+  sampleList <- ping_copy.manual_threshold(sampleList=sampleList,resultsDirectory=outDir$path,use.threshFile = F) # this function sets copy thresholds  
+}
+sampleList <- ping_copy.load_copy_results( sampleList, outDir$path, runPredictCopy )
 
 ## Fix for poor 2DL2  
 #sapply(sampleList, function(x) x$copyNumber[['KIR2DL2']] <- as.character(2-as.integer(x$copyNumber[['KIR2DL3']])))
@@ -129,10 +146,10 @@ sampleList <- ping_allele(sampleList)
 # ----- Formatting Results Genotypes -----
 source('Resources/alleleFinalize_functions.R')
 cat('\n\n ----- FINALIZING GENOTYPES ----- ')
-finalCallPath <- pingFinalize.format_calls( resultsDirectory )
+finalCallPath <- pingFinalize.format_calls( resultsDirectory, predictCopy=runPredictCopy )
 cat('\nFinal calls written to:',finalCallPath)
 
 # ----- Running Post-Processing Script -----
-# cat('\n\n ----- POST PROCESSING START ----- ')
-# system(paste('Rscript Resources/post_processing.R', shQuote(resultsDirectory)))
-# cat('\n\n ----- POST PROCESSING DONE ----- ')
+cat('\n\n ----- POST PROCESSING START ----- ')
+system(paste('Rscript Resources/post_processing.R', shQuote(resultsDirectory)))
+cat('\n\n ----- POST PROCESSING DONE ----- ')

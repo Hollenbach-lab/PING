@@ -362,11 +362,18 @@ pingFinalize.otherLoci <- function( iterCall.df, copyCall.df ){
 }
 
 # PING2 allele finalization
-pingFinalize.format_calls <- function( resultsDirectory ){
+pingFinalize.format_calls <- function( resultsDirectory, predictCopy ){
   iterCall.df <- read.csv(file.path(resultsDirectory,'iterAlleleCalls.csv'),
                           stringsAsFactors=F,check.names=F,row.names=1)
-  copyCall.df <- read.csv(file.path(resultsDirectory,'predictedCopyNumberFrame.csv'),
-                          stringsAsFactors=F,check.names=F,row.names=1)
+  copyCall.df <- NULL
+  if(predictCopy){
+    copyCall.df <- read.csv(file.path(resultsDirectory,'predictedCopyNumberFrame.csv'),
+                            stringsAsFactors=F,check.names=F,row.names=1)  
+  }else{
+    copyCall.df <- read.csv(file.path(resultsDirectory,'manualCopyNumberFrame.csv'),
+                            stringsAsFactors=F,check.names=F,row.names=1)    
+  }
+
   
   goodSampleID.vect <- rownames(iterCall.df)[ !apply( iterCall.df, 1, function(x) all( is.na(x) ) ) ]
   iterCall.df <- iterCall.df[goodSampleID.vect,]

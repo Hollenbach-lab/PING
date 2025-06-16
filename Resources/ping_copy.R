@@ -35,8 +35,8 @@ ping_copy.graph <- function(sampleList=list(),
                     probelistFile='probelist_2021_01_24.csv',
                     onlyKFF=F,
                     forceRun=F,
-                    fullAlign=F){
-  predictCopy=T
+                    fullAlign=F,
+                    predictCopy=T){
   kirLocusList <- c('KIR3DP1','KIR2DS5','KIR2DL3','KIR2DP1',
                     'KIR2DS3','KIR2DS2','KIR2DL4','KIR3DL3',
                     'KIR3DL1','KIR3DS1','KIR2DL2','KIR3DL2','KIR2DS4','KIR2DL1', 'KIR2DS1', 'KIR2DL5')
@@ -462,6 +462,7 @@ ping_copy.manual_threshold <- function(sampleList=list(),resultsDirectory='',use
   threshPath <- file.path(resultsDirectory, 'manualCopyThresholds.csv')
   
   threshFile.bool <- file.exists(threshPath)
+  thresholdNA.bool <- FALSE
   
   if(!threshFile.bool){
     ## Set up dataframe to store copy thresholds
@@ -529,19 +530,23 @@ ping_copy.manual_threshold <- function(sampleList=list(),resultsDirectory='',use
   return(sampleList)
 }
 
-ping_copy.load_copy_results <- function( sampleList, resultsDirectory ){
+ping_copy.load_copy_results <- function( sampleList, resultsDirectory, predictCopy ){
   
   cat('\n\n ----- Loading up results from ping_copy -----')
   kffCountDFFile <- file.path(resultsDirectory, 'kffCountFrame.csv')
-  # copyDFFile <- file.path(resultsDirectory, 'manualCopyNumberFrame.csv')
-  copyDFFile <- file.path(resultsDirectory, 'predictedCopyNumberFrame.csv')
+  copyDFFile <- NULL
+  if(predictCopy){
+    copyDFFile <- file.path(resultsDirectory, 'predictedCopyNumberFrame.csv')
+  } else {
+    copyDFFile <- file.path(resultsDirectory, 'manualCopyNumberFrame.csv')
+  }
   
   if( all(file.exists(c(kffCountDFFile, copyDFFile))) ){
     
     cat(paste0('\n\nFound kffCountFrame.csv in ', resultsDirectory, '. Loading these results.'))
     kffCountDF <- read.csv(kffCountDFFile, stringsAsFactors = F, check.names = F, row.names = 1 )
     
-    cat(paste0('\n\nFound manualCopyNumberFrame.csv in ', resultsDirectory, '. Loading these results.'))
+    cat(paste0('\n\nFound manualCopyNumberFrame.csv or predictedCopyNumberFrame.csv in ', resultsDirectory, '. Loading these results.'))
     copyDF <- read.csv(copyDFFile , stringsAsFactors = F, check.names = F, row.names = 1)
     
   }else{

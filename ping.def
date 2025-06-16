@@ -32,6 +32,7 @@ From: ubuntu:22.04
     liblzma-dev \
     libpcre2-dev \
     libudunits2-dev librsvg2-dev \
+    liblapack3 \
     libfreetype6-dev libfribidi-dev libharfbuzz-dev libfontconfig1-dev pandoc libicu-dev libjpeg-dev libpng-dev libtiff-dev make zlib1g-dev libxml2-dev libcurl4-openssl-dev libssl-dev libgit2-dev
 
     ### Install R 4.3.1

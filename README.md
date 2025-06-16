@@ -48,30 +48,22 @@ Listed below are the arguments needed to run PING:
   - (Singularity argument) `--bind` Needed when the input FASTQs are located outside of your access privilege (e.g., if the inputs are not within `/home/username`). It is recommended to pass the `--bind` option regardless to ensure a proper run.
 
 
-## Running included test data
-We have included 10 test sequences to run through the pipeline, they are located in the test_sequence/ directory. These samples are meant to test that all the installations were done properly. You can run the following code to execute the test:
-```
-singularity exec ping.sif Rscript PING_run.R 
-  --fqDirectory test_sequence
-  --resultsDirectory test_sequence_output 
-```
-
-
 ## PING output
-Copy number output can be found at `[resultsDirectory]/predictedCopyNumberFrame.csv`
+Copy number output can be found at `[resultsDirectory]/predictedCopyNumberFrame.csv` or `[resultsDirectory]/manualCopyNumberFrame.csv`
 
 Genotype output can be found at `[resultsDirectory]/finalAlleleCalls.csv`
+
+Optimized genotype output can be found at `[resultsDirectory]/kirAllelesForAnalysis.csv`
 
 Aligned SNP tables can be found in `[resultsDirectory]/alignmentFiles/[sampleID]/iterAlign/`
 
 Copy number graphs can be found in `[resultsDirectory]/copyPlots/`
 
-#### Unresolved genotypes
-If PING is unable to perfectly match aligned SNPs to known KIR allele sequences an unresolved call will be produced.
+#### Optimized genotype and unresolved genotypes
+The optimized genotype output of `kirAllelesForAnalysis.csv` is a result from a post-processing step that performs two tasks: 1) solve ambiguous genotype using allele frequency and 2) process KIR3DL2 and KIR3DL3 genotype more thoroughly using [PHASE](https://stephenslab.uchicago.edu/phase/download.html). 
 
-Unresolved genotype information can be found in `[resultsDirectory]/iterAlleleCalls.csv`, where the closest allele match is recorded along with the mismatched SNP information in the following format:
+If PING is unable to perfectly match aligned SNPs to known KIR allele sequences an unresolved call will be produced. Unresolved genotype information can be found in `[resultsDirectory]/iterAlleleCalls.csv`, where the closest allele match is recorded along with the mismatched SNP information in the following format:
 `[closest_matched_allele]$[exon]_[position].[nucleotide]`
-
 Where closest matched allele is the allele genotyping that best matches the aligned SNPs, nucleotide denotes the mismatched nucleotide located at the indicated exon and position within the exon. Multiple mismatched SNPs are connected with the `^` symbol.
 
 ## Troubleshooting
