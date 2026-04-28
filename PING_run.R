@@ -9,13 +9,13 @@ install.packages("plotly",dependencies = T)
 library(data.table)
 library(stringr)
 library(methods)
-library(pryr)
+# library(pryr)
 library(plotly)
 library(R.utils)
 library(gtools)
 library(zip)
 library(parallel)
-library(tidyverse)
+# library(tidyverse)
 library(cluster)
 #library(factoextra)
 library(glue)
@@ -113,6 +113,7 @@ cat('\n\n----- Moving to PING gene content and copy determination -----')
 
 sampleList <- ping_copy.graph(sampleList=sampleList,threads=threads,resultsDirectory=outDir$path,
                               forceRun=F,onlyKFF=F,fullAlign = F,predictCopy=runPredictCopy) # set forceRun=T if you want to force alignments
+stop('meow')
 if(!(runPredictCopy)){
   sampleList <- ping_copy.manual_threshold(sampleList=sampleList,resultsDirectory=outDir$path,use.threshFile = F) # this function sets copy thresholds  
 }

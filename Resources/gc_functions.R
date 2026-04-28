@@ -597,6 +597,19 @@ kir.allele_resolution <- function(allele_name, res){
 ## Generates copy number graphs with threshold lines
 run.generate_copy_number_graphs <- function(countRatioDF, kffDF, kirLocusList, plotDirectory, countDF, thresholdDF){
   
+  ## Helper for headless PNG output
+  open_summary_png <- function(filename, width, height, res = 150){
+    if(requireNamespace("ragg", quietly = TRUE)){
+      ragg::agg_png(filename = filename, width = width, height = height, units = "in", res = res, background = "white")
+    } else {
+      tryCatch({
+        grDevices::png(filename = filename, width = width, height = height, units = "in", res = res, type = "cairo-png")
+      }, error = function(e){
+        grDevices::png(filename = filename, width = width, height = height, units = "in", res = res)
+      })
+    }
+  }
+  
   ## Check to see what samples are in both data frames
   samplesInBoth <- intersect(row.names(countRatioDF), row.names(kffDF))
   
@@ -612,6 +625,132 @@ run.generate_copy_number_graphs <- function(countRatioDF, kffDF, kirLocusList, p
   
   ## Give sample id their own column
   countRatioDF$id <- rownames(countRatioDF)
+  
+  ## Prepare a single static summary image for quick visual QC
+  summaryLoci <- kirLocusList[kirLocusList != 'KIR3DL3']
+  summaryPlotFile <- file.path(plotDirectory, 'all_loci_copy_number_summary.png')
+
+  if(length(summaryLoci) > 0){
+    nPlots <- length(summaryLoci)
+    nCol <- ceiling(sqrt(nPlots))
+    nRow <- ceiling(nPlots / nCol)
+
+    open_summary_png <- function(filename, width, height, res = 150){
+      tryCatch({
+        if(requireNamespace('ragg', quietly = TRUE)){
+          ragg::agg_png(
+            filename = filename,
+            width = width,
+            height = height,
+            units = 'in',
+            res = res,
+            background = 'white'
+          )
+        } else {
+          tryCatch({
+            grDevices::png(
+              filename = filename,
+              width = width,
+              height = height,
+              units = 'in',
+              res = res,
+              type = 'cairo-png'
+            )
+          }, error = function(e){
+            grDevices::png(
+              filename = filename,
+              width = width,
+              height = height,
+              units = 'in',
+              res = res
+            )
+          })
+        }
+        return(grDevices::dev.cur() != 1)
+      }, error = function(e){
+        message('Could not open summary PNG device: ', conditionMessage(e))
+        return(FALSE)
+      })
+    }
+
+    summaryDeviceOpened <- FALSE
+    summaryPar <- NULL
+
+    tryCatch({
+      summaryDeviceOpened <- open_summary_png(
+        summaryPlotFile,
+        width = max(10, 3.5 * nCol),
+        height = max(8, 3.0 * nRow)
+      )
+
+      if(!summaryDeviceOpened){
+        stop('Summary PNG device could not be opened.')
+      }
+
+      summaryPar <- par(mfrow = c(nRow, nCol), mar = c(3.2, 3.2, 2.4, 1), oma = c(0, 0, 2, 0))
+
+      for(currentLocus in summaryLoci){
+        currentThresh <- thresholdDF[currentLocus, ]
+        thresholdVals <- suppressWarnings(as.numeric(unlist(currentThresh[!is.na(currentThresh)])))
+        locusVals <- suppressWarnings(as.numeric(countRatioDF[[currentLocus]]))
+        locusRank <- rank(locusVals, ties.method = 'first', na.last = 'keep')
+        isPresent <- suppressWarnings(as.numeric(kffDF[[currentLocus]]) > 0)
+        validIdx <- is.finite(locusRank) & is.finite(locusVals)
+
+        if(!any(validIdx)){
+          plot.new()
+          title(main = currentLocus)
+          next
+        }
+
+        yMax <- max(c(1, locusVals[validIdx], thresholdVals), na.rm = TRUE) + 0.2
+        yMax <- ifelse(is.finite(yMax), yMax, 1.2)
+        xMax <- max(locusRank[validIdx], na.rm = TRUE) + 0.5
+        xMax <- ifelse(is.finite(xMax), xMax, 1.5)
+
+        plot(
+          locusRank[validIdx], locusVals[validIdx],
+          type = 'n',
+          xlab = 'Sample rank', ylab = 'Ratio',
+          main = currentLocus,
+          xlim = c(0.5, xMax),
+          ylim = c(0, yMax)
+        )
+
+        absentIdx <- validIdx & !isPresent
+        presentIdx <- validIdx & isPresent
+
+        if(any(absentIdx)){
+          points(locusRank[absentIdx], locusVals[absentIdx], pch = 16, col = 'gray50', cex = 0.75)
+        }
+        if(any(presentIdx)){
+          points(locusRank[presentIdx], locusVals[presentIdx], pch = 16, col = 'red', cex = 0.75)
+        }
+
+        if(length(thresholdVals) > 0){
+          abline(
+            h = thresholdVals,
+            col = c('#bb00ff','#2eee00','#007aff','#ffb200','#ff1aa7','#dbdd07')[seq_along(thresholdVals)],
+            lty = 2,
+            lwd = 1
+          )
+        }
+
+        box()
+      }
+
+      mtext('Static QC summary of copy-number clustering by locus', outer = TRUE, cex = 1.1, font = 2)
+    }, error = function(e){
+      message('Skipping summary PNG: ', conditionMessage(e))
+    }, finally = {
+      if(!is.null(summaryPar)){
+        par(summaryPar)
+      }
+      if(summaryDeviceOpened && grDevices::dev.cur() != 1){
+        grDevices::dev.off()
+      }
+    })
+  }
   
   ## Iterate over all KIR loci, create a plot for each one
   for(currentLocus in kirLocusList){
@@ -748,7 +887,6 @@ run.generate_copy_number_graphs <- function(countRatioDF, kffDF, kirLocusList, p
       ## Set no samples names for alternative loci
       altLocusPresent <- currentLocus[0]
       altLocusAbsent <- currentLocus[0]
-      kir3DL3 <- samplesInBoth[countRatioDF[samplesInBoth,'']]
     }
     kir3DL3RatioToMax <- 'KIR3DL3_ratio_to_max3DL3'
     
@@ -807,7 +945,7 @@ run.generate_copy_number_graphs <- function(countRatioDF, kffDF, kirLocusList, p
       }
       i = i+1
     }
-    if(length(removeList>0)){
+    if(length(removeList) > 0){
       pal1 <- pal1[-removeList]
     }
     
@@ -821,7 +959,7 @@ run.generate_copy_number_graphs <- function(countRatioDF, kffDF, kirLocusList, p
       }
       i = i+1
     }
-    if(length(removeList>0)){
+    if(length(removeList) > 0){
       pal2 <- pal2[-removeList]
     }
     
@@ -862,7 +1000,7 @@ run.generate_copy_number_graphs <- function(countRatioDF, kffDF, kirLocusList, p
                 mode='markers',type='scatter',name=currentLocusTitle,color=currentLocusTitle,
                 text=posPointText)
       
-      ## Add theshold data
+      ## Add threshold data
       for(currentThreshold in names(setThresholdValList)){
         ## Pull out the current threshold value
         thresholdVal <- as.numeric(setThresholdValList[[currentThreshold]])
@@ -871,14 +1009,16 @@ run.generate_copy_number_graphs <- function(countRatioDF, kffDF, kirLocusList, p
         currentThreshText <- paste('Threshold:',currentThreshold,
                                    '$<br>Value:',thresholdVal)
         
-        ## Add trace for current threhsold
-        p2 <- p2 %>% add_trace(p2,
-                        x=1:length(samplesInBoth),
-                        y=thresholdVal,
-                        type='scatter',
-                        mode='line',
-                        line=list(color=palThresholds[currentThreshold]),
-                        name=currentThreshold)
+        ## Add trace for current threshold
+        p2 <- p2 %>% add_trace(
+          x = seq_len(nrow(countRatioDF)),
+          y = rep(thresholdVal, nrow(countRatioDF)),
+          type = 'scatter',
+          mode = 'lines',
+          line = list(color = palThresholds[currentThreshold]),
+          name = currentThreshold,
+          text = currentThreshText
+        )
       }
       
       ## Format axis layout
@@ -894,6 +1034,155 @@ run.generate_copy_number_graphs <- function(countRatioDF, kffDF, kirLocusList, p
     htmltools::save_html(p, file=file.path(plotDirectory,paste0(currentLocus, '_copy_number_plot.html')))
   }
 }
+
+copy.set_copy_from_threshFile <- function(copyNumberDF, locusRatioDF, locusCountDF, thresholdDF){
+  
+  # Pull out loci which have set thresholds
+  kirLocusList <- names( which( apply( thresholdDF, 1, function(x){ any(!is.na(x)) } ) ) )
+  
+  # Record loci missing all thresholds
+  missingLocusList <- names( which( apply( thresholdDF, 1, function(x){ all(is.na(x)) } ) ) )
+  
+  cat('\nAuto-setting all KIR3DL3 copy to 2.')
+  copyNumberDF[rownames(locusRatioDF),'KIR3DL3'] <- 2
+  
+  cat('\n\nProcessing:')
+  for(kirLocus in kirLocusList){
+    
+    cat("",kirLocus)
+    
+    if(kirLocus == 'KIR3DL3'){
+      next
+    }
+    
+    ## Set aside the samples that we do not know the copy
+    unsetCopySampleList <- row.names(locusRatioDF)
+    failedSampleList <- setdiff(row.names(locusCountDF),unsetCopySampleList)
+    
+    copyNumberDF[failedSampleList,] <- 'failed'
+    
+    if(length(unsetCopySampleList) == 0){
+      next
+    }
+    
+    # Pull out threshold boundaries
+    temp.colNameVect <- colnames(thresholdDF)[ !is.na( thresholdDF[kirLocus,] ) ]
+    
+    if( length(temp.colNameVect) == 0 ){
+      cat('\ntemp.colNameVect is length 0, something went wrong')
+      stop()
+    }
+    
+    # Pull out the max copy number for the current locus
+    maxCopyInt <- max( as.numeric( unlist( tstrsplit( temp.colNameVect, '-', fixed=T) ) ) )
+    
+    if(maxCopyInt == 0){
+      copyNumberDF[,kirLocus] <- 0
+    }else{
+      for(topCopy in 1:maxCopyInt){
+        
+        ## Pull out the threshold, indexing could also be done using paste0(topCopy,'-',topCopy-1)
+        copyThresholdDouble <- thresholdDF[kirLocus,colnames(thresholdDF)[topCopy]]
+        
+        ## Subset the sample list by the names of samples that fall in the lower copy group
+        lowerSampleList <- unsetCopySampleList[locusRatioDF[unsetCopySampleList,kirLocus] < copyThresholdDouble]
+        
+        ## Subset the sample list by the names of samples that fall in the upper copy group
+        upperSampleList <- unsetCopySampleList[locusRatioDF[unsetCopySampleList,kirLocus] >= copyThresholdDouble]
+        
+        ## Set copy number for samples that fall under the threshold
+        copyNumberDF[lowerSampleList,kirLocus] <- topCopy-1
+        
+        ## Set copy number for samples that fall above the threshold
+        copyNumberDF[upperSampleList,kirLocus] <- topCopy
+        
+        ## Remove sample names that had copy set
+        unsetCopySampleList <- setdiff(unsetCopySampleList,lowerSampleList)
+        
+        ## Break out of the loop if we run out of samples to set
+        if(length(unsetCopySampleList) == 0){
+          break
+        }
+      }
+    }
+  }
+  return(list('copyDF'=copyNumberDF,'threshDF'=thresholdDF))
+}
+
+copy.set_copy_from_threshFile <- function(copyNumberDF, locusRatioDF, locusCountDF, thresholdDF){
+  
+  # Pull out loci which have set thresholds
+  kirLocusList <- names( which( apply( thresholdDF, 1, function(x){ any(!is.na(x)) } ) ) )
+  
+  # Record loci missing all thresholds
+  missingLocusList <- names( which( apply( thresholdDF, 1, function(x){ all(is.na(x)) } ) ) )
+  
+  cat('\nAuto-setting all KIR3DL3 copy to 2.')
+  copyNumberDF[rownames(locusRatioDF),'KIR3DL3'] <- 2
+  
+  cat('\n\nProcessing:')
+  for(kirLocus in kirLocusList){
+    
+    cat('',kirLocus)
+    
+    if(kirLocus == 'KIR3DL3'){
+      next
+    }
+    
+    ## Set aside the samples that we do not know the copy
+    unsetCopySampleList <- row.names(locusRatioDF)
+    failedSampleList <- setdiff(row.names(locusCountDF),unsetCopySampleList)
+    
+    copyNumberDF[failedSampleList,] <- 'failed'
+    
+    if(length(unsetCopySampleList) == 0){
+      next
+    }
+    
+    # Pull out threshold boundaries
+    temp.colNameVect <- colnames(thresholdDF)[ !is.na( thresholdDF[kirLocus,] ) ]
+    
+    if( length(temp.colNameVect) == 0 ){
+      cat('\ntemp.colNameVect is length 0, something went wrong')
+      stop()
+    }
+    
+    # Pull out the max copy number for the current locus
+    maxCopyInt <- max( as.numeric( unlist( tstrsplit( temp.colNameVect, '-', fixed=T) ) ) )
+    
+    if(maxCopyInt == 0){
+      copyNumberDF[,kirLocus] <- 0
+    }else{
+      for(topCopy in 1:maxCopyInt){
+        
+        ## Pull out the threshold, indexing could also be done using paste0(topCopy,'-',topCopy-1)
+        copyThresholdDouble <- thresholdDF[kirLocus,colnames(thresholdDF)[topCopy]]
+        
+        ## Subset the sample list by the names of samples that fall in the lower copy group
+        lowerSampleList <- unsetCopySampleList[locusRatioDF[unsetCopySampleList,kirLocus] < copyThresholdDouble]
+        
+        ## Subset the sample list by the names of samples that fall in the upper copy group
+        upperSampleList <- unsetCopySampleList[locusRatioDF[unsetCopySampleList,kirLocus] >= copyThresholdDouble]
+        
+        ## Set copy number for samples that fall under the threshold
+        copyNumberDF[lowerSampleList,kirLocus] <- topCopy-1
+        
+        ## Set copy number for samples that fall above the threshold
+        copyNumberDF[upperSampleList,kirLocus] <- topCopy
+        
+        ## Remove sample names that had copy set
+        unsetCopySampleList <- setdiff(unsetCopySampleList,lowerSampleList)
+        
+        ## Break out of the loop if we run out of samples to set
+        if(length(unsetCopySampleList) == 0){
+          break
+        }
+      }
+    }
+  }
+  return(list('copyDF'=copyNumberDF,'threshDF'=thresholdDF))
+}
+
 
 copy.set_copy_from_threshFile <- function(copyNumberDF, locusRatioDF, locusCountDF, thresholdDF){
   
@@ -1719,143 +2008,193 @@ run.assemble_multi_reads <- function(samTable, multiLocusReads, assembledNucList
   return(assembledNucList)
 }
 
-run.predict_copy_get_threshold <- function(locusRatioDF, locusCountDF, copyNumberDF, goodRows, resultsDirectory, rfAllPathList){
-  # Prepare ratios file (copyNumberDF)
-  ratios <- locusRatioDF
-  copyNumberDF <- ratios
-
-  # Prepare thresholdDF
-  kirLocusList <- colnames(ratios)
-  thresholdCols <- c('0-1','1-2','2-3','3-4','4-5','5-6')
-  thresholdDF <- data.frame(matrix(NA,nrow=length(kirLocusList),ncol=length(thresholdCols)),stringsAsFactors = F)
-  rownames(thresholdDF) <- kirLocusList
-  colnames(thresholdDF) <- thresholdCols
-  
-  
-  for (col in colnames(ratios)){
-    if (col=='KIR3DL3'){
-      next
-    }
-    print(paste0("Performing automated thresholding for ", col))
-    
-    # Prep data
-    data <- unlist(as.list(ratios[col]))
-    data_sorted <- sort(data)
-    data <- matrix(data, ncol=1)
-    
-    # Get optimal K cluster using silhouette scores
-    k_vals = list(2,3,4,5)
-    silhouette_scores <- list()
-    for (k in k_vals){
-      clust <- kmeans(data, centers=k, nstart=100, algorithm = "Lloyd", iter.max = 300)
-      sil_obj <- silhouette(clust$cluster, dist(data))
-      avg_score <- mean(sil_obj[, "sil_width"])
-      silhouette_scores <- append(silhouette_scores, avg_score)
-    }
-    optimalK <- which.max(silhouette_scores) + 1
-    print(paste0('Optimal K = ', optimalK))
-
-    
-    if(col=='KIR2DL1' | col=='KIR3DL1'){
-      optimalK <- 3
-    }
-    
-    # Perform kmeans 
-    k3 <- kmeans(data, centers=optimalK, nstart=100, algorithm = "Lloyd", iter.max = 300)
-    # k3 <- kmeans(data, centers=k, nstart=100, algorithm = "Lloyd")
-    color_map <- c("red","green","blue", "black","gray","yellow","orange","purple","brown","aquamarine","bisque","deeppink","pink","chocolate","cornflowerblue")
-    cluster_sorted <- k3$cluster[match(data_sorted, data)]
-    
-    
-    
-    # Retrieve cluster coordinates and plot
-    change_indices <- c(1, 1 + which(diff(cluster_sorted) != 0)) - 1
-    change_indices <- change_indices[-1] #remove first element
-    coord <- data_sorted[change_indices]
-    avg_coord <- c()
-    for (i in seq(from=1, to=length(coord))){
-      val1 <- coord[i]
-      val2 <- data_sorted[change_indices[i]+1]
-      tmp <- (val1+val2)/2
-      avg_coord <- c(avg_coord, tmp)
-    }
-
-    # Fill in (thresholdDF)
-    for (i in seq(from=1, to=length(avg_coord))){
-      thresholdDF[col, i] <- avg_coord[i]
-    }
-
-    # Exception fill for KIR3DL2 (thresholdDF)
-    if (col=='KIR3DL2'){
-      if (max(unlist(silhouette_scores)) < 0.6){ # if there's no good cluster, set all CN=2
-        thresholdDF['KIR3DL2',] <- c(0,0,NA,NA,NA,NA)
-      } else {
-        vector_KIR3DL2 <- as.character(unlist(thresholdDF['KIR3DL2',]))
-        vector_KIR3DL2 <- c(0, vector_KIR3DL2[-length(vector_KIR3DL2)])
-        thresholdDF['KIR3DL2',] <- vector_KIR3DL2
-      }
-    }
-    
-    # Assign CN to cluster (copyNumberDF)
-    rle_result <- rle(cluster_sorted)
-    value_counts <- rep(0, length(rle_result$values))
-    value_counts[rle_result$values] <- 1:length(rle_result$values)
-    output_list <- rep(value_counts[rle_result$values], rle_result$lengths) - 1
-    matcha <- (match(data, data_sorted))
-
-    # Create a list of copy number (copyNumberDF)
-    new_cn <- lapply(matcha, function(m) {
-      output_list[[m]]
-    })
-    new_cn <- lapply(new_cn, as.integer)
-
-    # Exception fill for KIR2DP1 where the copy number is shifted by +1
-    if (col == 'KIR2DP1'){
-      new_cn <- unlist(new_cn) + 1
-    }
-    
-    # Exception fill for KIR3DP1 and KIR2DL4 where cluster with most samples will be assigned CN = 2
-    if (col == 'KIR3DP1' | col == 'KIR2DL4'){
-      modus <- Mode(unlist(new_cn))
-      if (modus == 0){
-        new_cn <- unlist(new_cn) + 2  
-      } else if (modus == 1){
-        new_cn <- unlist(new_cn) + 1
-      }
-    }
-    
-    # Exception fill for KIR3DL2 (copyNumberDF)
-    if (col=='KIR3DL2'){
-      if (max(unlist(silhouette_scores)) < 0.6){ # if there's no good cluster, set all CN=2
-        new_cn <- rep(2,length(data))
-      } else {
-        new_cn <- unlist(new_cn) + 1 #otherwise, shift CN by 1
-      }
-    }    
-
-    copyNumberDF[[col]] = new_cn
-    
+run.predict_copy_get_threshold <- function(
+  locusRatioDF,
+  locusCountDF,
+  copyNumberDF,
+  goodRows,
+  resultsDirectory,
+  rfAllPathList
+) {
+  # ---- Helper functions ----
+  most_common_value <- function(x) {
+    ux <- unique(x)
+    ux[which.max(tabulate(match(x, ux)))]
   }
 
-  # copyNumberDF finalize
-  copyNumberDF[,'KIR3DL3'] <- 2
-  copyNumberDF <- apply(copyNumberDF,2,as.integer)
+  shift_threshold_row <- function(x, shift, left_fill = 0, right_fill = NA_real_) {
+    x <- as.numeric(unlist(x))
+    n <- length(x)
+
+    if (shift == 0) {
+      return(x)
+    }
+
+    if (shift > 0) {
+      if (shift >= n) {
+        return(rep(left_fill, n))
+      }
+      return(c(rep(left_fill, shift), x[seq_len(n - shift)]))
+    }
+
+    shift <- abs(shift)
+    if (shift >= n) {
+      return(rep(right_fill, n))
+    }
+    c(x[(shift + 1):n], rep(right_fill, shift))
+  }
+
+  # ---- Initialization ----
+  ratios <- as.data.frame(locusRatioDF, stringsAsFactors = FALSE, check.names = FALSE)
+  copyNumberDF <- ratios
+
+  loci <- colnames(ratios)
+  threshold_cols <- c("0-1", "1-2", "2-3", "3-4", "4-5", "5-6")
+
+  thresholdDF <- as.data.frame(
+    matrix(NA, nrow = length(loci), ncol = length(threshold_cols)),
+    stringsAsFactors = FALSE
+  )
+  rownames(thresholdDF) <- loci
+  colnames(thresholdDF) <- threshold_cols
+
+  # ---- Main loop over loci ----
+  for (locus in loci) {
+    if (locus == "KIR3DL3") {
+      next
+    }
+
+    message("Performing automated thresholding for ", locus)
+
+    values <- as.numeric(ratios[[locus]])
+    finite_idx <- is.finite(values)
+    values_finite <- values[finite_idx]
+
+    # Fallback if there are too few distinct values to cluster
+    unique_vals <- unique(values_finite)
+    if (length(unique_vals) < 2) {
+      thresholdDF[locus, ] <- NA
+      copyNumberDF[[locus]] <- 0L
+      next
+    }
+
+    values_mat <- matrix(values_finite, ncol = 1)
+    ord <- order(values_finite)
+    values_sorted <- values_finite[ord]
+
+    # ---- Pick K using silhouette score ----
+    k_candidates <- 2:5
+    k_candidates <- k_candidates[k_candidates <= length(unique_vals)]
+
+    silhouette_scores <- numeric(0)
+
+    for (k in k_candidates) {
+      clust <- kmeans(
+        values_mat,
+        centers = k,
+        nstart = 100,
+        algorithm = "Lloyd",
+        iter.max = 300
+      )
+
+      sil_obj <- cluster::silhouette(clust$cluster, dist(values_mat))
+      silhouette_scores <- c(silhouette_scores, mean(sil_obj[, "sil_width"]))
+    }
+
+    if (length(silhouette_scores) == 0) {
+      optimalK <- 2
+    } else {
+      optimalK <- k_candidates[which.max(silhouette_scores)]
+    }
+
+    message("Optimal K = ", optimalK)
+
+    # Locus-specific override
+    if (locus %in% c("KIR2DL1", "KIR3DL1")) {
+      optimalK <- 3
+    }
+
+    # ---- Final k-means clustering ----
+    km <- kmeans(
+      values_mat,
+      centers = optimalK,
+      nstart = 100,
+      algorithm = "Lloyd",
+      iter.max = 300
+    )
+
+    cluster_sorted <- km$cluster[ord]
+
+    # ---- Derive thresholds from changes in sorted cluster assignments ----
+    cluster_runs <- rle(cluster_sorted)
+    run_ends <- cumsum(cluster_runs$lengths)
+
+    threshold_vals <- numeric(0)
+    if (length(run_ends) > 1) {
+      for (i in seq_len(length(run_ends) - 1)) {
+        left_idx <- run_ends[i]
+        right_idx <- run_ends[i] + 1
+        threshold_vals <- c(
+          threshold_vals,
+          (values_sorted[left_idx] + values_sorted[right_idx]) / 2
+        )
+      }
+    }
+
+    threshold_row <- rep(NA_real_, length(threshold_cols))
+    threshold_row[seq_along(threshold_vals)] <- threshold_vals
+
+    # ---- Convert sorted cluster runs into copy numbers ----
+    # First run gets CN=0, next run CN=1, etc.
+    cn_sorted <- rep(seq_along(cluster_runs$lengths) - 1L, cluster_runs$lengths)
+
+    # Map back to original sample order
+    new_cn <- rep(NA_integer_, length(values))
+    finite_rows <- which(finite_idx)
+    new_cn[finite_rows[ord]] <- as.integer(cn_sorted)
+
+    # ---- Locus-specific copy-number / threshold adjustments ----
+    if (locus %in% c("KIR3DP1", "KIR2DP1")) {
+
+      # Detect presence of near-zero values (true CN=0 cluster)
+      has_zero_cluster <- any(values_finite < 0.1, na.rm = TRUE)
+
+      if (!has_zero_cluster) {
+        # No CN=0 present → shift up
+        new_cn[finite_idx] <- new_cn[finite_idx] + 1L
+        threshold_row <- shift_threshold_row(threshold_row, 1L)
+      } else {
+        # CN=0 already present → do nothing
+        # (clustering already correctly anchored)
+      }
+    }
+
+    if (locus %in% c("KIR2DL4", "KIR3DL2")) {
+      if (length(silhouette_scores) == 0 || max(silhouette_scores) < 0.6) {
+        new_cn[finite_idx] <- 2L
+        threshold_row <- c(0, 0, NA_real_, NA_real_, NA_real_, NA_real_)
+      } else {
+        new_cn[finite_idx] <- new_cn[finite_idx] + 1L
+        threshold_row <- shift_threshold_row(threshold_row, 1L)
+      }
+    }
+
+    thresholdDF[locus, ] <- threshold_row
+    copyNumberDF[[locus]] <- as.integer(new_cn)
+  }
+
+  # ---- Finalize copy-number output ----
+  copyNumberDF[["KIR3DL3"]] <- 2L
+  copyNumberDF <- as.data.frame(lapply(copyNumberDF, as.integer), check.names = FALSE)
   rownames(copyNumberDF) <- goodRows
 
-  # thresholdDF finalize
-  # Shift the thresholdDF for KIR2DL4 and KIR3DP1 because cluster usually starts with CN = 1
-  vector_KIR2DL4 <- as.character(unlist(thresholdDF['KIR2DL4',]))
-  vector_KIR2DL4 <- c(0, vector_KIR2DL4[-length(vector_KIR2DL4)])
-  thresholdDF['KIR2DL4',] <- vector_KIR2DL4
-  vector_KIR3DP1 <- as.character(unlist(thresholdDF['KIR3DP1',]))
-  vector_KIR3DP1 <- c(0, vector_KIR3DP1[-length(vector_KIR3DP1)])
-  thresholdDF['KIR3DP1',] <- vector_KIR3DP1
-  # Do the same for KIR2DP1 because it also starts at CN = 1
-  vector_KIR2DP1 <- as.character(unlist(thresholdDF['KIR2DP1',]))
-  vector_KIR2DP1 <- c(0, vector_KIR2DP1[-length(vector_KIR2DP1)])
-  thresholdDF['KIR2DP1',] <- vector_KIR2DP1
-  
-  return(list(dataframe1 = copyNumberDF, dataframe2 = thresholdDF))
+  # ---- Finalize thresholds ----
+  rownames(thresholdDF) <- loci
+
+  return(list(
+    dataframe1 = copyNumberDF,
+    dataframe2 = thresholdDF
+  ))
 }
 
 

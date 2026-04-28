@@ -49,15 +49,15 @@ Listed below are the arguments needed to run PING:
 
 
 ## PING output
-Copy number output can be found at `[resultsDirectory]/predictedCopyNumberFrame.csv` or `[resultsDirectory]/manualCopyNumberFrame.csv`
-
-Genotype output can be found at `[resultsDirectory]/finalAlleleCalls.csv`
-
 Optimized genotype output can be found at `[resultsDirectory]/kirAllelesForAnalysis.csv`
+
+Copy number output can be found at `[resultsDirectory]/predictedCopyNumberFrame.csv` or `[resultsDirectory]/manualCopyNumberFrame.csv`
 
 Aligned SNP tables can be found in `[resultsDirectory]/alignmentFiles/[sampleID]/iterAlign/`
 
 Copy number graphs can be found in `[resultsDirectory]/copyPlots/`
+
+If you are interested in a higher resolution output, it can be found at `[resultsDirectory]/finalAlleleCalls.csv` which occurs before optimization of genotype calls. You may find more ambiguous calls here.
 
 #### Optimized genotype and unresolved genotypes
 The optimized genotype output of `kirAllelesForAnalysis.csv` is a result from a post-processing step that performs two tasks: 1) solve ambiguous genotype using allele frequency and 2) process KIR3DL2 and KIR3DL3 genotype more thoroughly using [PHASE](https://stephenslab.uchicago.edu/phase/download.html). 

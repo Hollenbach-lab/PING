@@ -2,7 +2,7 @@
 library(data.table)
 library(stringr)
 library(methods)
-library(pryr)
+# library(pryr)
 library(plotly)
 #library(randomForest)
 
@@ -310,7 +310,7 @@ ping_copy.graph <- function(sampleList=list(),
     
     ## If the alignment file does not exist, then run bowtie2 alignment, otherwise continue
     if(!file.exists(currentSample$bamPath)){
-      cat('\n\nCurrent used memory: ', mem_used())
+      # cat('\n\nCurrent used memory: ', mem_used())
       cat('\n\nPerforming bowtie2 alignment for this sample.')
       currentSample <- run.bowtie2_gc_alignment(bowtie2, kirReferenceIndex, threads, currentSample, bamDirectory)
       currentSample <- samtools.sam_to_bam(samtools, currentSample, bamDirectory, threads)
