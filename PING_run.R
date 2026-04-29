@@ -113,7 +113,6 @@ cat('\n\n----- Moving to PING gene content and copy determination -----')
 
 sampleList <- ping_copy.graph(sampleList=sampleList,threads=threads,resultsDirectory=outDir$path,
                               forceRun=F,onlyKFF=F,fullAlign = F,predictCopy=runPredictCopy) # set forceRun=T if you want to force alignments
-stop('meow')
 if(!(runPredictCopy)){
   sampleList <- ping_copy.manual_threshold(sampleList=sampleList,resultsDirectory=outDir$path,use.threshFile = F) # this function sets copy thresholds  
 }
