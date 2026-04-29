@@ -565,7 +565,7 @@ sampleObj.iterBowtie2Align <- function(currentSample, bowtie2, threads, deleteSa
     currentSample[['iterBamPathList']][[currentIter]] <- file.path(iterDir,paste0(currentSample$name,'.bam'))
     
     ### 1. Align KIR extracted reads to haplo-reference
-    bt2_p <- paste0("-p", threads)
+    bt2_p <- paste0('-p ', threads)
     bt2_5 <- "-5 3"
     bt2_3 <- "-3 7"
     bt2_i <- "-i S,1,0.5"
