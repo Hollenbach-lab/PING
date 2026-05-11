@@ -2169,7 +2169,7 @@ run.predict_copy_get_threshold <- function(
       }
     }
 
-    if (locus %in% c("KIR2DL4", "KIR3DL2")) {
+    if (locus %in% c("KIR3DL2")) {
       if (length(silhouette_scores) == 0 || max(silhouette_scores) < 0.6) {
         new_cn[finite_idx] <- 2L
         threshold_row <- c(0, 0, NA_real_, NA_real_, NA_real_, NA_real_)
@@ -2177,6 +2177,18 @@ run.predict_copy_get_threshold <- function(
         new_cn[finite_idx] <- new_cn[finite_idx] + 1L
         threshold_row <- shift_threshold_row(threshold_row, 1L)
       }
+    }
+
+    if (locus == "KIR2DL4") {
+      new_cn <- rep(NA_integer_, length(values))
+
+      # Apply fixed thresholds
+      new_cn[finite_idx & values < 0.7] <- 1L
+      new_cn[finite_idx & values >= 0.7 & values <= 1.1] <- 2L
+      new_cn[finite_idx & values > 1.1] <- 3L
+
+      # Set thresholds explicitly
+      threshold_row <- c(0.7, 1.1, NA_real_, NA_real_, NA_real_, NA_real_)
     }
 
     thresholdDF[locus, ] <- threshold_row
