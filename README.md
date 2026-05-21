@@ -53,21 +53,19 @@ Optimized genotype output can be found at `[resultsDirectory]/kirAllelesForAnaly
 
 Copy number output can be found at `[resultsDirectory]/predictedCopyNumberFrame.csv` or `[resultsDirectory]/manualCopyNumberFrame.csv`
 
-Aligned SNP tables can be found in `[resultsDirectory]/alignmentFiles/[sampleID]/iterAlign/`
-
-Copy number graphs can be found in `[resultsDirectory]/copyPlots/`
+Summary of the copy number graphs can be found in `[resultsDirectory]/copyPlots/all_loci_copy_number_summary.png`. A detailed html report of the copy number graphs can be found within the same directory under `[gene]_copy_number_plot.html`
 
 If you are interested in a higher resolution output, it can be found at `[resultsDirectory]/finalAlleleCalls.csv` which occurs before optimization of genotype calls. You may find more ambiguous calls here.
 
 #### Optimized genotype and unresolved genotypes
-The optimized genotype output of `kirAllelesForAnalysis.csv` is a result from a post-processing step that performs two tasks: 1) solve ambiguous genotype using allele frequency and 2) process KIR3DL2 and KIR3DL3 genotype more thoroughly using [PHASE](https://stephenslab.uchicago.edu/phase/download.html). 
+The optimized genotype output of `kirAllelesForAnalysis.csv` is a result from a post-processing step that performs two tasks: 1) solve ambiguous genotype using allele frequency and 2) process KIR3DL2 and KIR3DL3 genotypes more thoroughly using [PHASE](https://stephenslab.uchicago.edu/phase/download.html). 
 
 If PING is unable to perfectly match aligned SNPs to known KIR allele sequences an unresolved call will be produced. Unresolved genotype information can be found in `[resultsDirectory]/iterAlleleCalls.csv`, where the closest allele match is recorded along with the mismatched SNP information in the following format:
 `[closest_matched_allele]$[exon]_[position].[nucleotide]`
 Where closest matched allele is the allele genotyping that best matches the aligned SNPs, nucleotide denotes the mismatched nucleotide located at the indicated exon and position within the exon. Multiple mismatched SNPs are connected with the `^` symbol.
 
 ## Troubleshooting
-Please save a copy of your terminal output and contact me through Github or email at wesley.marin@ucsf.edu or rayo.suseno@ucsf.edu.
+Please save a copy of your terminal output and contact us through email at rayo.suseno@ucsf.edu.
 
 # Citations
 Please cite:
