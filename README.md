@@ -40,6 +40,8 @@ singularity exec --bind <fastq_location> ping.sif Rscript PING_run.R
   --threads <number_of_threads>
 ```
 
+Since the execution of PING can be time-consuming, we would recommend opening a [GNU Screen](https://www.gnu.org/software/screen/) session.
+
 Listed below are the arguments needed to run PING:
   - `--fqDirectory` Set to raw sequence directory or extracted fastq directory if extraction has already been performed
   - `--resultsDirectory` Set the results directory, one will be created if it does not already exist (all pipeline output will be recorded here)
