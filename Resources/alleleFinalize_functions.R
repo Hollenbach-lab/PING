@@ -362,15 +362,17 @@ pingFinalize.otherLoci <- function( iterCall.df, copyCall.df ){
 }
 
 # PING2 allele finalization
-pingFinalize.format_calls <- function( resultsDirectory, predictCopy ){
+pingFinalize.format_calls <- function( resultsDirectory, predictCopy, interveneCopy ){
   iterCall.df <- read.csv(file.path(resultsDirectory,'iterAlleleCalls.csv'),
                           stringsAsFactors=F,check.names=F,row.names=1)
   copyCall.df <- NULL
-  if(predictCopy){
+  if (predictCopy && !interveneCopy) {
     copyCall.df <- read.csv(file.path(resultsDirectory,'predictedCopyNumberFrame.csv'),
-    # copyCall.df <- read.csv(file.path(resultsDirectory,'intervenedCopyNumberFrame.csv'),
                             stringsAsFactors=F,check.names=F,row.names=1)  
-  }else{
+  } else if (interveneCopy) {
+    copyCall.df <- read.csv(file.path(resultsDirectory,'intervenedCopyNumberFrame.csv'),
+                            stringsAsFactors=F,check.names=F,row.names=1)
+  } else {
     copyCall.df <- read.csv(file.path(resultsDirectory,'manualCopyNumberFrame.csv'),
                             stringsAsFactors=F,check.names=F,row.names=1)    
   }

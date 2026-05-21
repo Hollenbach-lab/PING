@@ -530,16 +530,17 @@ ping_copy.manual_threshold <- function(sampleList=list(),resultsDirectory='',use
   return(sampleList)
 }
 
-ping_copy.load_copy_results <- function( sampleList, resultsDirectory, predictCopy ){
+ping_copy.load_copy_results <- function( sampleList, resultsDirectory, predictCopy, interveneCopy ){
   
   cat('\n\n ----- Loading up results from ping_copy -----')
   kffCountDFFile <- file.path(resultsDirectory, 'kffCountFrame.csv')
   copyDFFile <- NULL
-  if(predictCopy){
-    copyDFFile <- file.path(resultsDirectory, 'predictedCopyNumberFrame.csv')
-    # copyDFFile <- file.path(resultsDirectory, 'intervenedCopyNumberFrame.csv')
+  if (predictCopy && !interveneCopy) {
+    copyDFFile <- file.path(resultsDirectory, "predictedCopyNumberFrame.csv")
+  } else if (interveneCopy) {
+    copyDFFile <- file.path(resultsDirectory, "intervenedCopyNumberFrame.csv")
   } else {
-    copyDFFile <- file.path(resultsDirectory, 'manualCopyNumberFrame.csv')
+    copyDFFile <- file.path(resultsDirectory, "manualCopyNumberFrame.csv")
   }
   
   if( all(file.exists(c(kffCountDFFile, copyDFFile))) ){

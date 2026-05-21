@@ -48,6 +48,7 @@ argv <- parse_args(p)
 
 # RSTUDIO / RSCRIPT Initialization variables ------------------------------------------------
 runPredictCopy <- T
+runInterveneCopy <- F
 rawFastqDirectory <- ''
 resultsDirectory <- ''
 fastqPattern <- ''
@@ -116,7 +117,7 @@ sampleList <- ping_copy.graph(sampleList=sampleList,threads=threads,resultsDirec
 if(!(runPredictCopy)){
   sampleList <- ping_copy.manual_threshold(sampleList=sampleList,resultsDirectory=outDir$path,use.threshFile = F) # this function sets copy thresholds  
 }
-sampleList <- ping_copy.load_copy_results( sampleList, outDir$path, runPredictCopy )
+sampleList <- ping_copy.load_copy_results( sampleList, outDir$path, runPredictCopy, runInterveneCopy)
 
 ## Fix for poor 2DL2  
 #sapply(sampleList, function(x) x$copyNumber[['KIR2DL2']] <- as.character(2-as.integer(x$copyNumber[['KIR2DL3']])))
@@ -146,7 +147,7 @@ sampleList <- ping_allele(sampleList)
 # ----- Formatting Results Genotypes -----
 source('Resources/alleleFinalize_functions.R')
 cat('\n\n ----- FINALIZING GENOTYPES ----- ')
-finalCallPath <- pingFinalize.format_calls( resultsDirectory, predictCopy=runPredictCopy )
+finalCallPath <- pingFinalize.format_calls( resultsDirectory, predictCopy=runPredictCopy, interveneCopy=runInterveneCopy )
 cat('\nFinal calls written to:',finalCallPath)
 
 # ----- Running Post-Processing Script -----
