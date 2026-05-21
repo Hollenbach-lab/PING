@@ -368,6 +368,7 @@ pingFinalize.format_calls <- function( resultsDirectory, predictCopy ){
   copyCall.df <- NULL
   if(predictCopy){
     copyCall.df <- read.csv(file.path(resultsDirectory,'predictedCopyNumberFrame.csv'),
+    # copyCall.df <- read.csv(file.path(resultsDirectory,'intervenedCopyNumberFrame.csv'),
                             stringsAsFactors=F,check.names=F,row.names=1)  
   }else{
     copyCall.df <- read.csv(file.path(resultsDirectory,'manualCopyNumberFrame.csv'),

@@ -2188,7 +2188,7 @@ run.predict_copy_get_threshold <- function(
       new_cn[finite_idx & values > 1.1] <- 3L
 
       # Set thresholds explicitly
-      threshold_row <- c(0.7, 1.1, NA_real_, NA_real_, NA_real_, NA_real_)
+      threshold_row <- c(0, 0.7, 1.1, NA_real_, NA_real_, NA_real_)
     }
 
     thresholdDF[locus, ] <- threshold_row

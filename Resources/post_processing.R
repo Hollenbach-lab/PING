@@ -426,6 +426,18 @@ process_PHASE_output <- function(gene){
     
     # maintain row names as numbers 
     rownames(allele_haplotypes) <- NULL
+
+    # Write new alleles to a text file
+    output <- data.frame(Allele = new_alleles,
+                       Haplotypes = new,
+                       stringsAsFactors = FALSE)
+
+    write.table(output,
+              file <- paste0("newAlleles_", gene, ".txt"),
+              quote = FALSE,
+              row.names = FALSE,
+              col.names = FALSE,
+              append = TRUE)  # <-- important if running multiple times
   } 
   
   #Task 2 

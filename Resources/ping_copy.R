@@ -537,6 +537,7 @@ ping_copy.load_copy_results <- function( sampleList, resultsDirectory, predictCo
   copyDFFile <- NULL
   if(predictCopy){
     copyDFFile <- file.path(resultsDirectory, 'predictedCopyNumberFrame.csv')
+    # copyDFFile <- file.path(resultsDirectory, 'intervenedCopyNumberFrame.csv')
   } else {
     copyDFFile <- file.path(resultsDirectory, 'manualCopyNumberFrame.csv')
   }
