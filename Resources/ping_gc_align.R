@@ -359,6 +359,16 @@ new.sampleObj.writeRefFastaBed <- function(currentSample, locusRefList, alignmen
       
       # Count the number of ambiguous characters in this reference allele
       ambChrCount <- str_count(noDelAlleleStr, pattern=fixed('N'))
+      cat(
+      "Allele:", currentLocus,
+      "| length(noDelAlleleStr):", length(noDelAlleleStr),
+      "| nchar:", if (length(noDelAlleleStr)) nchar(noDelAlleleStr) else "NULL",
+      "| ambChrCount:"
+      )
+      print(ambChrCount)
+      if (length(ambChrCount) == 0) {
+        stop("ambChrCount is length 0 for allele ", currentLocus)
+      }
       if(ambChrCount > 0){
         message('\nAmbiguous characters found in reference allele\nAllele ID:\t',currentRefAllele,
                 '\nNumber:\t',ambChrCount)

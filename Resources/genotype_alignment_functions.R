@@ -210,6 +210,7 @@ filled.snpDFList <- readRDS('Resources/filled.snpDFList.rds')
 locusRefList <- readRDS('Resources/locusRefList.rds')
 
 ## Procedure for updating IPD-KIR resources from copied MSF files (Uncomment and run)
+## As of 07/15/2026, this part is a standalone script under Resources/build_ipdkir_resources.R
 # ----- Generating reference object list for each locus -----
 # old.locusRefList <- general.initialize_locus_ref_object()
 # old.locusRefList <- initLocusRef.read_raw_msf(old.locusRefList, copiedMsfDirectory)

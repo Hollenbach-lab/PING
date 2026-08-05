@@ -38,6 +38,12 @@ library(DescTools)
 # allele.fullAlign <- Sys.getenv("ALLELE_FULLALIGN", unset=F)
 # copy.fullAlign <- Sys.getenv("COPY_FULLALIGN", unset=T)
 
+# UNZIPS locusRefList.rds.zip
+# Resources/locusRefList.rds is > 100MB so it was zipped when pushed to the repo
+zip_file <- "Resources/locusRefList.rds.zip"
+message("Unzipping locusRefList.rds.zip")
+utils::unzip(zipfile = zip_file, exdir = "Resources", overwrite=TRUE)
+
 # ARGPARSER setup
 p <- arg_parser("Run PING")
 p <- add_argument(p, "--fqDirectory", help='The path to the directory holding your fastq dataThe path to the directory holding your fastq data')
