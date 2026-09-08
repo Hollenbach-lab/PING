@@ -1024,6 +1024,107 @@ alleleSetup.call_setup_alleles <- function( currentSample, uniqueSamDT, setup.kn
   #   return( alleleCallVect[selectedCall] )
   # })
   
+  ### RS ADD 07/28/2026
+  # Code to deal with deprecated allele such as 2DL1*007 because now it's 2DL1*0070101
+  find_successor_allele <- function(refAllele, validAlleles) {
+    escape_regex <- function(x) {
+      gsub("([][{}()+*^$.|\\\\?])", "\\\\\\1", x)
+    }
+    ## 1. Exact match
+    if (refAllele %in% validAlleles)
+      return(refAllele)
+
+    ## 2. Direct prefix match
+    matches <- grep(
+      paste0("^", escape_regex(refAllele)),
+      validAlleles,
+      value = TRUE
+    )
+
+    if (length(matches) > 0)
+      return(sort(matches)[1])
+
+    ## 3. Try inserting 01 before an expression suffix
+    ##
+    ##   *049N  -> *04901N
+    ##   *027L  -> *02701L
+    ##
+    expanded <- sub(
+      "([0-9]+)([NLSQCA])$",
+      "\\101\\2",
+      refAllele
+    )
+
+    if (expanded != refAllele) {
+
+      matches <- grep(
+        paste0("^", escape_regex(expanded)),
+        validAlleles,
+        value = TRUE
+      )
+
+      if (length(matches) > 0)
+        return(sort(matches)[1])
+    }
+
+    ## 4. Try appending 0101
+    ##
+    ##   *004 -> *0040101
+    ##
+    expanded <- paste0(refAllele, "0101")
+
+    matches <- grep(
+      paste0("^", escape_regex(expanded)),
+      validAlleles,
+      value = TRUE
+    )
+
+    if (length(matches) > 0)
+      return(sort(matches)[1])
+
+    ## 5. Fall back to any prefix beginning with the allele number
+    matches <- grep(
+      paste0("^", escape_regex(refAllele)),
+      validAlleles,
+      value = TRUE
+    )
+
+    if (length(matches) > 0)
+      return(sort(matches)[1])
+
+    return(character(0))
+  }
+  resolveKffAllele <- function(legacyAllele, locus, setup.knownSnpDFList) {
+
+    validAlleles <- rownames(setup.knownSnpDFList[[locus]])
+
+    if (legacyAllele %in% validAlleles) {
+      return(legacyAllele)
+    }
+
+    replacement <- find_successor_allele(
+      refAllele = legacyAllele,
+      validAlleles = validAlleles
+    )
+
+    if (length(replacement) == 0) {
+      stop(
+        "KFF allele could not be resolved: ",
+        legacyAllele,
+        " for locus ",
+        locus
+      )
+    }
+
+    cat(
+      "\nKFF allele update: ",
+      legacyAllele,
+      " -> ",
+      replacement
+    )
+
+    return(replacement)
+  }
 
   if( 'KIR2DL1' %in% names(nonAmbAlleleCall.list) ){
     pos4710 <- as.integer( currentSample$kffHits[['*KIR2DL1*4710b']] ) > 10
@@ -1034,16 +1135,32 @@ alleleSetup.call_setup_alleles <- function( currentSample, uniqueSamDT, setup.kn
     calledAlleleVect <- unique( unlist( strsplit( nonAmbAlleleCall.list[['KIR2DL1']], '+', fixed=T) ) )
     
     if( pos4710 & !pos47 & !pos7 ){
-      addAllele <- 'KIR2DL1*010'
+      addAllele <- resolveKffAllele(
+        'KIR2DL1*010',
+        'KIR2DL1',
+        setup.knownSnpDFList
+      )
       cat('\n\nAdjusting KIR2DL1 call to include',addAllele,'based on KFF')
     }else if( pos4710 & pos47 & !pos7 ){
-      addAllele <- 'KIR2DL1*0040101'
+      addAllele <- resolveKffAllele(
+        'KIR2DL1*0040101',
+        'KIR2DL1',
+        setup.knownSnpDFList
+      )
       cat('\n\nAdjusting KIR2DL1 call to include',addAllele,'based on KFF')
     }else if( pos4710 & pos47 & pos7 ){
-      addAllele <- 'KIR2DL1*007'
+      addAllele <- resolveKffAllele(
+        'KIR2DL1*007',
+        'KIR2DL1',
+        setup.knownSnpDFList
+      )
       cat('\n\nAdjusting KIR2DL1 call to include',addAllele,'based on KFF')
     }else if( pos4710 | pos47 | pos7 ){
-      addAllele <- 'KIR2DL1*0040101'
+      addAllele <- resolveKffAllele(
+        'KIR2DL1*0040101',
+        'KIR2DL1',
+        setup.knownSnpDFList
+      )
       cat('\n\nAdjusting KIR2DL1 call to include',addAllele,'based on KFF')
     }else{
       addAllele <- integer(0)
@@ -1056,7 +1173,11 @@ alleleSetup.call_setup_alleles <- function( currentSample, uniqueSamDT, setup.kn
       probeSeq <- probeDF['*KIR2DL1*003','Sequence']
       hitAllele.vect <- names(alleleSeq.list)[ grepl(probeSeq,alleleSeq.list,fixed = T) ]
       if( !any( calledAlleleVect %in% hitAllele.vect ) ){
-        addAllele <- 'KIR2DL1*0030201'
+        addAllele <- resolveKffAllele(
+        'KIR2DL1*0030201',
+        'KIR2DL1',
+        setup.knownSnpDFList
+        )
         cat('\n\nAdjusting KIR2DL1 call to include',addAllele,'based on KFF')
         calledAlleleVect <- c(calledAlleleVect,addAllele)
         addAllele <- integer(0)
@@ -1099,12 +1220,19 @@ alleleSetup.call_setup_alleles <- function( currentSample, uniqueSamDT, setup.kn
       hitAllele.vect <- names(alleleSeq.list)[ grepl(probeSeq,alleleSeq.list,fixed = T) ]
       
       if( any( calledAlleleVect %in% hitAllele.vect ) ){
-        removeAllele <- "KIR2DL2*00103"
+        # removeAllele <- "KIR2DL2*00103"
+        removeAllele <- find_successor_allele(
+          "KIR2DL2*00103",
+          rownames(setup.knownSnpDFList[["KIR2DL2"]])
+        )
         cat('\n\nAdjusting KIR2DL2 call to exclude',removeAllele,'based on KFF')
         calledAlleleVect <- setdiff( calledAlleleVect, removeAllele )
         
-        if( length(calledAlleleVect) == 0 ){
-          calledAlleleVect <- 'KIR2DL2*0010101'
+        if (length(calledAlleleVect) == 0) {
+          calledAlleleVect <- find_successor_allele(
+            "KIR2DL2*0010101",
+            rownames(setup.knownSnpDFList[["KIR2DL2"]])
+          )
         }
       }
     }
@@ -1131,17 +1259,37 @@ alleleSetup.call_setup_alleles <- function( currentSample, uniqueSamDT, setup.kn
     calledAlleleVect <- unique( unlist( strsplit( nonAmbAlleleCall.list[['KIR2DL4']], '+', fixed=T) ) )
     
     if( pos10A & pos9A ){
-      addAllele.10A <- 'KIR2DL4*0010201'
-      addAllele.9A <- 'KIR2DL4*0080101'
+      # addAllele.10A <- 'KIR2DL4*0010201'
+      # addAllele.9A <- 'KIR2DL4*0080101'
+      addAllele.10A <- resolveKffAllele(
+        'KIR2DL4*0010201',
+        'KIR2DL4',
+        setup.knownSnpDFList
+      )
+      addAllele.9A <- resolveKffAllele(
+        'KIR2DL4*0080101',
+        'KIR2DL4',
+        setup.knownSnpDFList
+      )
       removeAllele <- ''
     }else if( pos10A & !pos9A ){
-      addAllele.10A <- 'KIR2DL4*0010201'
+      # addAllele.10A <- 'KIR2DL4*0010201'
+      addAllele.10A <- resolveKffAllele(
+        'KIR2DL4*0010201',
+        'KIR2DL4',
+        setup.knownSnpDFList
+      )
       addAllele.9A <- ''
       removeAllele <- ''#calledAlleleVect[ calledAlleleVect %in% KIR2DL4.9A.vect ]
       if(length(removeAllele) == 0) removeAllele <- ''
     }else if( !pos10A & pos9A ){
       addAllele.10A <- ''
-      addAllele.9A <- 'KIR2DL4*0080101'
+      # addAllele.9A <- 'KIR2DL4*0080101'
+      addAllele.9A <- resolveKffAllele(
+        'KIR2DL4*0080101',
+        'KIR2DL4',
+        setup.knownSnpDFList
+      )
       removeAllele <- ''#calledAlleleVect[ calledAlleleVect %in% KIR2DL4.10A.vect ]
       if(length(removeAllele) == 0) removeAllele <- ''
     }else{
@@ -1341,7 +1489,12 @@ alleleSetup.call_setup_alleles <- function( currentSample, uniqueSamDT, setup.kn
       hitAllele.vect <- names(alleleSeq.list)[ grepl(probeSeq,alleleSeq.list,fixed = T) ]
       
       if( !any( calledAlleleVect %in% hitAllele.vect ) ){
-        addAllele <- 'KIR3DP1*0030101'
+        # addAllele <- 'KIR3DP1*0030101'
+        addAllele <- resolveKffAllele(
+          'KIR3DP1*0030101',
+          'KIR3DP1',
+          setup.knownSnpDFList
+        )
         cat('\n\nAdjusting KIR3DP1 call to include',addAllele,'based on KFF')
         calledAlleleVect <- c(calledAlleleVect,addAllele)
         addAllele <- integer(0)
@@ -1353,7 +1506,12 @@ alleleSetup.call_setup_alleles <- function( currentSample, uniqueSamDT, setup.kn
       hitAllele.vect <- names(alleleSeq.list)[ grepl(probeSeq,alleleSeq.list,fixed = T) ]
       
       if( !any( calledAlleleVect %in% hitAllele.vect ) ){
-        addAllele <- 'KIR3DP1*0090101'
+        # addAllele <- 'KIR3DP1*0090101'
+        addAllele <- resolveKffAllele(
+          'KIR3DP1*0090101',
+          'KIR3DP1',
+          setup.knownSnpDFList
+        )
         cat('\n\nAdjusting KIR3DP1 call to include',addAllele,'based on KFF')
         calledAlleleVect <- c(calledAlleleVect,addAllele)
         addAllele <- integer(0)
@@ -1370,7 +1528,13 @@ alleleSetup.call_setup_alleles <- function( currentSample, uniqueSamDT, setup.kn
     
     if( !any(grepl( 'KIR3DS1*01301', calledAlleleVect, fixed=T)) ){
       cat('\n\nAdjusting KIR3DS1 call to include KIR3DS1*0130101')
-      calledAlleleVect <- c(calledAlleleVect, 'KIR3DS1*0130101')
+      # calledAlleleVect <- c(calledAlleleVect, 'KIR3DS1*0130101')
+      addAllele <- resolveKffAllele(
+        'KIR3DS1*0130101',
+        'KIR3DS1',
+        setup.knownSnpDFList
+      )
+      calledAlleleVect <- c(calledAlleleVect, addAllele)
     }
     
     if( pos049 ){
